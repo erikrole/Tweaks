@@ -32,6 +32,17 @@ where every tweak has its own switch.
 - The Mac stays awake (the display can still sleep) while After Effects, aerender,
   Media Encoder or Premiere is busy, until two minutes after the work stops.
 
+**Network**
+- Wi-Fi turns off while a wired connection is live and back on when you unplug (only
+  if Tweaks turned it off).
+- Network shares are unmounted as the Mac sleeps and remounted after wake once the
+  server answers, so waking on another network doesn't stall.
+- Work shares (the NAS share to start) are mounted whenever their server is reachable,
+  on the office network or over VPN, with the keychain password.
+- Bluetooth turns off while the Mac sleeps on battery and back on at wake; skipped on
+  power so a Bluetooth keyboard can still wake a docked Mac. This uses the same
+  IOBluetooth functions as `blueutil`, as macOS has no public API for it.
+
 **Windows and notifications** (need Accessibility permission)
 - ⌃⌥⌘N closes every notification on screen.
 - "Shortcut is running" banners from Shortcuts close themselves.

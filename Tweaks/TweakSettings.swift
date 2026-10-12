@@ -18,6 +18,10 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     case cleanCopiedLinks
     case unzipDownloads
     case quitOnLastWindow
+    case wifiOffWhenWired
+    case unmountSharesBeforeSleep
+    case autoConnectShares
+    case bluetoothOffWhileAsleep
 
     var id: String { rawValue }
 
@@ -38,6 +42,10 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .cleanCopiedLinks: "Clean copied links"
         case .unzipDownloads: "Unzip downloaded .zip files"
         case .quitOnLastWindow: "Quit apps when their last window closes"
+        case .wifiOffWhenWired: "Wi-Fi off while on Ethernet"
+        case .unmountSharesBeforeSleep: "Disconnect network shares before sleep"
+        case .autoConnectShares: "Keep work shares connected"
+        case .bluetoothOffWhileAsleep: "Bluetooth off while asleep on battery"
         }
     }
 
@@ -58,6 +66,10 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .cleanCopiedLinks: "Removes tracking (utm_, fbclid, YouTube si=…) from links as you copy them."
         case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
         case .quitOnLastWindow: "For the apps listed below."
+        case .wifiOffWhenWired: "When a wired connection is live, Wi-Fi turns off so traffic can't go the wrong way; it comes back when you unplug."
+        case .unmountSharesBeforeSleep: "Unmounts NAS shares as the Mac sleeps so waking on another network doesn't stall, then reconnects them once the server is reachable."
+        case .autoConnectShares: "Mounts the shares listed below whenever their server is reachable (office network or VPN), using the password saved in your keychain."
+        case .bluetoothOffWhileAsleep: "Saves battery in your bag. Skipped on power, so a Bluetooth keyboard can still wake a docked Mac."
         }
     }
 
@@ -87,6 +99,12 @@ final class TweakSettings {
         }
         self.enabled = enabled
         quitApps = defaults.stringArray(forKey: "quitOnLastWindowApps") ?? Self.defaultQuitApps
+        if let saved = defaults.stringArray(forKey: "autoConnectShares") {
+            autoShares = saved
+        } else {
+            autoShares = NetworkShares.mounted().map(\.serverURL.absoluteString)
+            defaults.set(autoShares, forKey: "autoConnectShares")
+        }
     }
 
     func isOn(_ tweak: Tweak) -> Bool { enabled.contains(tweak) }
@@ -95,6 +113,15 @@ final class TweakSettings {
     private(set) var quitApps: [String] = []
 
     static let defaultQuitApps = ["com.apple.Preview", "com.apple.TextEdit"]
+
+    /// Network shares kept connected; starts from whatever is mounted on first run.
+    private(set) var autoShares: [String] = []
+
+    func setAutoShares(_ urls: [String]) {
+        autoShares = urls
+        defaults.set(urls, forKey: "autoConnectShares")
+        onChange?(.autoConnectShares)
+    }
 
     func setQuitApps(_ bundleIDs: [String]) {
         quitApps = bundleIDs

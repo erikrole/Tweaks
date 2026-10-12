@@ -16,6 +16,7 @@
 		88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */; };
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
+		B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
@@ -35,6 +36,7 @@
 		168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGInstaller.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
+		35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTweaks.swift; sourceTree = "<group>"; };
 		4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksApp.swift; sourceTree = "<group>"; };
 		5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTweaks.swift; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 				93A9176A0B9E8E86B927F279 /* Info.plist */,
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
+				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
 				228920353BABF64F9F93E79F /* SettingsView.swift */,
 				099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */,
 				4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */,
@@ -183,6 +186,7 @@
 				3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */,
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
+				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
 				D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */,
 				62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */,
 				AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */,

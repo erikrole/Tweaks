@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Bindable var settings: TweakSettings
     @Bindable var controller: TweakController
     @Bindable var launchAtLogin: LaunchAtLoginController
+    @State private var newShare = ""
 
     var body: some View {
         Form {
@@ -58,6 +59,29 @@ struct SettingsView: View {
                     .disabled(!controller.hasAccessibility)
             }
 
+            Section("Network") {
+                row(.wifiOffWhenWired)
+                row(.unmountSharesBeforeSleep)
+                row(.autoConnectShares)
+                ForEach(settings.autoShares, id: \.self) { share in
+                    HStack {
+                        Image(systemName: "server.rack").foregroundStyle(.secondary)
+                        Text(share).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        Button("Remove") { settings.setAutoShares(settings.autoShares.filter { $0 != share }) }
+                            .buttonStyle(.link)
+                    }
+                }
+                HStack {
+                    TextField("smb://server/share", text: $newShare)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(addShare)
+                    Button("Add", action: addShare)
+                        .disabled(URL(string: newShare)?.host() == nil)
+                }
+                row(.bluetoothOffWhileAsleep)
+            }
+
             Section("Quit when the last window closes") {
                 row(.quitOnLastWindow)
                 ForEach(settings.quitApps, id: \.self) { bundleID in
@@ -92,6 +116,13 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 540, height: 720)
+    }
+
+    private func addShare() {
+        let trimmed = newShare.trimmingCharacters(in: .whitespaces)
+        guard let url = URL(string: trimmed), url.host() != nil, !settings.autoShares.contains(trimmed) else { return }
+        settings.setAutoShares(settings.autoShares + [trimmed])
+        newShare = ""
     }
 
     private func addQuitApp() {

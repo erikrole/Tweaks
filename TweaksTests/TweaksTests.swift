@@ -226,3 +226,49 @@ final class MoreTweakTests: XCTestCase {
         XCTAssertEqual(DownloadsWatcher.uniqueURL(for: "New.mov", in: folder).lastPathComponent, "New.mov")
     }
 }
+
+@MainActor
+final class NetworkTweakTests: XCTestCase {
+    func testWiFiDecisions() {
+        XCTAssertEqual(WiFiWhenWired.decision(wired: true, wifiOn: true, turnedOffByTweaks: false), .turnOff)
+        XCTAssertEqual(WiFiWhenWired.decision(wired: true, wifiOn: false, turnedOffByTweaks: false), .nothing)
+        XCTAssertEqual(WiFiWhenWired.decision(wired: false, wifiOn: false, turnedOffByTweaks: true), .turnOn)
+        XCTAssertEqual(WiFiWhenWired.decision(wired: false, wifiOn: false, turnedOffByTweaks: false), .nothing,
+                       "Wi-Fi you turned off yourself stays off")
+    }
+
+    func testWiFiDeviceParsing() {
+        let output = "Hardware Port: Ethernet\nDevice: en1\n\nHardware Port: Wi-Fi\nDevice: en0\nEthernet Address: aa\n"
+        XCTAssertEqual(WiFiPower.parseDevice(output), "en0")
+        XCTAssertEqual(WiFiPower.device(), "en0", "this Mac's Wi-Fi")
+    }
+
+    func testShareURLs() {
+        XCTAssertEqual(NetworkShares.serverURL(type: "smbfs", mountedFrom: "//role@ath01-nas.uwia.wisc.edu/users")?.absoluteString,
+                       "smb://ath01-nas.uwia.wisc.edu/users")
+        XCTAssertEqual(NetworkShares.serverURL(type: "nfs", mountedFrom: "nas:/export/media")?.absoluteString, "nfs://nas/export/media")
+        XCTAssertNil(NetworkShares.serverURL(type: "apfs", mountedFrom: "/dev/disk3s1"))
+    }
+
+    func testOnlyMissingSharesMount() {
+        let wanted = [URL(string: "smb://ath01-nas.uwia.wisc.edu/users/")!, URL(string: "smb://other/media")!]
+        let mounted = [URL(string: "smb://ATH01-NAS.uwia.wisc.edu/users")!]
+        XCTAssertEqual(ShareAutoConnect.sharesToMount(wanted: wanted, mounted: mounted).map(\.absoluteString), ["smb://other/media"])
+    }
+
+    /// Live, against this Mac: the NAS share is mounted, its server answers, and asking
+    /// to mount it again is a harmless no-op.
+    func testLiveShareChecks() async throws {
+        guard let share = NetworkShares.mounted().first else { throw XCTSkip("no network share mounted") }
+        let reachable = await NetworkShares.isReachable(share.serverURL)
+        XCTAssertTrue(reachable)
+        let remount = await NetworkShares.mount(share.serverURL)
+        XCTAssertTrue(remount, "an already-mounted share reports success")
+        let bogus = await NetworkShares.isReachable(URL(string: "smb://nonexistent-host.invalid/share")!)
+        XCTAssertFalse(bogus)
+    }
+
+    func testBluetoothFunctionsExist() {
+        XCTAssertTrue(BluetoothPower.isAvailable, "IOBluetooth power functions still present on this macOS")
+    }
+}
