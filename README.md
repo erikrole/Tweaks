@@ -53,7 +53,7 @@ where every tweak has its own switch.
   minutes before a timed session ends. The menu bar cup shows time left (optional).
 - Only while plugged in pauses the hold on battery and resumes it on power; any
   session stops at 15% battery when unplugged.
-- Links for Raycast Quicklinks or scripts: `tweaks://awake?minutes=60`,
+- Links for scripts: `tweaks://awake?minutes=60`,
   `tweaks://awake?hours=2`, `tweaks://awake?until=18:30`,
   `tweaks://awake?app=com.adobe.ame.application.26`,
   `tweaks://awake?done=render|downloads|upload|copy`, add `&display=1` or `&power=1`,

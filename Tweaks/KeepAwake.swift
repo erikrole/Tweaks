@@ -8,7 +8,7 @@ import Observation
 /// an hour once it's about to end); hold it for the Keep Awake panel. Sessions can run
 /// for a while, until a time, until an app quits, until a job finishes (render, downloads,
 /// upload, NAS copy), or until you stop them. A cup in the menu bar shows time left. It
-/// also answers tweaks://awake links, so Raycast Quicklinks can drive it.
+/// also answers tweaks://awake links for scripts.
 @MainActor
 @Observable
 final class KeepAwake {
