@@ -230,15 +230,15 @@ final class MoreTweakTests: XCTestCase {
 @MainActor
 final class NetworkTweakTests: XCTestCase {
     func testShareURLs() {
-        XCTAssertEqual(NetworkShares.serverURL(type: "smbfs", mountedFrom: "//role@ath01-nas.uwia.wisc.edu/users")?.absoluteString,
-                       "smb://ath01-nas.uwia.wisc.edu/users")
+        XCTAssertEqual(NetworkShares.serverURL(type: "smbfs", mountedFrom: "//user@nas.example.edu/users")?.absoluteString,
+                       "smb://nas.example.edu/users")
         XCTAssertEqual(NetworkShares.serverURL(type: "nfs", mountedFrom: "nas:/export/media")?.absoluteString, "nfs://nas/export/media")
         XCTAssertNil(NetworkShares.serverURL(type: "apfs", mountedFrom: "/dev/disk3s1"))
     }
 
     func testOnlyMissingSharesMount() {
-        let wanted = [URL(string: "smb://ath01-nas.uwia.wisc.edu/users/")!, URL(string: "smb://other/media")!]
-        let mounted = [URL(string: "smb://ATH01-NAS.uwia.wisc.edu/users")!]
+        let wanted = [URL(string: "smb://nas.example.edu/users/")!, URL(string: "smb://other/media")!]
+        let mounted = [URL(string: "smb://NAS.example.edu/users")!]
         XCTAssertEqual(ShareAutoConnect.sharesToMount(wanted: wanted, mounted: mounted).map(\.absoluteString), ["smb://other/media"])
     }
 
@@ -307,7 +307,7 @@ final class HardeningTests: XCTestCase {
     }
 
     func testShareMatchedByNameAcrossAddresses() {
-        let wanted = [URL(string: "smb://ath01-nas.uwia.wisc.edu/users")!]
+        let wanted = [URL(string: "smb://nas.example.edu/users")!]
         XCTAssertTrue(ShareAutoConnect.sharesToMount(wanted: wanted, mounted: [URL(string: "smb://10.1.2.3/users")!]).isEmpty)
     }
 

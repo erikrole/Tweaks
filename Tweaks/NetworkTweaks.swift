@@ -10,7 +10,7 @@ import SystemConfiguration
 enum NetworkShares {
     struct Share: Equatable, Sendable {
         let mountPoint: URL
-        /// "smb://ath01-nas.uwia.wisc.edu/users", without the user name.
+        /// "smb://nas.example.edu/users", without the user name.
         let serverURL: URL
     }
 
@@ -37,7 +37,7 @@ enum NetworkShares {
         return shares
     }
 
-    /// "//role@ath01-nas.uwia.wisc.edu/users" + "smbfs" → smb://ath01-nas.uwia.wisc.edu/users
+    /// "//user@nas.example.edu/users" + "smbfs" → smb://nas.example.edu/users
     static func serverURL(type: String, mountedFrom from: String) -> URL? {
         let scheme: String
         switch type {
