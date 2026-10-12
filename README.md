@@ -40,11 +40,13 @@ where every tweak has its own switch.
 
 **Keep Awake** (replaces caffeinate)
 - Tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop. Hold it
-  for a menu at the pointer: 30 min to 4 h, until a time, until an app quits (render
-  apps first), or indefinitely, optionally keeping the display on.
-- While it's on, a cup in the menu bar shows what it's waiting for, with Add 30
-  Minutes, Add 1 Hour and Stop. It stops itself at 15% battery when unplugged and tells
-  you when the Mac can sleep again.
+  for the Keep Awake panel, centered on your screen like Raycast: 1–12 hours (number
+  keys), until a time, until an app quits (render apps first), indefinitely (I), keep
+  the display on (D), stop (S); Return picks 12 hours and Esc closes.
+- Starting and stopping show a small pill near the bottom of the screen instead of a
+  notification.
+- While it's on, a cup in the menu bar shows what it's waiting for; click it for the
+  panel. It stops itself at 15% battery when unplugged.
 - Links for Raycast Quicklinks or scripts: `tweaks://awake?minutes=60`,
   `tweaks://awake?hours=2`, `tweaks://awake?until=18:30`,
   `tweaks://awake?app=com.adobe.ame.application.26`, add `&display=1` to keep the

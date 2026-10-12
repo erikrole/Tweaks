@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E331E81854D32C0B5583B639 /* MoreTweaks.swift */; };
 		2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */; };
+		2B96BEAE3509ECC74E0076F5 /* HUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E4A379C97DAD8B47F5D295 /* HUD.swift */; };
 		3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
 		62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */; };
@@ -22,6 +23,7 @@
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
 		B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */; };
+		C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
 		FD85C403331C7080B71FB593 /* ImageMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */; };
@@ -68,6 +70,7 @@
 		1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageMetadataProvider.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
+		2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwakePanel.swift; sourceTree = "<group>"; };
 		35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTweaks.swift; sourceTree = "<group>"; };
 		4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksApp.swift; sourceTree = "<group>"; };
 		5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
@@ -79,6 +82,7 @@
 		A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwake.swift; sourceTree = "<group>"; };
 		B5C2178EC6AB88894C211F68 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B669558E8002E222EB08AA36 /* TweakSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweakSettings.swift; sourceTree = "<group>"; };
+		B7E4A379C97DAD8B47F5D295 /* HUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUD.swift; sourceTree = "<group>"; };
 		CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TweaksFinderSync.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsTweaks.swift; sourceTree = "<group>"; };
 		E331E81854D32C0B5583B639 /* MoreTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreTweaks.swift; sourceTree = "<group>"; };
@@ -154,8 +158,10 @@
 				57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */,
 				168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */,
 				E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */,
+				B7E4A379C97DAD8B47F5D295 /* HUD.swift */,
 				93A9176A0B9E8E86B927F279 /* Info.plist */,
 				A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */,
+				2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */,
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
@@ -299,7 +305,9 @@
 				88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */,
 				3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */,
 				3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */,
+				2B96BEAE3509ECC74E0076F5 /* HUD.swift in Sources */,
 				2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */,
+				C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */,
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,

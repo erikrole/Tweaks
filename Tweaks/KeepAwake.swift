@@ -52,6 +52,7 @@ final class KeepAwake {
         }
         session = Session(until: until, keepsDisplayOn: display, startedAt: Date())
         showStatusItem()
+        HUD.show(statusLine, symbol: display ? "cup.and.heat.waves.fill" : "cup.and.saucer.fill")
         startWatching()
     }
 
@@ -61,9 +62,8 @@ final class KeepAwake {
     func toggleDefault() {
         if session == nil {
             start(.date(Date().addingTimeInterval(Self.defaultDuration)))
-            Notifier.post(title: "Keeping your Mac awake for 12 hours", body: "Tap ⌃⌥⇧⌘/ again to stop, or hold it for more options.")
         } else {
-            stop(reason: "Stopped with ⌃⌥⇧⌘/.")
+            stop(reason: "Stopped.")
         }
     }
 
@@ -74,7 +74,7 @@ final class KeepAwake {
         timer?.invalidate()
         timer = nil
         hideStatusItem()
-        if let reason { Notifier.post(title: "Your Mac can sleep again", body: reason) }
+        if let reason { HUD.show("Mac can sleep again · \(reason)", symbol: "moon.zzz") }
     }
 
     func extend(by seconds: TimeInterval) {
@@ -134,62 +134,9 @@ final class KeepAwake {
 
     // MARK: - Menus
 
-    /// The hot key menu, at the pointer.
+    /// The Keep Awake panel (hold Hyper+/, or click the menu bar cup).
     func showMenu() {
-        NSApp.activate()
-        let menu = session == nil ? startMenu() : activeMenu()
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-    }
-
-    private func startMenu() -> NSMenu {
-        let menu = NSMenu(title: "Keep Awake")
-        menu.addItem(header("Keep your Mac awake"))
-        for (title, minutes) in [("30 minutes", 30), ("1 hour", 60), ("2 hours", 120), ("4 hours", 240)] {
-            menu.addItem(action(title) { $0.start(.date(Date().addingTimeInterval(TimeInterval(minutes) * 60))) })
-        }
-        let untilItem = NSMenuItem(title: "Until…", action: nil, keyEquivalent: "")
-        let untilMenu = NSMenu()
-        for date in Self.suggestedEndTimes(from: Date()) {
-            untilMenu.addItem(action(date.formatted(date: .omitted, time: .shortened)) { $0.start(.date(date)) })
-        }
-        untilItem.submenu = untilMenu
-        menu.addItem(untilItem)
-
-        let appItem = NSMenuItem(title: "Until an App Quits", action: nil, keyEquivalent: "")
-        let appMenu = NSMenu()
-        for app in Self.candidateApps() {
-            let item = action(app.localizedName ?? "App") { $0.start(.appQuits(pid: app.processIdentifier, name: app.localizedName ?? "The app")) }
-            item.image = app.icon.map { icon in
-                let small = icon.copy() as! NSImage
-                small.size = NSSize(width: 16, height: 16)
-                return small
-            }
-            appMenu.addItem(item)
-        }
-        if appMenu.items.isEmpty { appMenu.addItem(NSMenuItem(title: "No apps open", action: nil, keyEquivalent: "")) }
-        appItem.submenu = appMenu
-        menu.addItem(appItem)
-
-        menu.addItem(action("Indefinitely") { $0.start(.indefinitely) })
-        menu.addItem(.separator())
-        let display = action("Keep the Display On Too") { $0.keepsDisplayOnByDefault.toggle() }
-        display.state = keepsDisplayOnByDefault ? .on : .off
-        menu.addItem(display)
-        return menu
-    }
-
-    private func activeMenu() -> NSMenu {
-        let menu = NSMenu(title: "Keep Awake")
-        menu.addItem(header(statusLine))
-        menu.addItem(.separator())
-        menu.addItem(action("Add 30 Minutes") { $0.extend(by: 30 * 60) })
-        menu.addItem(action("Add 1 Hour") { $0.extend(by: 60 * 60) })
-        let display = action("Keep the Display On") { $0.setKeepsDisplayOn(!($0.session?.keepsDisplayOn ?? false)) }
-        display.state = session?.keepsDisplayOn == true ? .on : .off
-        menu.addItem(display)
-        menu.addItem(.separator())
-        menu.addItem(action("Stop Keeping Awake") { $0.stop() })
-        return menu
+        KeepAwakePanelController.shared.toggle(self)
     }
 
     var statusLine: String {
@@ -254,9 +201,7 @@ final class KeepAwake {
     }
 
     @objc private func statusItemClicked() {
-        guard let button = statusItem?.button else { return }
-        let menu = activeMenu()
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+        showMenu()
     }
 
     // MARK: - tweaks://awake links
@@ -297,41 +242,6 @@ final class KeepAwake {
             return .date(date)
         }
         return nil
-    }
-
-    // MARK: - Menu helpers
-
-    private func header(_ title: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        return item
-    }
-
-    private func action(_ title: String, _ handler: @escaping @MainActor (KeepAwake) -> Void) -> NSMenuItem {
-        let item = ClosureMenuItem(title: title) { [weak self] in
-            guard let self else { return }
-            handler(self)
-        }
-        return item
-    }
-}
-
-/// An NSMenuItem that runs a closure.
-@MainActor
-final class ClosureMenuItem: NSMenuItem {
-    private let handler: @MainActor () -> Void
-
-    init(title: String, handler: @escaping @MainActor () -> Void) {
-        self.handler = handler
-        super.init(title: title, action: #selector(run), keyEquivalent: "")
-        target = self
-    }
-
-    @available(*, unavailable)
-    required init(coder: NSCoder) { fatalError("not used") }
-
-    @objc private func run() {
-        handler()
     }
 }
 
