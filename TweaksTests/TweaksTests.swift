@@ -255,3 +255,70 @@ final class NetworkTweakTests: XCTestCase {
     }
 
 }
+
+@MainActor
+final class HardeningTests: XCTestCase {
+    private func identity(_ version: String?, team: String?) -> AppIdentity {
+        AppIdentity(name: "App", bundleID: "com.example.app", version: version, teamID: team)
+    }
+
+    func testDMGRefusesDowngradesAndImpostors() {
+        XCTAssertNil(DMGInstaller.problem(installing: identity("2.1", team: "T1"), over: nil), "fresh install")
+        XCTAssertNil(DMGInstaller.problem(installing: identity("2.10", team: "T1"), over: identity("2.9", team: "T1")))
+        XCTAssertNotNil(DMGInstaller.problem(installing: identity("2.8", team: "T1"), over: identity("2.9", team: "T1")))
+        XCTAssertNotNil(DMGInstaller.problem(installing: identity("3.0", team: "EVIL"), over: identity("2.9", team: "T1")))
+    }
+
+    func testAppIdentityReadsRealApp() {
+        let finder = AppIdentity.read(URL(filePath: "/Applications/Safari.app"))
+        XCTAssertEqual(finder.bundleID, "com.apple.Safari")
+        XCTAssertNotNil(finder.version)
+    }
+
+    func testOpenFileDetection() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "open-\(UUID().uuidString)")
+        try Data("x".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertFalse(OpenFiles.isOpen(url.path))
+        // A child process holding the file open is seen.
+        let process = Process()
+        process.executableURL = URL(filePath: "/bin/sh")
+        process.arguments = ["-c", "exec 3<\"\(url.path)\"; sleep 3"]
+        try process.run()
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertTrue(OpenFiles.isOpen(url.path))
+        process.terminate()
+    }
+
+    func testRendererMatching() {
+        XCTAssertTrue(RenderProcesses.isRenderer("/Applications/Adobe After Effects 2026/aerender"))
+        XCTAssertTrue(RenderProcesses.isRenderer("/Applications/Adobe After Effects 2026/Adobe After Effects Render Engine 2026.app/Contents/MacOS/AfterFX"))
+        XCTAssertFalse(RenderProcesses.isRenderer("/Applications/Dia.app/Contents/MacOS/Dia"))
+    }
+
+    func testUnzipRefusesEscapingLinks() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "links-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root.appending(path: "inner"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createSymbolicLink(atPath: root.appending(path: "inner/ok").path, withDestinationPath: "../inner")
+        XCTAssertFalse(DownloadsWatcher.containsEscapingSymlink(in: root))
+        try FileManager.default.createSymbolicLink(atPath: root.appending(path: "home").path, withDestinationPath: NSHomeDirectory())
+        XCTAssertTrue(DownloadsWatcher.containsEscapingSymlink(in: root))
+    }
+
+    func testShareMatchedByNameAcrossAddresses() {
+        let wanted = [URL(string: "smb://ath01-nas.uwia.wisc.edu/users")!]
+        XCTAssertTrue(ShareAutoConnect.sharesToMount(wanted: wanted, mounted: [URL(string: "smb://10.1.2.3/users")!]).isEmpty)
+    }
+
+    func testQuitNeedsTwoEmptyAnswers() {
+        XCTAssertFalse(LastWindowQuitter.shouldQuit(hadWindows: true, windowCount: 0, emptyPolls: 1))
+        XCTAssertTrue(LastWindowQuitter.shouldQuit(hadWindows: true, windowCount: 0, emptyPolls: 2))
+    }
+
+    func testGreenButtonCorner() {
+        let window = CGRect(x: 100, y: 100, width: 800, height: 600)
+        XCTAssertTrue(GreenButtonFill.isInCorner(CGPoint(x: 150, y: 110), of: window))
+        XCTAssertFalse(GreenButtonFill.isInCorner(CGPoint(x: 500, y: 400), of: window))
+    }
+}

@@ -212,6 +212,8 @@ final class GreenButtonFill {
     /// Returns true when the event was handled and should be swallowed.
     fileprivate func handle(_ type: CGEventType, location: CGPoint, optionDown: Bool) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            // The matching mouse-up may never come; don't swallow some later click's.
+            swallowNextMouseUp = false
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return false
         }
@@ -219,9 +221,16 @@ final class GreenButtonFill {
             swallowNextMouseUp = false
             return true
         }
-        guard type == .leftMouseDown, !optionDown else { return false }
+        guard type == .leftMouseDown else { return false }
+        swallowNextMouseUp = false
+        guard !optionDown else { return false }
+        // Every click on the Mac passes through here, so rule most out without asking
+        // any app anything: the green button sits in a window's top-left corner.
+        guard Self.isNearWindowCorner(location) else { return false }
 
         let systemWide = AXUIElementCreateSystemWide()
+        // A busy app (After Effects mid-render) answers slowly; don't hold the click.
+        AXUIElementSetMessagingTimeout(systemWide, 0.2)
         var hit: AXUIElement?
         guard AXUIElementCopyElementAtPosition(systemWide, Float(location.x), Float(location.y), &hit) == .success,
               let button = hit,
@@ -232,6 +241,27 @@ final class GreenButtonFill {
         toggleFill(window)
         swallowNextMouseUp = true
         return true
+    }
+
+    /// True when the point is in the title-bar corner of an on-screen app window,
+    /// checked from the window server's list with no call into the app.
+    static func isNearWindowCorner(_ point: CGPoint) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return true }
+        for window in windows {
+            guard (window[kCGWindowLayer as String] as? Int) == 0,
+                  let boundsInfo = window[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: boundsInfo),
+                  bounds.contains(point)
+            else { continue }
+            // The frontmost window under the point decides.
+            return isInCorner(point, of: bounds)
+        }
+        return false
+    }
+
+    static func isInCorner(_ point: CGPoint, of bounds: CGRect) -> Bool {
+        point.x - bounds.minX <= 90 && point.y - bounds.minY <= 40
     }
 
     private func toggleFill(_ window: AXUIElement) {

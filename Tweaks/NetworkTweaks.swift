@@ -110,6 +110,20 @@ enum NetworkShares {
     }
 }
 
+/// Serialises mount attempts so a half-up VPN can't stack several slow mounts of the
+/// same share.
+actor ShareMounter {
+    static let shared = ShareMounter()
+    private var inFlight: Set<URL> = []
+
+    func mount(_ url: URL) async -> Bool {
+        guard !inFlight.contains(url) else { return false }
+        inFlight.insert(url)
+        defer { inFlight.remove(url) }
+        return await NetworkShares.mount(url)
+    }
+}
+
 /// A thread-safe "first caller wins" flag for resuming a continuation exactly once.
 final class OnceFlag: @unchecked Sendable {
     private let lock = NSLock()
@@ -151,17 +165,33 @@ final class ShareSleepManager {
         wakeObserver = nil
     }
 
+    private var skipped: [String] = []
+
     private func willSleep() {
-        let shares = NetworkShares.mounted()
-        toRemount = shares.map(\.serverURL)
-        // The Mac gives sleep handlers a short window; force-unmount so a busy share
-        // can't hold sleep up.
-        for share in shares {
+        skipped = []
+        // Leave shares alone while a render runs or a file on them is open: a render
+        // reading footage or writing frames there would fail on the next file.
+        let rendering = RenderProcesses.anyRunning()
+        var unmounting: [NetworkShares.Share] = []
+        for share in NetworkShares.mounted() {
+            if rendering || OpenFiles.volumeInUse(share.mountPoint.path) {
+                skipped.append(share.mountPoint.lastPathComponent)
+            } else {
+                unmounting.append(share)
+            }
+        }
+        toRemount = unmounting.map(\.serverURL)
+        for share in unmounting {
             FileManager.default.unmountVolume(at: share.mountPoint, options: [.withoutUI]) { _ in }
         }
     }
 
     private func didWake() {
+        if !skipped.isEmpty {
+            Notifier.post(title: "Left \(skipped.joined(separator: ", ")) connected during sleep",
+                          body: "A file on it was open or a render was running.")
+            skipped = []
+        }
         let urls = toRemount
         toRemount = []
         guard !urls.isEmpty else { return }
@@ -170,8 +200,8 @@ final class ShareSleepManager {
             for attempt in 0..<12 {
                 try? await Task.sleep(for: .seconds(attempt == 0 ? 8 : 15))
                 var remaining: [URL] = []
-                for url in urls where !NetworkShares.mounted().contains(where: { $0.serverURL == url }) {
-                    if await NetworkShares.isReachable(url), await NetworkShares.mount(url) { continue }
+                for url in ShareAutoConnect.sharesToMount(wanted: urls, mounted: NetworkShares.mounted().map(\.serverURL)) {
+                    if await NetworkShares.isReachable(url), await ShareMounter.shared.mount(url) { continue }
                     remaining.append(url)
                 }
                 if remaining.isEmpty { return }
@@ -230,20 +260,19 @@ final class ShareAutoConnect {
         Task {
             let mounted = NetworkShares.mounted().map(\.serverURL)
             for url in Self.sharesToMount(wanted: wanted, mounted: mounted) where await NetworkShares.isReachable(url) {
-                _ = await NetworkShares.mount(url)
+                _ = await ShareMounter.shared.mount(url)
             }
         }
     }
 
-    /// Shares that are wanted but not mounted; compares host and path, ignoring case and
-    /// a trailing slash.
+    /// Shares that are wanted but not mounted. A share counts as mounted when the same
+    /// share name is mounted from any address, so connecting by IP or an alias doesn't
+    /// lead to a second copy at /Volumes/users-1.
     static func sharesToMount(wanted: [URL], mounted: [URL]) -> [URL] {
-        func key(_ url: URL) -> String {
-            var text = "\(url.scheme ?? "")://\(url.host() ?? "")\(url.path())".lowercased()
-            while text.hasSuffix("/") { text.removeLast() }
-            return text
+        func shareName(_ url: URL) -> String {
+            url.path().split(separator: "/").first.map { String($0).lowercased() } ?? ""
         }
-        let mountedKeys = Set(mounted.map(key))
-        return wanted.filter { !mountedKeys.contains(key($0)) }
+        let mountedNames = Set(mounted.map(shareName))
+        return wanted.filter { !mountedNames.contains(shareName($0)) }
     }
 }

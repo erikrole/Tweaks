@@ -13,7 +13,12 @@ final class DownloadsWatcher {
     private var source: DispatchSourceFileSystemObject?
     private var descriptor: CInt = -1
     private var seen: Set<String> = []
+    /// Files waiting to settle: size and modification date when first seen unchanged.
+    private var candidates: [String: (size: Int, modified: Date, since: Date)] = [:]
     private var pendingScan: DispatchWorkItem?
+
+    /// How long a file must stay unchanged, and closed, before it's touched.
+    static let settleTime: TimeInterval = 2
 
     static let fantasticalBundleID = "com.flexibits.fantastical2.mac"
 
@@ -58,28 +63,44 @@ final class DownloadsWatcher {
 
     private func currentFiles() -> [URL] {
         (try? FileManager.default.contentsOfDirectory(
-            at: folder, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey], options: [.skipsHiddenFiles]
+            at: folder, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
         )) ?? []
     }
 
+    /// A file is handled once it has kept the same size and modification date for
+    /// `settleTime` across scans and no process has it open, so a slow copy from the NAS
+    /// or an export still being written is never renamed or unzipped mid-write. Nothing
+    /// here sleeps on the main thread; unsettled files just trigger another scan.
     private func scan() {
-        for url in currentFiles() where !seen.contains(url.lastPathComponent) {
-            guard Self.isFinishedDownload(url) else { continue }
-            guard isStable(url) else {
-                scheduleScan()
-                continue
-            }
-            seen.insert(url.lastPathComponent)
-            handle(url)
-        }
-    }
+        let files = currentFiles()
+        let names = Set(files.map(\.lastPathComponent))
+        // Forget files that are gone, so a re-download with the same name is handled.
+        seen.formIntersection(names)
+        candidates = candidates.filter { names.contains($0.key) }
 
-    /// Size unchanged across a short pause, so a still-copying file isn't touched.
-    private func isStable(_ url: URL) -> Bool {
-        let first = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-        Thread.sleep(forTimeInterval: 0.2)
-        let second = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-        return first == second
+        let now = Date()
+        var needsAnotherScan = false
+        for url in files where !seen.contains(url.lastPathComponent) {
+            guard Self.isFinishedDownload(url) else { continue }
+            let name = url.lastPathComponent
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            let size = values?.fileSize ?? -1
+            let modified = values?.contentModificationDate ?? .distantPast
+            if let candidate = candidates[name], candidate.size == size, candidate.modified == modified {
+                if now.timeIntervalSince(candidate.since) >= Self.settleTime, !OpenFiles.isOpen(url.path) {
+                    candidates[name] = nil
+                    seen.insert(name)
+                    handle(url)
+                } else {
+                    needsAnotherScan = true
+                }
+            } else {
+                candidates[name] = (size, modified, now)
+                needsAnotherScan = true
+            }
+        }
+        if needsAnotherScan { scheduleScan() }
     }
 
     private func handle(_ url: URL) {
@@ -109,6 +130,8 @@ final class DownloadsWatcher {
         do {
             try cleaned.write(to: copy, atomically: true, encoding: .utf8)
         } catch { return }
+        // Fantastical reads the copy as it opens; tidy it up a minute later.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { try? FileManager.default.removeItem(at: copy) }
         NSWorkspace.shared.open([copy], withApplicationAt: fantastical, configuration: NSWorkspace.OpenConfiguration()) { _, error in
             guard error == nil else { return }
             Task { @MainActor in
@@ -137,6 +160,10 @@ final class DownloadsWatcher {
     /// Extracts next to the archive like Archive Utility (a single item comes out as is,
     /// several land in a folder named after the zip), then trashes the zip.
     static func unzip(_ archive: URL) async {
+        // If Safari or a double-click already handed it to Archive Utility, leave it be.
+        if NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == "com.apple.archiveutility" }) {
+            return
+        }
         let folder = archive.deletingLastPathComponent()
         let staging = FileManager.default.temporaryDirectory.appending(path: "tweaks-unzip-\(UUID().uuidString)")
         let succeeded = await Task.detached { () -> Bool in
@@ -153,23 +180,35 @@ final class DownloadsWatcher {
         defer { try? FileManager.default.removeItem(at: staging) }
         guard succeeded else { return }
 
-        let items = ((try? FileManager.default.contentsOfDirectory(at: staging, includingPropertiesForKeys: nil)) ?? [])
-            .filter { $0.lastPathComponent != "__MACOSX" && $0.lastPathComponent != ".DS_Store" }
+        // Refuse archives with links pointing outside themselves; keep the zip instead.
+        guard !containsEscapingSymlink(in: staging) else { return }
+        try? FileManager.default.removeItem(at: staging.appending(path: "__MACOSX"))
+        try? FileManager.default.removeItem(at: staging.appending(path: ".DS_Store"))
+        let items = (try? FileManager.default.contentsOfDirectory(at: staging, includingPropertiesForKeys: nil)) ?? []
         guard !items.isEmpty else { return }
         do {
+            // One move into Downloads, so a failure never leaves a half-filled folder.
             if items.count == 1 {
                 try FileManager.default.moveItem(at: items[0], to: uniqueURL(for: items[0].lastPathComponent, in: folder))
             } else {
-                let destination = uniqueURL(for: archive.deletingPathExtension().lastPathComponent, in: folder)
-                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
-                for item in items {
-                    try FileManager.default.moveItem(at: item, to: destination.appending(path: item.lastPathComponent))
-                }
+                try FileManager.default.moveItem(at: staging, to: uniqueURL(for: archive.deletingPathExtension().lastPathComponent, in: folder))
             }
             try FileManager.default.trashItem(at: archive, resultingItemURL: nil)
         } catch {
             // Leave the zip in place if anything went wrong.
         }
+    }
+
+    /// True if any symbolic link inside `root` resolves to somewhere outside it.
+    static func containsEscapingSymlink(in root: URL) -> Bool {
+        let base = root.resolvingSymlinksInPath().standardizedFileURL.path
+        guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isSymbolicLinkKey]) else { return false }
+        for case let url as URL in enumerator {
+            guard (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true else { continue }
+            let target = url.resolvingSymlinksInPath().standardizedFileURL.path
+            if !(target == base || target.hasPrefix(base + "/")) { return true }
+        }
+        return false
     }
 
     /// "Clip.mov" → "Clip 2.mov" when the name is taken.
@@ -201,9 +240,10 @@ final class DownloadsWatcher {
         return url.deletingPathExtension().appendingPathExtension(ext.lowercased())
     }
 
-    /// Renames via a temporary name, since a case-only rename fails on a
-    /// case-insensitive volume when done in one step.
+    /// Case-only rename. rename(2) does this atomically on APFS; the two-step fallback
+    /// (via a hidden temporary name) is only for volumes where it refuses.
     static func moveCaseOnly(from source: URL, to destination: URL) -> Bool {
+        if rename(source.path, destination.path) == 0 { return true }
         let fileManager = FileManager.default
         let temporary = source.deletingLastPathComponent().appending(path: ".tweaks-\(UUID().uuidString)")
         do {

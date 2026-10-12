@@ -172,8 +172,6 @@ final class TweakController {
     private func didWake() {
         if settings?.isOn(.wakeVolumeLimit) == true {
             WakeVolume.apply()
-            // Some outputs restore their own level a moment after wake; check again.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { WakeVolume.apply() }
         }
         if settings?.isOn(.capsLockNoDelay) == true { CapsLockTweak.apply() }
     }

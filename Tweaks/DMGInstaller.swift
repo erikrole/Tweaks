@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Security
 
 /// When a disk image you downloaded mounts and holds a single app, offers to install it:
 /// copy to /Applications (the old copy goes to the Trash), eject the image, trash the
@@ -28,36 +29,95 @@ final class DMGInstaller {
               let app = Self.singleApp(in: volume)
         else { return }
 
+        let name = app.deletingPathExtension().lastPathComponent
+        let destination = URL(filePath: "/Applications").appending(path: app.lastPathComponent)
+        let incoming = AppIdentity.read(app)
+        let installed = FileManager.default.fileExists(atPath: destination.path) ? AppIdentity.read(destination) : nil
+
+        // Refuse what would be a downgrade or a different developer's app with the same name.
+        if let problem = Self.problem(installing: incoming, over: installed) {
+            Self.tell("Didn't install \(name)", problem)
+            return
+        }
+
         NSApp.activate()
         let alert = NSAlert()
-        alert.messageText = "Install \(app.deletingPathExtension().lastPathComponent)?"
+        alert.messageText = installed == nil ? "Install \(name)?" : "Update \(name) to \(incoming.version ?? "this version")?"
         alert.informativeText = "Tweaks will copy it to Applications, eject the disk image and move \(image.lastPathComponent) to the Trash."
-        alert.addButton(withTitle: "Install")
+        alert.addButton(withTitle: installed == nil ? "Install" : "Update")
         alert.addButton(withTitle: "Not Now")
+        // Return means "Not Now", so a keystroke meant for another app can't install anything.
+        alert.buttons[0].keyEquivalent = ""
+        alert.buttons[1].keyEquivalent = "\r"
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        let destination = URL(filePath: "/Applications").appending(path: app.lastPathComponent)
+        // Copy next to the destination first; the installed app is only replaced once the
+        // new copy is complete and passes Gatekeeper, so there's never a moment without it.
+        let staging = URL(filePath: "/Applications").appending(path: ".\(app.lastPathComponent).tweaks-staging")
+        try? FileManager.default.removeItem(at: staging)
         do {
-            if FileManager.default.fileExists(atPath: destination.path) {
-                if let bundleID = Bundle(url: destination)?.bundleIdentifier {
-                    for running in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) {
-                        running.terminate()
-                    }
-                }
-                try FileManager.default.trashItem(at: destination, resultingItemURL: nil)
+            try await Self.copy(app, to: staging)
+            guard await Self.passesGatekeeper(staging) else {
+                try? FileManager.default.removeItem(at: staging)
+                Self.tell("Didn't install \(name)", "macOS's Gatekeeper check rejected this copy, so the app you have is unchanged.")
+                return
             }
-            try await Self.copy(app, to: destination)
+            if installed != nil {
+                guard await Self.quitAndWait(bundleID: incoming.bundleID ?? installed?.bundleID) else {
+                    try? FileManager.default.removeItem(at: staging)
+                    Self.tell("Didn't update \(name)", "\(name) is still open. Quit it (saving your work) and open the disk image again.")
+                    return
+                }
+                _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging, backupItemName: nil, options: [])
+            } else {
+                try FileManager.default.moveItem(at: staging, to: destination)
+            }
         } catch {
-            let failure = NSAlert()
-            failure.messageText = "Couldn't install \(app.deletingPathExtension().lastPathComponent)"
-            failure.informativeText = error.localizedDescription
-            failure.runModal()
+            try? FileManager.default.removeItem(at: staging)
+            Self.tell("Couldn't install \(name)", error.localizedDescription)
             return
         }
 
         await Self.detach(volume)
         try? FileManager.default.trashItem(at: image, resultingItemURL: nil)
         _ = try? await NSWorkspace.shared.openApplication(at: destination, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// Why an install should be refused, or nil if it's fine.
+    static func problem(installing incoming: AppIdentity, over installed: AppIdentity?) -> String? {
+        guard let installed else { return nil }
+        if let new = incoming.teamID, let old = installed.teamID, new != old {
+            return "It's signed by a different developer than the \(installed.name) you have, so it may not be the same app."
+        }
+        if let new = incoming.version, let old = installed.version,
+           new.compare(old, options: .numeric) == .orderedAscending {
+            return "It's an older version (\(new)) than the one you have (\(old))."
+        }
+        return nil
+    }
+
+    private static func tell(_ title: String, _ message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.runModal()
+    }
+
+    /// Asks the app to quit (it may show a Save sheet) and waits up to 15 s.
+    private static func quitAndWait(bundleID: String?) async -> Bool {
+        guard let bundleID else { return true }
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        guard !running.isEmpty else { return true }
+        running.forEach { $0.terminate() }
+        for _ in 0..<30 {
+            if running.allSatisfy(\.isTerminated) { return true }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        return running.allSatisfy(\.isTerminated)
+    }
+
+    private static func passesGatekeeper(_ app: URL) async -> Bool {
+        await run("/usr/sbin/spctl", ["--assess", "--type", "execute", app.path]) != nil
     }
 
     /// The .dmg behind a mounted volume, if it is a disk image you downloaded.
@@ -114,5 +174,35 @@ final class DMGInstaller {
             process.waitUntilExit()
             return process.terminationStatus == 0 ? data : nil
         }.value
+    }
+}
+
+/// The bits of an app bundle used to judge whether replacing it is safe.
+struct AppIdentity: Equatable, Sendable {
+    let name: String
+    let bundleID: String?
+    let version: String?
+    let teamID: String?
+
+    static func read(_ url: URL) -> AppIdentity {
+        let bundle = Bundle(url: url)
+        let version = (bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
+            ?? (bundle?.object(forInfoDictionaryKey: "CFBundleVersion") as? String)
+        return AppIdentity(
+            name: url.deletingPathExtension().lastPathComponent,
+            bundleID: bundle?.bundleIdentifier,
+            version: version,
+            teamID: teamIdentifier(of: url)
+        )
+    }
+
+    private static func teamIdentifier(of url: URL) -> String? {
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code else { return nil }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+              let dictionary = info as? [String: Any]
+        else { return nil }
+        return dictionary[kSecCodeInfoTeamIdentifier as String] as? String
     }
 }
