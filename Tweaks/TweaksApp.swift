@@ -99,6 +99,7 @@ final class TweakController {
 
     private var hotKey: HotKey?
     private var awakeHotKey: HotKey?
+    @ObservationIgnored private var awakeTapOrHold: TapOrHold?
     let keepAwake = KeepAwake()
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
@@ -155,7 +156,7 @@ final class TweakController {
             hotKey?.unregister()
             hotKey = nil
             if on {
-                hotKey = HotKey { [weak self] in self?.clearNotifications() }
+                hotKey = HotKey(keyCode: UInt32(kVK_ANSI_N)) { [weak self] in self?.clearNotifications() }
             }
         case .dismissShortcutNotifications:
             on && hasAccessibility ? shortcutBanners.start() : shortcutBanners.stop()
@@ -178,7 +179,14 @@ final class TweakController {
             awakeHotKey?.unregister()
             awakeHotKey = nil
             if on {
-                awakeHotKey = HotKey(keyCode: UInt32(kVK_ANSI_A)) { [weak self] in self?.keepAwake.showMenu() }
+                let tapOrHold = TapOrHold(
+                    onTap: { [weak self] in self?.keepAwake.toggleDefault() },
+                    onHold: { [weak self] in self?.keepAwake.showMenu() }
+                )
+                awakeTapOrHold = tapOrHold
+                awakeHotKey = HotKey(keyCode: UInt32(kVK_ANSI_Slash),
+                                     onPress: { tapOrHold.pressed() },
+                                     onRelease: { tapOrHold.released() })
             }
         case .autoConnectShares:
             shareConnect.shares = (settings?.autoShares ?? []).compactMap(URL.init(string:))

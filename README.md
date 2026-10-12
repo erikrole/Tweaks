@@ -39,8 +39,9 @@ where every tweak has its own switch.
   on the office network or over VPN, with the keychain password.
 
 **Keep Awake** (replaces caffeinate)
-- ⌃⌥⌘A opens a menu at the pointer: 30 min to 4 h, until a time, until an app quits
-  (render apps first), or indefinitely, optionally keeping the display on.
+- Tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop. Hold it
+  for a menu at the pointer: 30 min to 4 h, until a time, until an app quits (render
+  apps first), or indefinitely, optionally keeping the display on.
 - While it's on, a cup in the menu bar shows what it's waiting for, with Add 30
   Minutes, Add 1 Hour and Stop. It stops itself at 15% battery when unplugged and tells
   you when the Mac can sleep again.
@@ -58,7 +59,7 @@ where every tweak has its own switch.
   `docs/finder-utilities-plan.md`.
 
 **Windows and notifications** (need Accessibility permission)
-- ⌃⌥⌘N closes every notification on screen.
+- Hyper+N (⌃⌥⇧⌘N) closes every notification on screen.
 - "Shortcut is running" banners from Shortcuts close themselves.
 - The green window button fills the screen without macOS full screen; click it again
   to restore the window. Hold ⌥ for normal full screen.

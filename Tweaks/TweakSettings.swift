@@ -33,7 +33,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .calendarInvites: "Open downloaded calendar invites in Fantastical"
         case .dmgInstaller: "Install apps from downloaded disk images"
         case .blockMusicLaunch: "Stop the play key from opening Music"
-        case .clearNotificationsHotKey: "⌃⌥⌘N clears all notifications"
+        case .clearNotificationsHotKey: "Hyper+N clears all notifications"
         case .dismissShortcutNotifications: "Dismiss \u{201C}Shortcut is running\u{201D} notifications"
         case .greenButtonFills: "Green window button fills the screen"
         case .ejectBeforeSleep: "Eject external drives before sleep"
@@ -43,7 +43,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .quitOnLastWindow: "Quit apps when their last window closes"
         case .unmountSharesBeforeSleep: "Disconnect network shares before sleep"
         case .autoConnectShares: "Keep work shares connected"
-        case .keepAwakeHotKey: "⌃⌥⌘A keeps your Mac awake"
+        case .keepAwakeHotKey: "Hyper+/ keeps your Mac awake"
         }
     }
 
@@ -56,7 +56,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .calendarInvites: "Strips alarms, opens the invite in Fantastical, then moves the file to the Trash."
         case .dmgInstaller: "When a downloaded disk image with one app mounts, offers to copy it to Applications, eject and trash the image."
         case .blockMusicLaunch: "Quits Music when the play/pause key launches it. Opening Music yourself still works."
-        case .clearNotificationsHotKey: "Closes every notification on screen and in Notification Center."
+        case .clearNotificationsHotKey: "⌃⌥⇧⌘N closes every notification on screen and in Notification Center."
         case .dismissShortcutNotifications: "Closes the banner Shortcuts shows while a shortcut runs."
         case .greenButtonFills: "Click the green button to fill the screen without full-screen mode; click again to restore. Hold ⌥ for normal full screen."
         case .ejectBeforeSleep: "No more \u{201C}Disk Not Ejected Properly\u{201D} after closing the lid. You're told after waking if a drive refused."
@@ -65,7 +65,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
         case .quitOnLastWindow: "For the apps listed below."
         case .unmountSharesBeforeSleep: "Unmounts NAS shares as the Mac sleeps so waking on another network doesn't stall, then reconnects them once the server is reachable."
-        case .keepAwakeHotKey: "Opens a menu at the pointer: 30 min to 4 h, until a time, until an app quits, or indefinitely. A cup shows in the menu bar while it's on. Stops itself at 15% battery. Raycast can use tweaks://awake?minutes=60 and tweaks://awake/stop."
+        case .keepAwakeHotKey: "Tap ⌃⌥⇧⌘/ for 12 hours (tap again to stop). Hold it for more: 30 min to 4 h, until a time, until an app quits, or indefinitely. A cup shows in the menu bar while it's on. Stops itself at 15% battery. Raycast can use tweaks://awake?minutes=60 and tweaks://awake/stop."
         case .autoConnectShares: "Mounts the shares listed below whenever their server is reachable (office network or VPN), using the password saved in your keychain."
         }
     }

@@ -4,8 +4,8 @@ import IOKit.ps
 import IOKit.pwr_mgt
 import Observation
 
-/// A smarter caffeinate. ⌃⌥⌘A pops a menu at the pointer to keep the Mac awake for a
-/// while, until a time, until an app quits, or until you stop it. While a session runs, a
+/// A smarter caffeinate. Tap Hyper+/ (⌃⌥⇧⌘/) for 12 hours (tap again to stop); hold it
+/// for a menu at the pointer: a while, until a time, until an app quits, or until you stop it. While a session runs, a
 /// cup in the menu bar shows what it's waiting for, with Extend and Stop. It also answers
 /// tweaks://awake links, so Raycast Quicklinks can drive it.
 @MainActor
@@ -53,6 +53,18 @@ final class KeepAwake {
         session = Session(until: until, keepsDisplayOn: display, startedAt: Date())
         showStatusItem()
         startWatching()
+    }
+
+    /// Hyper+/ tap: start the default 12 hours, or stop if already on.
+    static let defaultDuration: TimeInterval = 12 * 3600
+
+    func toggleDefault() {
+        if session == nil {
+            start(.date(Date().addingTimeInterval(Self.defaultDuration)))
+            Notifier.post(title: "Keeping your Mac awake for 12 hours", body: "Tap ⌃⌥⇧⌘/ again to stop, or hold it for more options.")
+        } else {
+            stop(reason: "Stopped with ⌃⌥⇧⌘/.")
+        }
     }
 
     func stop(reason: String? = nil) {

@@ -104,44 +104,94 @@ enum NotificationCloser {
 }
 
 /// Registers a system-wide hot key with Carbon, which needs no extra permission.
+/// Reports both press and release, so callers can tell a tap from a hold.
 @MainActor
 final class HotKey {
+    /// ⌃⌥⇧⌘, the "Hyper" key.
+    static let hyper = UInt32(controlKey | optionKey | shiftKey | cmdKey)
+
     private var reference: EventHotKeyRef?
-    private var handler: EventHandlerRef?
-    private let action: () -> Void
-    private static var actions: [UInt32: () -> Void] = [:]
+    private static var handler: EventHandlerRef?
+    private static var pressed: [UInt32: () -> Void] = [:]
+    private static var released: [UInt32: () -> Void] = [:]
     private static var nextID: UInt32 = 1
     private let id: UInt32
 
-    /// ⌃⌥⌘N by default.
-    init(keyCode: UInt32 = UInt32(kVK_ANSI_N), modifiers: UInt32 = UInt32(controlKey | optionKey | cmdKey), action: @escaping () -> Void) {
-        self.action = action
+    init(keyCode: UInt32, modifiers: UInt32 = HotKey.hyper,
+         onPress: @escaping () -> Void, onRelease: (() -> Void)? = nil) {
         id = Self.nextID
         Self.nextID += 1
-        Self.actions[id] = action
+        Self.pressed[id] = onPress
+        Self.released[id] = onRelease
+        Self.installHandlerOnce()
+        let hotKeyID = EventHotKeyID(signature: OSType(0x5457_4B53), id: id) // "TWKS"
+        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &reference)
+    }
 
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+    /// One Carbon handler for every hot key, dispatching by id, so each event runs
+    /// exactly one action.
+    private static func installHandlerOnce() {
+        guard handler == nil else { return }
+        var eventTypes = [
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
+        ]
         InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
             var hotKeyID = EventHotKeyID()
             GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                               nil, MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
             let id = hotKeyID.id
+            let isPress = GetEventKind(event) == UInt32(kEventHotKeyPressed)
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { HotKey.actions[id]?() }
+                MainActor.assumeIsolated {
+                    (isPress ? HotKey.pressed[id] : HotKey.released[id])?()
+                }
             }
             return noErr
-        }, 1, &eventType, nil, &handler)
-
-        let hotKeyID = EventHotKeyID(signature: OSType(0x5457_4B53), id: id) // "TWKS"
-        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &reference)
+        }, 2, &eventTypes, nil, &handler)
     }
 
     func unregister() {
         if let reference { UnregisterEventHotKey(reference) }
-        if let handler { RemoveEventHandler(handler) }
         reference = nil
-        handler = nil
-        Self.actions[id] = nil
+        Self.pressed[id] = nil
+        Self.released[id] = nil
+    }
+}
+
+/// Tells a quick tap from a press-and-hold on a hot key.
+@MainActor
+final class TapOrHold {
+    static let holdDelay: TimeInterval = 0.35
+    private var timer: Timer?
+    private var heldFired = false
+    private let onTap: () -> Void
+    private let onHold: () -> Void
+
+    init(onTap: @escaping () -> Void, onHold: @escaping () -> Void) {
+        self.onTap = onTap
+        self.onHold = onHold
+    }
+
+    func pressed() {
+        heldFired = false
+        timer?.invalidate()
+        let timer = Timer(timeInterval: Self.holdDelay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.heldFired = true
+                self.onHold()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func released() {
+        timer?.invalidate()
+        timer = nil
+        if !heldFired { onTap() }
+        heldFired = false
     }
 }
 
