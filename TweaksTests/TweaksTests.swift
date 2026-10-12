@@ -111,7 +111,9 @@ final class SettingsTests: XCTestCase {
     func testDefaultsOnAndPersist() {
         let defaults = UserDefaults(suiteName: "TweaksTests-\(UUID().uuidString)")!
         let settings = TweakSettings(defaults: defaults)
-        XCTAssertTrue(Tweak.allCases.allSatisfy(settings.isOn))
+        XCTAssertTrue(Tweak.allCases.filter { !Tweak.offByDefault.contains($0) }.allSatisfy(settings.isOn))
+        XCTAssertFalse(settings.isOn(.wifiOffWhenWired))
+        XCTAssertFalse(settings.isOn(.bluetoothOffWhileAsleep))
         var changed: [Tweak] = []
         settings.onChange = { changed.append($0) }
         settings.set(.dmgInstaller, on: false)
