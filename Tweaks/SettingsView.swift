@@ -44,6 +44,11 @@ struct SettingsView: View {
 
             Section("Sleep") {
                 row(.keepAwakeHotKey)
+                SwiftUI.Toggle("Show time left next to the cup", isOn: Binding(
+                    get: { controller.keepAwake.showsCountdown },
+                    set: { controller.keepAwake.showsCountdown = $0 }
+                ))
+                    .font(.callout)
                 if controller.keepAwake.session != nil {
                     HStack {
                         Label(controller.keepAwake.statusLine, systemImage: "cup.and.saucer.fill")

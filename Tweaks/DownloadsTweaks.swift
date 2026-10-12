@@ -226,7 +226,7 @@ final class DownloadsWatcher {
 
     // MARK: - Extensions
 
-    static func isFinishedDownload(_ url: URL) -> Bool {
+    nonisolated static func isFinishedDownload(_ url: URL) -> Bool {
         let inProgress: Set<String> = ["download", "crdownload", "part", "partial", "opdownload", "tmp"]
         return !inProgress.contains(url.pathExtension.lowercased())
     }

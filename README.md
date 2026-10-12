@@ -39,18 +39,25 @@ where every tweak has its own switch.
   on the office network or over VPN, with the keychain password.
 
 **Keep Awake** (replaces caffeinate)
-- Tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop. Hold it
-  for the Keep Awake panel, centered on your screen like Raycast: 1–12 hours (number
-  keys), until a time, until an app quits (render apps first), indefinitely (I), keep
-  the display on (D), stop (S); Return picks 12 hours and Esc closes.
-- Starting and stopping show a small pill near the bottom of the screen instead of a
-  notification.
-- While it's on, a cup in the menu bar shows what it's waiting for; click it for the
-  panel. It stops itself at 15% battery when unplugged.
+- Tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
+  the last five minutes, to add an hour.
+- Hold Hyper+/ (or click the menu bar cup) for the Keep Awake panel, centered on the
+  screen you're on: Recent choices; 1–12 hours (number keys); until it's done (render
+  finishes, downloads finish, upload finishes, NAS copy finishes); until a time; until
+  an app quits; indefinitely (I); display on (D); only while plugged in (P); stop (S).
+  Arrow keys move, Return starts, Esc closes.
+- "Until it's done" waits for the job to look finished for a quiet period (3 min for
+  renders, 2 for uploads, 1 for downloads and NAS copies) so a pause between files
+  doesn't end it early.
+- A pill appears near the bottom of the screen when it starts or stops, and five
+  minutes before a timed session ends. The menu bar cup shows time left (optional).
+- Only while plugged in pauses the hold on battery and resumes it on power; any
+  session stops at 15% battery when unplugged.
 - Links for Raycast Quicklinks or scripts: `tweaks://awake?minutes=60`,
   `tweaks://awake?hours=2`, `tweaks://awake?until=18:30`,
-  `tweaks://awake?app=com.adobe.ame.application.26`, add `&display=1` to keep the
-  display on, and `tweaks://awake/stop`, `/toggle` or `/menu`.
+  `tweaks://awake?app=com.adobe.ame.application.26`,
+  `tweaks://awake?done=render|downloads|upload|copy`, add `&display=1` or `&power=1`,
+  and `tweaks://awake/stop`, `/toggle` or `/menu`.
 
 **Finder** (formerly Finder Utilities)
 - Copy Path with NAS, Box and Google Drive roots shortened

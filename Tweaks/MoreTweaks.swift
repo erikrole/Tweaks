@@ -91,7 +91,7 @@ final class RenderKeepAwake {
         let matches: @Sendable (String) -> Bool
     }
 
-    static let renderers: [Renderer] = [
+    nonisolated static let renderers: [Renderer] = [
         // aerender first: it lives in the After Effects folder but isn't inside the app.
         Renderer(name: "aerender") { $0.hasSuffix("/aerender") },
         Renderer(name: "After Effects") { $0.contains("/Adobe After Effects") && $0.contains(".app/") && !$0.contains("Helper") },
@@ -99,7 +99,7 @@ final class RenderKeepAwake {
         Renderer(name: "Premiere Pro") { $0.contains("/Adobe Premiere Pro") && !$0.contains("Helper") },
     ]
 
-    static let busyCores = 0.5
+    nonisolated static let busyCores = 0.5
     static let releaseAfter: TimeInterval = 120
 
     private var timer: Timer?
@@ -140,7 +140,7 @@ final class RenderKeepAwake {
     }
 
     /// The first renderer using at least `busyCores`, from per-executable CPU in percent.
-    static func busyRenderer(in usage: [String: Double]) -> String? {
+    nonisolated static func busyRenderer(in usage: [String: Double]) -> String? {
         for renderer in renderers {
             let cpu = usage.filter { renderer.matches($0.key) }.values.reduce(0, +)
             if cpu >= busyCores * 100 { return renderer.name }

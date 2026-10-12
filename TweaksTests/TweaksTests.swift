@@ -334,6 +334,7 @@ final class KeepAwakeTests: XCTestCase {
         XCTAssertNil(KeepAwake.endReason(for: .date(now.addingTimeInterval(60)), now: now, isRunning: running, battery: nil))
         XCTAssertEqual(KeepAwake.endReason(for: .appQuits(pid: 42, name: "Media Encoder"), now: now, isRunning: { _ in false }, battery: nil),
                        "Media Encoder quit.")
+        XCTAssertNil(KeepAwake.endReason(for: .done(.render), now: now, isRunning: running, battery: nil), "jobs are judged by JobWatcher")
         XCTAssertNotNil(KeepAwake.endReason(for: .indefinitely, now: now, isRunning: running, battery: Battery(percent: 12, pluggedIn: false)),
                         "low battery ends any session")
         XCTAssertNil(KeepAwake.endReason(for: .indefinitely, now: now, isRunning: running, battery: Battery(percent: 12, pluggedIn: true)))
@@ -358,5 +359,59 @@ final class KeepAwakeTests: XCTestCase {
         XCTAssertFalse(times.isEmpty)
         XCTAssertEqual(times, times.sorted())
         XCTAssertTrue(times.allSatisfy { $0.timeIntervalSince(now) >= 600 })
+    }
+}
+
+@MainActor
+final class KeepAwakeEnhancementTests: XCTestCase {
+    private let start = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testJobDoneAfterQuietPeriod() {
+        var quiet: Date?
+        // Busy, then quiet for less than the period: not done.
+        XCTAssertFalse(JobWatcher.decide(busy: true, quietSince: &quiet, startedAt: start, now: start, quietPeriod: 60))
+        XCTAssertFalse(JobWatcher.decide(busy: false, quietSince: &quiet, startedAt: start, now: start.addingTimeInterval(30), quietPeriod: 60))
+        XCTAssertFalse(JobWatcher.decide(busy: false, quietSince: &quiet, startedAt: start, now: start.addingTimeInterval(60), quietPeriod: 60))
+        // Quiet for the full period: done.
+        XCTAssertTrue(JobWatcher.decide(busy: false, quietSince: &quiet, startedAt: start, now: start.addingTimeInterval(95), quietPeriod: 60))
+        // A burst of work resets the clock.
+        var again: Date? = start
+        XCTAssertFalse(JobWatcher.decide(busy: true, quietSince: &again, startedAt: start, now: start.addingTimeInterval(100), quietPeriod: 60))
+        XCTAssertNil(again)
+    }
+
+    func testCountdownLabels() {
+        XCTAssertEqual(KeepAwake.countdown(until: .date(start.addingTimeInterval(3 * 3600 + 12 * 60 + 30)), now: start), "3h 12m")
+        XCTAssertEqual(KeepAwake.countdown(until: .date(start.addingTimeInterval(45 * 60)), now: start), "45m")
+        XCTAssertEqual(KeepAwake.countdown(until: .done(.render), now: start), "render")
+        XCTAssertNil(KeepAwake.countdown(until: .indefinitely, now: start))
+    }
+
+    func testLinkNamesForJobs() {
+        XCTAssertEqual(JobCondition(linkName: "render"), .render)
+        XCTAssertEqual(JobCondition(linkName: "copy"), .nasCopy)
+        XCTAssertNil(JobCondition(linkName: "nope"))
+    }
+
+    func testDownloadsInProgressDetection() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "dl-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data().write(to: folder.appending(path: "done.mov"))
+        XCTAssertFalse(JobWatcher.downloadsInProgress(in: folder))
+        try Data().write(to: folder.appending(path: "big.mov.crdownload"))
+        XCTAssertTrue(JobWatcher.downloadsInProgress(in: folder))
+    }
+
+    func testUploadCounterReads() {
+        XCTAssertGreaterThan(JobWatcher.uploadedBytes(), 0, "this Mac has sent bytes since boot")
+    }
+
+    func testChoicesRoundTrip() throws {
+        let choices: [Choice] = [.hours(12), .indefinitely, .done(.upload), .app(bundleID: "com.adobe.ame.application.26", name: "Media Encoder")]
+        let decoded = try JSONDecoder().decode([Choice].self, from: JSONEncoder().encode(choices))
+        XCTAssertEqual(decoded, choices)
+        XCTAssertEqual(Choice.hours(12).title, "12 hours")
+        XCTAssertEqual(Choice.done(.render).title, "Render finishes")
     }
 }
