@@ -16,7 +16,7 @@ struct TweaksApp: App {
 /// Runs in the background with no menu bar icon. Opening Tweaks again (from Finder,
 /// Spotlight or Raycast) shows its settings window.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let settings = TweakSettings()
     private let launchAtLogin = LaunchAtLoginController()
     private let controller = TweakController()
@@ -68,12 +68,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 rootView: SettingsView(settings: settings, controller: controller, launchAtLogin: launchAtLogin)
             )
             window.center()
+            window.delegate = self
             self.window = window
         }
         controller.refreshAccessibility()
+        // A normal app while the window is open: Dock icon, ⌘-Tab, its own menu bar.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
+
+    /// Closing the window keeps Tweaks running in the background and takes the Dock icon away.
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === window else { return }
+        DispatchQueue.main.async {
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+
+    /// ⌘Q (or Quit from the Dock) while the window is open just closes it; Tweaks keeps
+    /// working. The Quit Tweaks button in the window really quits.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if Self.reallyQuit { return .terminateNow }
+        if let window, window.isVisible {
+            window.close()
+            return .terminateCancel
+        }
+        return .terminateNow
+    }
+
+    /// Set by the window's Quit button and by relaunch, which really mean quit.
+    static var reallyQuit = false
 }
 
 /// Starts and stops each tweak to match its switch.

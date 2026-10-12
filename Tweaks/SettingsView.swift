@@ -158,12 +158,15 @@ struct SettingsView: View {
                 if let error = launchAtLogin.errorMessage {
                     Text(error).font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Tweaks has no menu bar icon. Open it again from Finder, Spotlight or Raycast to come back here.")
+                Text("Tweaks keeps running after you close this window, with no Dock or menu bar icon. Open it again from Finder or Spotlight to come back here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
                     Spacer()
-                    Button("Quit Tweaks") { NSApp.terminate(nil) }
+                    Button("Quit Tweaks") {
+                        AppDelegate.reallyQuit = true
+                        NSApp.terminate(nil)
+                    }
                 }
             }
         }

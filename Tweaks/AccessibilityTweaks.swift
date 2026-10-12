@@ -25,6 +25,7 @@ enum AX {
         process.executableURL = URL(filePath: "/bin/sh")
         process.arguments = ["-c", "sleep 0.5; /usr/bin/open \"$0\"", path]
         try? process.run()
+        AppDelegate.reallyQuit = true
         NSApp.terminate(nil)
     }
 

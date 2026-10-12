@@ -24,6 +24,7 @@
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
 		B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */; };
+		BA45CB800DC3B76D4B2F8E31 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95088360DF10A9B9311768E8 /* AppIcon.icns */; };
 		BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */; };
 		C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
@@ -82,6 +83,7 @@
 		663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
 		93A0F2E06285ADDB181F6A88 /* FinderSync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderSync.entitlements; sourceTree = "<group>"; };
 		93A9176A0B9E8E86B927F279 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		95088360DF10A9B9311768E8 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSyncExtension.swift; sourceTree = "<group>"; };
 		A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwake.swift; sourceTree = "<group>"; };
 		B5C2178EC6AB88894C211F68 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -160,6 +162,7 @@
 			isa = PBXGroup;
 			children = (
 				57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */,
+				95088360DF10A9B9311768E8 /* AppIcon.icns */,
 				168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */,
 				E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */,
 				B7E4A379C97DAD8B47F5D295 /* HUD.swift */,
@@ -188,6 +191,7 @@
 			buildConfigurationList = AFAD8A74A3AA265401D485CA /* Build configuration list for PBXNativeTarget "Tweaks" */;
 			buildPhases = (
 				9E537DDA100698558B7F33A5 /* Sources */,
+				2A63023176B76B0CF13D460C /* Resources */,
 				E05B0FE6E1E1F6A47393162D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -283,6 +287,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2A63023176B76B0CF13D460C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA45CB800DC3B76D4B2F8E31 /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5671978252CE444DF9671D6D /* Sources */ = {
