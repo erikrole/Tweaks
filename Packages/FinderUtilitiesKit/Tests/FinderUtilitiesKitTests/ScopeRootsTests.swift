@@ -7,13 +7,13 @@ import Testing
     @Test func includesRootVolumesAndCloudFolders() {
         let r = ScopeRoots.compute(
             mountPoints: ["/", "/System/Volumes/Data", "/Volumes/users", "/Volumes/users-1/"],
-            cloudStorageEntries: ["Box-Box", "GoogleDrive-role@wisc.edu", ".DS_Store"],
+            cloudStorageEntries: ["Box-Box", "GoogleDrive-user@example.com", ".DS_Store"],
             home: home)
         #expect(r == [
             "/",
-            "/Users/role/Library/CloudStorage/Box-Box",
-            "/Users/role/Library/CloudStorage/GoogleDrive-role@wisc.edu",
-            "/Users/role/Library/Mobile Documents",
+            "/Users/user/Library/CloudStorage/Box-Box",
+            "/Users/user/Library/CloudStorage/GoogleDrive-user@example.com",
+            "/Users/user/Library/Mobile Documents",
             "/Volumes/users",
             "/Volumes/users-1",
         ])
@@ -21,7 +21,7 @@ import Testing
 
     @Test func ignoresNonVolumeMountsAndBareVolumesDir() {
         let r = ScopeRoots.compute(mountPoints: ["/Volumes/", "/dev", "/System/Volumes/VM"], cloudStorageEntries: [], home: home)
-        #expect(r == ["/", "/Users/role/Library/Mobile Documents"])
+        #expect(r == ["/", "/Users/user/Library/Mobile Documents"])
     }
 
     @Test func changeDetectionIgnoresOrder() {

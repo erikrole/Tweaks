@@ -25,10 +25,10 @@ private struct Counting: MetadataProvider {
     @Test(arguments: [
         ("/Volumes/users/shares/Media/a.mov", "vol:users", VolumeInfo.Kind.network),
         ("/Volumes/users-1/shares/Media/a.mov", "vol:users", .network),
-        ("/Users/role/Library/CloudStorage/Box-Box/x", "cloud:Box-Box", .cloud),
-        ("/Users/role/Library/CloudStorage/GoogleDrive-role@wisc.edu/My Drive/x", "cloud:GoogleDrive-role@wisc.edu", .cloud),
-        ("/Users/role/Library/Mobile Documents/com~apple~CloudDocs/x", "cloud:icloud", .cloud),
-        ("/Users/role/To Sort/Work Projects", "local", .local),
+        ("/Users/user/Library/CloudStorage/Box-Box/x", "cloud:Box-Box", .cloud),
+        ("/Users/user/Library/CloudStorage/GoogleDrive-user@example.com/My Drive/x", "cloud:GoogleDrive-user@example.com", .cloud),
+        ("/Users/user/Library/Mobile Documents/com~apple~CloudDocs/x", "cloud:icloud", .cloud),
+        ("/Users/user/To Sort/Work Projects", "local", .local),
     ])
     func classifiesVolumes(path: String, key: String, kind: VolumeInfo.Kind) {
         #expect(VolumeInfo.classify(path: path) == VolumeInfo(key: key, kind: kind))
@@ -75,7 +75,7 @@ private struct Counting: MetadataProvider {
         let counter = Counter()
         var stat = MediaMetadata(); stat.fileSize = 42
         let svc = MetadataService(providers: [Fixed(meta: stat), Counting(counter: counter)], datalessCheck: { _ in true })
-        let state = await svc.load(URL(fileURLWithPath: "/Users/role/Library/CloudStorage/Box-Box/a.mov"))
+        let state = await svc.load(URL(fileURLWithPath: "/Users/user/Library/CloudStorage/Box-Box/a.mov"))
         guard case .ready(let m) = state else { Issue.record("not ready"); return }
         #expect(m.isDataless && m.fileSize == 42)
         #expect(await counter.n == 0)
@@ -84,7 +84,7 @@ private struct Counting: MetadataProvider {
     @Test func menuReadIsInstantAndPrefetchFillsCache() async throws {
         var m = MediaMetadata(); m.width = 1920; m.height = 1080
         let svc = MetadataService(providers: [Fixed(meta: m)], datalessCheck: { _ in false })
-        let url = URL(fileURLWithPath: "/Users/role/a.mov")
+        let url = URL(fileURLWithPath: "/Users/user/a.mov")
         #expect(svc.state(for: url) == .loading)
         svc.prefetch([url])
         for _ in 0..<100 where svc.state(for: url) == .loading { try await Task.sleep(for: .milliseconds(20)) }
