@@ -97,14 +97,15 @@ final class TweakController {
     private let shareSleep = ShareSleepManager()
     private let shareConnect = ShareAutoConnect()
 
-    private var hotKey: HotKey?
-    private var awakeHotKey: HotKey?
+    let shortcuts = ShortcutStore()
+    @ObservationIgnored private var hotKeys: [ShortcutAction: HotKey] = [:]
     @ObservationIgnored private var awakeTapOrHold: TapOrHold?
     let keepAwake = KeepAwake()
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
 
     func start() {
+        shortcuts.onChange = { [weak self] action in self?.register(action) }
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.didWake() }
@@ -168,11 +169,7 @@ final class TweakController {
         case .blockMusicLaunch:
             on && hasAccessibility ? music.start() : music.stop()
         case .clearNotificationsHotKey:
-            hotKey?.unregister()
-            hotKey = nil
-            if on {
-                hotKey = HotKey(keyCode: UInt32(kVK_ANSI_N)) { [weak self] in self?.clearNotifications() }
-            }
+            register(.clearNotifications)
         case .dismissShortcutNotifications:
             on && hasAccessibility ? shortcutBanners.start() : shortcutBanners.stop()
         case .greenButtonFills:
@@ -191,22 +188,37 @@ final class TweakController {
         case .unmountSharesBeforeSleep:
             on ? shareSleep.start() : shareSleep.stop()
         case .keepAwakeHotKey:
-            awakeHotKey?.unregister()
-            awakeHotKey = nil
-            if on {
-                let tapOrHold = TapOrHold(
-                    onTap: { [weak self] in self?.keepAwake.toggleDefault() },
-                    onHold: { [weak self] in self?.keepAwake.showMenu() }
-                )
-                awakeTapOrHold = tapOrHold
-                awakeHotKey = HotKey(keyCode: UInt32(kVK_ANSI_Slash),
-                                     onPress: { tapOrHold.pressed() },
-                                     onRelease: { tapOrHold.released() })
-            }
+            register(.keepAwake)
+            register(.keepAwakePanel)
+            register(.screenOff)
         case .autoConnectShares:
             shareConnect.shares = (settings?.autoShares ?? []).compactMap(URL.init(string:))
             shareConnect.stop()
             if on { shareConnect.start() }
+        }
+    }
+
+    /// (Re)registers one action's global shortcut from the store, if its tweak is on.
+    func register(_ action: ShortcutAction) {
+        hotKeys[action]?.unregister()
+        hotKeys[action] = nil
+        let tweak: Tweak = action == .clearNotifications ? .clearNotificationsHotKey : .keepAwakeHotKey
+        guard settings?.isOn(tweak) == true, let shortcut = shortcuts.shortcut(for: action) else { return }
+        switch action {
+        case .keepAwake:
+            let tapOrHold = TapOrHold(
+                onTap: { [weak self] in self?.keepAwake.toggleDefault() },
+                onHold: { [weak self] in self?.keepAwake.showMenu() }
+            )
+            awakeTapOrHold = tapOrHold
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers,
+                                     onPress: { tapOrHold.pressed() }, onRelease: { tapOrHold.released() })
+        case .keepAwakePanel:
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.keepAwake.showMenu() }
+        case .screenOff:
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.keepAwake.sleepDisplayNow() }
+        case .clearNotifications:
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.clearNotifications() }
         }
     }
 

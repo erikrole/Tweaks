@@ -24,6 +24,7 @@
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
 		B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */; };
+		BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */; };
 		C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
@@ -78,6 +79,7 @@
 		5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTweaks.swift; sourceTree = "<group>"; };
 		658EF92576770693D3686C4F /* TweaksTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TweaksTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
 		93A0F2E06285ADDB181F6A88 /* FinderSync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderSync.entitlements; sourceTree = "<group>"; };
 		93A9176A0B9E8E86B927F279 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSyncExtension.swift; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
 				F90BB2070E38C524774DE6DD /* Safety.swift */,
 				228920353BABF64F9F93E79F /* SettingsView.swift */,
+				663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */,
 				099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */,
 				4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */,
 				B669558E8002E222EB08AA36 /* TweakSettings.swift */,
@@ -317,6 +320,7 @@
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
 				DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */,
 				D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */,
+				BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */,
 				62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */,
 				AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */,
 				65D4944005B264C99ED50D66 /* TweaksApp.swift in Sources */,

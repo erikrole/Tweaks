@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import XCTest
 @testable import Tweaks
 
@@ -413,5 +414,35 @@ final class KeepAwakeEnhancementTests: XCTestCase {
         XCTAssertEqual(decoded, choices)
         XCTAssertEqual(Choice.hours(12).title, "12 hours")
         XCTAssertEqual(Choice.done(.render).title, "Render finishes")
+    }
+}
+
+@MainActor
+final class ShortcutTests: XCTestCase {
+    private func store() -> ShortcutStore {
+        ShortcutStore(defaults: UserDefaults(suiteName: "ShortcutTests-\(UUID().uuidString)")!)
+    }
+
+    func testDefaultsAndLabels() {
+        let shortcuts = store()
+        XCTAssertEqual(shortcuts.shortcut(for: .keepAwake)?.label, "Hyper /")
+        XCTAssertEqual(shortcuts.shortcut(for: .clearNotifications)?.label, "Hyper N")
+        XCTAssertNil(shortcuts.shortcut(for: .screenOff))
+        let custom = Shortcut(keyCode: 45, modifiers: UInt32(cmdKey | optionKey), key: "N")
+        XCTAssertEqual(custom.label, "⌥⌘N")
+    }
+
+    func testReassigningStealsFromTheOldAction() {
+        let shortcuts = store()
+        let hyperSlash = shortcuts.shortcut(for: .keepAwake)
+        shortcuts.set(hyperSlash, for: .screenOff)
+        XCTAssertEqual(shortcuts.shortcut(for: .screenOff), hyperSlash)
+        XCTAssertNil(shortcuts.shortcut(for: .keepAwake), "one set of keys, one action")
+    }
+
+    func testClearedShortcutStaysCleared() {
+        let defaults = UserDefaults(suiteName: "ShortcutTests-\(UUID().uuidString)")!
+        ShortcutStore(defaults: defaults).set(nil, for: .clearNotifications)
+        XCTAssertNil(ShortcutStore(defaults: defaults).shortcut(for: .clearNotifications), "removing a default sticks")
     }
 }

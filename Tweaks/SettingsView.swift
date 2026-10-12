@@ -34,6 +34,21 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Shortcuts") {
+                ForEach(ShortcutAction.allCases) { action in
+                    HStack {
+                        Text(action.title)
+                        Spacer()
+                        ShortcutRecorder(shortcut: controller.shortcuts.shortcut(for: action)) { shortcut in
+                            controller.shortcuts.set(shortcut, for: action)
+                        }
+                    }
+                }
+                Text("Click a shortcut, then press the new keys (⌫ removes it, Esc cancels). Hyper is ⌃⌥⇧⌘.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Keyboard and sound") {
                 row(.capsLockNoDelay)
                 row(.wakeVolumeLimit)

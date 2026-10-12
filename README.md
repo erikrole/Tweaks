@@ -39,7 +39,8 @@ where every tweak has its own switch.
   on the office network or over VPN, with the keychain password.
 
 **Keep Awake** (replaces caffeinate)
-- Tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
+- Shortcuts are changeable in the Tweaks window (Keep Awake, the Keep Awake panel,
+  Screen off, Clear notifications). By default, tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
   the last five minutes, to add an hour.
 - Hold Hyper+/ (or click the menu bar cup) for the Keep Awake panel, centered on the
   screen you're on: Recent choices; 1–12 hours (number keys); until it's done (render
