@@ -129,7 +129,10 @@ final class PanelModel {
             }))
         }
 
-        var tail = [PanelItem(id: "indefinitely", title: "Indefinitely", key: "I") { $0.start(Choice.indefinitely) }]
+        var tail = [
+            PanelItem(id: "indefinitely", title: "Indefinitely", key: "I") { $0.start(Choice.indefinitely) },
+            PanelItem(id: "screen-off", title: "Screen off, Mac awake", key: "Z", symbol: "moon.fill") { $0.sleepDisplayNow() },
+        ]
         if keepAwake.session != nil {
             tail.append(PanelItem(id: "stop", title: "Stop", key: "S", symbol: "stop.circle") { $0.stop(reason: "Stopped.") })
         }

@@ -44,7 +44,7 @@ where every tweak has its own switch.
 - Hold Hyper+/ (or click the menu bar cup) for the Keep Awake panel, centered on the
   screen you're on: Recent choices; 1–12 hours (number keys); until it's done (render
   finishes, downloads finish, upload finishes, NAS copy finishes); until a time; until
-  an app quits; indefinitely (I); display on (D); only while plugged in (P); stop (S).
+  an app quits; indefinitely (I); screen off with the Mac awake (Z); display on (D); only while plugged in (P); stop (S).
   Arrow keys move, Return starts, Esc closes.
 - "Until it's done" waits for the job to look finished for a quiet period (3 min for
   renders, 2 for uploads, 1 for downloads and NAS copies) so a pause between files
@@ -57,7 +57,7 @@ where every tweak has its own switch.
   `tweaks://awake?hours=2`, `tweaks://awake?until=18:30`,
   `tweaks://awake?app=com.adobe.ame.application.26`,
   `tweaks://awake?done=render|downloads|upload|copy`, add `&display=1` or `&power=1`,
-  and `tweaks://awake/stop`, `/toggle` or `/menu`.
+  and `tweaks://awake/stop`, `/toggle`, `/menu` or `/screenoff`.
 
 **Finder** (formerly Finder Utilities)
 - Copy Path with NAS, Box and Google Drive roots shortened

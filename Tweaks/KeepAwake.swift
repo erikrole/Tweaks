@@ -99,6 +99,20 @@ final class KeepAwake {
         }
     }
 
+    /// Turns the screen off right away while the Mac stays awake (starting 12 hours if
+    /// nothing is running). Better than dimming to zero: the panel actually powers down.
+    func sleepDisplayNow() {
+        if session == nil { start(.date(Date().addingTimeInterval(Self.defaultDuration)), keepsDisplayOn: false, announce: false) }
+        if session?.keepsDisplayOn == true { setKeepsDisplayOn(false) }
+        // Give the panel or pill a moment to disappear first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            let process = Process()
+            process.executableURL = URL(filePath: "/usr/bin/pmset")
+            process.arguments = ["displaysleepnow"]
+            try? process.run()
+        }
+    }
+
     func stop(reason: String? = nil) {
         guard session != nil else { return }
         releaseAssertion()
@@ -331,6 +345,7 @@ final class KeepAwake {
         case "/stop": stop(reason: "Stopped.")
         case "/menu": showMenu()
         case "/toggle": toggleDefault()
+        case "/screenoff": sleepDisplayNow()
         default:
             if let until = Self.until(minutes: value("minutes"), hours: value("hours"), time: value("until"), now: Date()) {
                 start(until, keepsDisplayOn: display, onlyOnPower: power)
