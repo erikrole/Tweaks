@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 @main
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        installURLHandler()
         controller.settings = settings
         settings.onChange = { [weak self] tweak in self?.controller.apply(tweak) }
         controller.start()
@@ -30,6 +32,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let firstLaunch = UserDefaults.standard.object(forKey: "hasLaunched") == nil
         UserDefaults.standard.set(true, forKey: "hasLaunched")
         if firstLaunch { showSettings() }
+    }
+
+    /// tweaks:// links. SwiftUI's app lifecycle installs its own URL handler during launch
+    /// and doesn't pass URLs to the delegate when no scene claims them, so take the Apple
+    /// Event over once launch has finished.
+    private func installURLHandler() {
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(handleURLEvent(_:withReply:)),
+            forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL)
+        )
+    }
+
+    @objc private func handleURLEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
+        guard let text = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
+              let url = URL(string: text) else { return }
+        controller.keepAwake.handle(url)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -80,6 +98,8 @@ final class TweakController {
     private let shareConnect = ShareAutoConnect()
 
     private var hotKey: HotKey?
+    private var awakeHotKey: HotKey?
+    let keepAwake = KeepAwake()
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
 
@@ -154,6 +174,12 @@ final class TweakController {
             on && hasAccessibility ? quitter.start() : quitter.stop()
         case .unmountSharesBeforeSleep:
             on ? shareSleep.start() : shareSleep.stop()
+        case .keepAwakeHotKey:
+            awakeHotKey?.unregister()
+            awakeHotKey = nil
+            if on {
+                awakeHotKey = HotKey(keyCode: UInt32(kVK_ANSI_A)) { [weak self] in self?.keepAwake.showMenu() }
+            }
         case .autoConnectShares:
             shareConnect.shares = (settings?.autoShares ?? []).compactMap(URL.init(string:))
             shareConnect.stop()

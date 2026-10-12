@@ -1,4 +1,5 @@
 import AppKit
+import FinderSync
 import SwiftUI
 
 struct SettingsView: View {
@@ -42,6 +43,15 @@ struct SettingsView: View {
             }
 
             Section("Sleep") {
+                row(.keepAwakeHotKey)
+                if controller.keepAwake.session != nil {
+                    HStack {
+                        Label(controller.keepAwake.statusLine, systemImage: "cup.and.saucer.fill")
+                            .font(.caption)
+                        Spacer()
+                        Button("Stop") { controller.keepAwake.stop() }.buttonStyle(.link)
+                    }
+                }
                 row(.ejectBeforeSleep)
                 row(.awakeWhileRendering)
                 if let holding = controller.renderAwake.holdingFor {
@@ -77,6 +87,24 @@ struct SettingsView: View {
                         .onSubmit(addShare)
                     Button("Add", action: addShare)
                         .disabled(URL(string: newShare)?.host() == nil)
+                }
+            }
+
+            Section("Finder") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Finder Utilities")
+                    Text("Adds Copy Path (with NAS, Box and Google Drive roots shortened), Copy Original Path and Inspect Media to Finder's right-click menu. Turn it on under Finder Extensions.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack {
+                    Label(FIFinderSyncController.isExtensionEnabled ? "On in Finder" : "Off in Finder",
+                          systemImage: FIFinderSyncController.isExtensionEnabled ? "checkmark.circle.fill" : "circle")
+                        .font(.caption)
+                        .foregroundStyle(FIFinderSyncController.isExtensionEnabled ? .green : .secondary)
+                    Spacer()
+                    Button("Finder Extensions Settings…") { FIFinderSyncController.showExtensionManagementInterface() }
                 }
             }
 

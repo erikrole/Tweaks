@@ -322,3 +322,41 @@ final class HardeningTests: XCTestCase {
         XCTAssertFalse(GreenButtonFill.isInCorner(CGPoint(x: 500, y: 400), of: window))
     }
 }
+
+@MainActor
+final class KeepAwakeTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testEndReasons() {
+        let running: (pid_t) -> Bool = { _ in true }
+        XCTAssertNil(KeepAwake.endReason(for: .indefinitely, now: now, isRunning: running, battery: nil))
+        XCTAssertNotNil(KeepAwake.endReason(for: .date(now.addingTimeInterval(-1)), now: now, isRunning: running, battery: nil))
+        XCTAssertNil(KeepAwake.endReason(for: .date(now.addingTimeInterval(60)), now: now, isRunning: running, battery: nil))
+        XCTAssertEqual(KeepAwake.endReason(for: .appQuits(pid: 42, name: "Media Encoder"), now: now, isRunning: { _ in false }, battery: nil),
+                       "Media Encoder quit.")
+        XCTAssertNotNil(KeepAwake.endReason(for: .indefinitely, now: now, isRunning: running, battery: Battery(percent: 12, pluggedIn: false)),
+                        "low battery ends any session")
+        XCTAssertNil(KeepAwake.endReason(for: .indefinitely, now: now, isRunning: running, battery: Battery(percent: 12, pluggedIn: true)))
+    }
+
+    func testLinkParsing() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Chicago")!
+        XCTAssertEqual(KeepAwake.until(minutes: "45", hours: nil, time: nil, now: now), .date(now.addingTimeInterval(2700)))
+        XCTAssertEqual(KeepAwake.until(minutes: nil, hours: "1.5", time: nil, now: now), .date(now.addingTimeInterval(5400)))
+        guard case let .date(end)? = KeepAwake.until(minutes: nil, hours: nil, time: "18:30", now: now, calendar: calendar) else {
+            return XCTFail("time not parsed")
+        }
+        XCTAssertGreaterThan(end, now)
+        XCTAssertEqual(calendar.component(.hour, from: end), 18)
+        XCTAssertNil(KeepAwake.until(minutes: nil, hours: nil, time: "25:00", now: now))
+        XCTAssertNil(KeepAwake.until(minutes: "-5", hours: nil, time: nil, now: now))
+    }
+
+    func testSuggestedTimesAreAheadAndSorted() {
+        let times = KeepAwake.suggestedEndTimes(from: now)
+        XCTAssertFalse(times.isEmpty)
+        XCTAssertEqual(times, times.sorted())
+        XCTAssertTrue(times.allSatisfy { $0.timeIntervalSince(now) >= 600 })
+    }
+}

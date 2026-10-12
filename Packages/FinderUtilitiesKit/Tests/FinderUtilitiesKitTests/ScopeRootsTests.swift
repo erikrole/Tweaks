@@ -1,0 +1,31 @@
+import Testing
+@testable import FinderUtilitiesKit
+
+@Suite struct ScopeRootsTests {
+    let home = "/Users/role"
+
+    @Test func includesRootVolumesAndCloudFolders() {
+        let r = ScopeRoots.compute(
+            mountPoints: ["/", "/System/Volumes/Data", "/Volumes/users", "/Volumes/users-1/"],
+            cloudStorageEntries: ["Box-Box", "GoogleDrive-role@wisc.edu", ".DS_Store"],
+            home: home)
+        #expect(r == [
+            "/",
+            "/Users/role/Library/CloudStorage/Box-Box",
+            "/Users/role/Library/CloudStorage/GoogleDrive-role@wisc.edu",
+            "/Users/role/Library/Mobile Documents",
+            "/Volumes/users",
+            "/Volumes/users-1",
+        ])
+    }
+
+    @Test func ignoresNonVolumeMountsAndBareVolumesDir() {
+        let r = ScopeRoots.compute(mountPoints: ["/Volumes/", "/dev", "/System/Volumes/VM"], cloudStorageEntries: [], home: home)
+        #expect(r == ["/", "/Users/role/Library/Mobile Documents"])
+    }
+
+    @Test func changeDetectionIgnoresOrder() {
+        #expect(!ScopeRoots.hasChanged(old: ["/", "/Volumes/a"], new: ["/Volumes/a", "/"]))
+        #expect(ScopeRoots.hasChanged(old: ["/"], new: ["/", "/Volumes/a"]))
+    }
+}

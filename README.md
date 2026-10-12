@@ -38,6 +38,25 @@ where every tweak has its own switch.
 - Work shares (the NAS share to start) are mounted whenever their server is reachable,
   on the office network or over VPN, with the keychain password.
 
+**Keep Awake** (replaces caffeinate)
+- ⌃⌥⌘A opens a menu at the pointer: 30 min to 4 h, until a time, until an app quits
+  (render apps first), or indefinitely, optionally keeping the display on.
+- While it's on, a cup in the menu bar shows what it's waiting for, with Add 30
+  Minutes, Add 1 Hour and Stop. It stops itself at 15% battery when unplugged and tells
+  you when the Mac can sleep again.
+- Links for Raycast Quicklinks or scripts: `tweaks://awake?minutes=60`,
+  `tweaks://awake?hours=2`, `tweaks://awake?until=18:30`,
+  `tweaks://awake?app=com.adobe.ame.application.26`, add `&display=1` to keep the
+  display on, and `tweaks://awake/stop`, `/toggle` or `/menu`.
+
+**Finder** (formerly Finder Utilities)
+- Copy Path with NAS, Box and Google Drive roots shortened
+  (`/Volumes/users/shares/Media/Foo.mov` → `Media/Foo.mov`), Copy Original Path, and
+  Inspect Media (frame size, frame rate, duration, codec, alpha, color, audio, DPI).
+  Turn it on in System Settings › Login Items & Extensions › Finder Extensions. The
+  path logic lives in `Packages/FinderUtilitiesKit`; see
+  `docs/finder-utilities-plan.md`.
+
 **Windows and notifications** (need Accessibility permission)
 - ⌃⌥⌘N closes every notification on screen.
 - "Shortcut is running" banners from Shortcuts close themselves.
@@ -61,6 +80,7 @@ xcodebuild -project Tweaks.xcodeproj -scheme Tweaks -configuration Debug CODE_SI
 
 ```sh
 xcodebuild -project Tweaks.xcodeproj -scheme Tweaks -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+(cd Packages/FinderUtilitiesKit && swift test)
 ```
 
 ## License

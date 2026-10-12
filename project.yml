@@ -8,12 +8,18 @@ settings:
     SWIFT_VERSION: 6.0
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     DEVELOPMENT_TEAM: ""
+packages:
+  FinderUtilitiesKit:
+    path: Packages/FinderUtilitiesKit
 targets:
   Tweaks:
     type: application
     platform: macOS
     sources:
       - Tweaks
+    dependencies:
+      - target: TweaksFinderSync
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks
@@ -51,3 +57,34 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
         DEVELOPMENT_TEAM: T26T3G8C7Q
+  TweaksFinderSync:
+    type: app-extension
+    platform: macOS
+    sources: [FinderSync]
+    dependencies:
+      - package: FinderUtilitiesKit
+    info:
+      path: FinderSync/Info.plist
+      properties:
+        CFBundleDisplayName: Finder Utilities
+        LSUIElement: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.FinderSync
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).FinderSyncExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks.FinderSync
+        PRODUCT_NAME: TweaksFinderSync
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: FinderSync/FinderSync.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        DEVELOPMENT_TEAM: T26T3G8C7Q
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Developer ID Application"

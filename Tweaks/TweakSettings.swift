@@ -20,6 +20,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     case quitOnLastWindow
     case unmountSharesBeforeSleep
     case autoConnectShares
+    case keepAwakeHotKey
 
     var id: String { rawValue }
 
@@ -42,6 +43,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .quitOnLastWindow: "Quit apps when their last window closes"
         case .unmountSharesBeforeSleep: "Disconnect network shares before sleep"
         case .autoConnectShares: "Keep work shares connected"
+        case .keepAwakeHotKey: "⌃⌥⌘A keeps your Mac awake"
         }
     }
 
@@ -63,6 +65,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
         case .quitOnLastWindow: "For the apps listed below."
         case .unmountSharesBeforeSleep: "Unmounts NAS shares as the Mac sleeps so waking on another network doesn't stall, then reconnects them once the server is reachable."
+        case .keepAwakeHotKey: "Opens a menu at the pointer: 30 min to 4 h, until a time, until an app quits, or indefinitely. A cup shows in the menu bar while it's on. Stops itself at 15% battery. Raycast can use tweaks://awake?minutes=60 and tweaks://awake/stop."
         case .autoConnectShares: "Mounts the shares listed below whenever their server is reachable (office network or VPN), using the password saved in your keychain."
         }
     }
