@@ -18,10 +18,8 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     case cleanCopiedLinks
     case unzipDownloads
     case quitOnLastWindow
-    case wifiOffWhenWired
     case unmountSharesBeforeSleep
     case autoConnectShares
-    case bluetoothOffWhileAsleep
 
     var id: String { rawValue }
 
@@ -42,10 +40,8 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .cleanCopiedLinks: "Clean copied links"
         case .unzipDownloads: "Unzip downloaded .zip files"
         case .quitOnLastWindow: "Quit apps when their last window closes"
-        case .wifiOffWhenWired: "Wi-Fi off while on Ethernet"
         case .unmountSharesBeforeSleep: "Disconnect network shares before sleep"
         case .autoConnectShares: "Keep work shares connected"
-        case .bluetoothOffWhileAsleep: "Bluetooth off while asleep on battery"
         }
     }
 
@@ -66,16 +62,10 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .cleanCopiedLinks: "Removes tracking (utm_, fbclid, YouTube si=…) from links as you copy them."
         case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
         case .quitOnLastWindow: "For the apps listed below."
-        case .wifiOffWhenWired: "When a wired connection is live, Wi-Fi turns off; it comes back when you unplug. Off by default: AirDrop, Universal Control and Watch unlock need Wi-Fi on. Putting Ethernet above Wi-Fi in Network settings is usually the better fix."
         case .unmountSharesBeforeSleep: "Unmounts NAS shares as the Mac sleeps so waking on another network doesn't stall, then reconnects them once the server is reachable."
         case .autoConnectShares: "Mounts the shares listed below whenever their server is reachable (office network or VPN), using the password saved in your keychain."
-        case .bluetoothOffWhileAsleep: "Saves a little battery in your bag; AirPods and Watch unlock take a few seconds longer after wake. Skipped on power."
         }
     }
-
-    /// Available but off unless you turn them on: Wi-Fi off breaks AirDrop, Universal
-    /// Control and Watch unlock, and Bluetooth off saves little on Apple silicon.
-    static let offByDefault: Set<Tweak> = [.wifiOffWhenWired, .bluetoothOffWhileAsleep]
 
     /// Tweaks that need Accessibility permission to read or click other apps' windows.
     var needsAccessibility: Bool {
@@ -98,7 +88,7 @@ final class TweakSettings {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         var enabled: Set<Tweak> = []
-        for tweak in Tweak.allCases where defaults.object(forKey: tweak.rawValue) as? Bool ?? !Tweak.offByDefault.contains(tweak) {
+        for tweak in Tweak.allCases where defaults.object(forKey: tweak.rawValue) as? Bool ?? true {
             enabled.insert(tweak)
         }
         self.enabled = enabled

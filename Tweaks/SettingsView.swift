@@ -60,7 +60,6 @@ struct SettingsView: View {
             }
 
             Section("Network") {
-                row(.wifiOffWhenWired)
                 row(.unmountSharesBeforeSleep)
                 row(.autoConnectShares)
                 ForEach(settings.autoShares, id: \.self) { share in
@@ -79,7 +78,6 @@ struct SettingsView: View {
                     Button("Add", action: addShare)
                         .disabled(URL(string: newShare)?.host() == nil)
                 }
-                row(.bluetoothOffWhileAsleep)
             }
 
             Section("Quit when the last window closes") {

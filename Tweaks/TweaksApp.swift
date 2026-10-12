@@ -76,10 +76,9 @@ final class TweakController {
     let renderAwake = RenderKeepAwake()
     private let linkCleaner = LinkCleaner()
     private let quitter = LastWindowQuitter()
-    private let wiredWiFi = WiFiWhenWired()
     private let shareSleep = ShareSleepManager()
     private let shareConnect = ShareAutoConnect()
-    private let bluetooth = BluetoothSleep()
+
     private var hotKey: HotKey?
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
@@ -153,16 +152,12 @@ final class TweakController {
         case .quitOnLastWindow:
             quitter.bundleIDs = Set(settings?.quitApps ?? [])
             on && hasAccessibility ? quitter.start() : quitter.stop()
-        case .wifiOffWhenWired:
-            on ? wiredWiFi.start() : wiredWiFi.stop()
         case .unmountSharesBeforeSleep:
             on ? shareSleep.start() : shareSleep.stop()
         case .autoConnectShares:
             shareConnect.shares = (settings?.autoShares ?? []).compactMap(URL.init(string:))
             shareConnect.stop()
             if on { shareConnect.start() }
-        case .bluetoothOffWhileAsleep:
-            on ? bluetooth.start() : bluetooth.stop()
         }
     }
 

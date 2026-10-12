@@ -33,16 +33,10 @@ where every tweak has its own switch.
   Media Encoder or Premiere is busy, until two minutes after the work stops.
 
 **Network**
-- Optional, off by default: Wi-Fi turns off while a wired connection is live and back
-  on when you unplug. AirDrop, Universal Control and Watch unlock need Wi-Fi on, so
-  ranking Ethernet above Wi-Fi in Network settings is usually the better fix.
 - Network shares are unmounted as the Mac sleeps and remounted after wake once the
   server answers, so waking on another network doesn't stall.
 - Work shares (the NAS share to start) are mounted whenever their server is reachable,
   on the office network or over VPN, with the keychain password.
-- Optional, off by default: Bluetooth turns off while the Mac sleeps on battery and
-  back on at wake; skipped on power so a Bluetooth keyboard can still wake a docked Mac. This uses the same
-  IOBluetooth functions as `blueutil`, as macOS has no public API for it.
 
 **Windows and notifications** (need Accessibility permission)
 - ⌃⌥⌘N closes every notification on screen.
