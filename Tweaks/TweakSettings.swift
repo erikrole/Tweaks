@@ -13,6 +13,11 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     case clearNotificationsHotKey
     case dismissShortcutNotifications
     case greenButtonFills
+    case ejectBeforeSleep
+    case awakeWhileRendering
+    case cleanCopiedLinks
+    case unzipDownloads
+    case quitOnLastWindow
 
     var id: String { rawValue }
 
@@ -28,6 +33,11 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .clearNotificationsHotKey: "⌃⌥⌘N clears all notifications"
         case .dismissShortcutNotifications: "Dismiss \u{201C}Shortcut is running\u{201D} notifications"
         case .greenButtonFills: "Green window button fills the screen"
+        case .ejectBeforeSleep: "Eject external drives before sleep"
+        case .awakeWhileRendering: "Stay awake while rendering"
+        case .cleanCopiedLinks: "Clean copied links"
+        case .unzipDownloads: "Unzip downloaded .zip files"
+        case .quitOnLastWindow: "Quit apps when their last window closes"
         }
     }
 
@@ -43,13 +53,18 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .clearNotificationsHotKey: "Closes every notification on screen and in Notification Center."
         case .dismissShortcutNotifications: "Closes the banner Shortcuts shows while a shortcut runs."
         case .greenButtonFills: "Click the green button to fill the screen without full-screen mode; click again to restore. Hold ⌥ for normal full screen."
+        case .ejectBeforeSleep: "No more \u{201C}Disk Not Ejected Properly\u{201D} after closing the lid. You're told after waking if a drive refused."
+        case .awakeWhileRendering: "Keeps the Mac awake while After Effects, aerender, Media Encoder or Premiere is busy (half a core or more), until two minutes after it stops. The display can still sleep."
+        case .cleanCopiedLinks: "Removes tracking (utm_, fbclid, YouTube si=…) from links as you copy them."
+        case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
+        case .quitOnLastWindow: "For the apps listed below."
         }
     }
 
     /// Tweaks that need Accessibility permission to read or click other apps' windows.
     var needsAccessibility: Bool {
         switch self {
-        case .clearNotificationsHotKey, .dismissShortcutNotifications, .greenButtonFills, .blockMusicLaunch: true
+        case .clearNotificationsHotKey, .dismissShortcutNotifications, .greenButtonFills, .blockMusicLaunch, .quitOnLastWindow: true
         default: false
         }
     }
@@ -71,9 +86,21 @@ final class TweakSettings {
             enabled.insert(tweak)
         }
         self.enabled = enabled
+        quitApps = defaults.stringArray(forKey: "quitOnLastWindowApps") ?? Self.defaultQuitApps
     }
 
     func isOn(_ tweak: Tweak) -> Bool { enabled.contains(tweak) }
+
+    /// Apps quit when their last window closes.
+    private(set) var quitApps: [String] = []
+
+    static let defaultQuitApps = ["com.apple.Preview", "com.apple.TextEdit"]
+
+    func setQuitApps(_ bundleIDs: [String]) {
+        quitApps = bundleIDs
+        defaults.set(bundleIDs, forKey: "quitOnLastWindowApps")
+        onChange?(.quitOnLastWindow)
+    }
 
     func set(_ tweak: Tweak, on: Bool) {
         guard on != isOn(tweak) else { return }

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E331E81854D32C0B5583B639 /* MoreTweaks.swift */; };
 		3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
 		62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */; };
@@ -41,6 +42,7 @@
 		93A9176A0B9E8E86B927F279 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B669558E8002E222EB08AA36 /* TweakSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweakSettings.swift; sourceTree = "<group>"; };
 		E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsTweaks.swift; sourceTree = "<group>"; };
+		E331E81854D32C0B5583B639 /* MoreTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreTweaks.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -78,6 +80,7 @@
 				E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */,
 				93A9176A0B9E8E86B927F279 /* Info.plist */,
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
+				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				228920353BABF64F9F93E79F /* SettingsView.swift */,
 				099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */,
 				4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */,
@@ -179,6 +182,7 @@
 				3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */,
 				3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */,
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
+				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */,
 				62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */,
 				AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */,

@@ -20,11 +20,24 @@ where every tweak has its own switch.
   copy it to Applications (the old copy goes to the Trash), eject the image, trash the
   `.dmg` and open the app.
 
+**More downloads and clipboard**
+- New `.zip` downloads are extracted next to the archive (one item comes out as is,
+  several go in a folder named after the zip), then the zip goes to the Trash.
+- Tracking parameters (`utm_…`, `fbclid`, YouTube and Spotify `si=`, X `s=`/`t=`, …)
+  are stripped from links as you copy them. Only a clipboard holding a single http(s)
+  link is touched, and password-manager items never are.
+
+**Sleep**
+- External drives are ejected as the Mac sleeps; if one refuses, you're told after wake.
+- The Mac stays awake (the display can still sleep) while After Effects, aerender,
+  Media Encoder or Premiere is busy, until two minutes after the work stops.
+
 **Windows and notifications** (need Accessibility permission)
 - ⌃⌥⌘N closes every notification on screen.
 - "Shortcut is running" banners from Shortcuts close themselves.
 - The green window button fills the screen without macOS full screen; click it again
   to restore the window. Hold ⌥ for normal full screen.
+- Apps you pick (Preview and TextEdit to start) quit when their last window closes.
 
 Nothing runs as root and there is no helper. The Downloads tweaks only touch files
 that arrive after Tweaks starts.

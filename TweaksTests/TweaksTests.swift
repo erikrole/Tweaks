@@ -145,3 +145,84 @@ final class WatcherIntegrationTests: XCTestCase {
         XCTAssertEqual(names, ["Existing.PNG", "Photo.jpg"], "new file renamed, existing file left alone")
     }
 }
+
+@MainActor
+final class MoreTweakTests: XCTestCase {
+    func testLinkCleaning() {
+        XCTAssertEqual(LinkCleaner.clean("https://example.com/post?id=7&utm_source=x&utm_medium=email&fbclid=abc"),
+                       "https://example.com/post?id=7")
+        XCTAssertEqual(LinkCleaner.clean("https://www.youtube.com/watch?v=abc&si=TRACK&t=42"),
+                       "https://www.youtube.com/watch?v=abc&t=42")
+        XCTAssertEqual(LinkCleaner.clean("https://youtu.be/abc?si=TRACK"), "https://youtu.be/abc")
+        XCTAssertEqual(LinkCleaner.clean("https://x.com/user/status/1?s=20&t=abc"), "https://x.com/user/status/1")
+        XCTAssertEqual(LinkCleaner.clean("https://open.spotify.com/track/1?si=abc"), "https://open.spotify.com/track/1")
+        // Untouched: clean links, non-links, other sites' meaningful params, text with spaces.
+        XCTAssertEqual(LinkCleaner.clean("https://example.com/?q=search"), "https://example.com/?q=search")
+        XCTAssertEqual(LinkCleaner.clean("https://github.com/x/y?feature=1"), "https://github.com/x/y?feature=1")
+        XCTAssertNil(LinkCleaner.clean("check https://example.com?utm_source=x"))
+        XCTAssertNil(LinkCleaner.clean("not a link"))
+        XCTAssertNil(LinkCleaner.clean("ftp://example.com?utm_source=x"))
+    }
+
+    func testRenderDetection() {
+        let ae = "/Applications/Adobe After Effects 2026/Adobe After Effects 2026.app/Contents/MacOS/After Effects"
+        let aerender = "/Applications/Adobe After Effects 2026/aerender"
+        XCTAssertEqual(RenderKeepAwake.busyRenderer(in: [ae: 340]), "After Effects")
+        XCTAssertEqual(RenderKeepAwake.busyRenderer(in: [aerender: 120]), "aerender")
+        XCTAssertNil(RenderKeepAwake.busyRenderer(in: [ae: 20]), "idle AE doesn't hold the Mac awake")
+        XCTAssertNil(RenderKeepAwake.busyRenderer(in: ["/Applications/Dia.app/Contents/MacOS/Dia": 400]))
+    }
+
+    func testWhichDrivesEject() {
+        XCTAssertTrue(SleepEjector.shouldEject(isLocal: true, isRoot: false, isInternal: false, isEjectable: true, isRemovable: false))
+        XCTAssertFalse(SleepEjector.shouldEject(isLocal: true, isRoot: true, isInternal: true, isEjectable: false, isRemovable: false))
+        XCTAssertFalse(SleepEjector.shouldEject(isLocal: false, isRoot: false, isInternal: false, isEjectable: true, isRemovable: false), "network shares stay")
+        XCTAssertFalse(SleepEjector.shouldEject(isLocal: true, isRoot: false, isInternal: true, isEjectable: false, isRemovable: false))
+    }
+
+    func testQuitOnlyAfterHavingWindows() {
+        XCTAssertTrue(LastWindowQuitter.shouldQuit(hadWindows: true, windowCount: 0))
+        XCTAssertFalse(LastWindowQuitter.shouldQuit(hadWindows: false, windowCount: 0), "just launched, no window yet")
+        XCTAssertFalse(LastWindowQuitter.shouldQuit(hadWindows: true, windowCount: 1))
+    }
+
+    func testUnzipSingleAndMultiple() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "unzip-\(UUID().uuidString)")
+        let source = folder.appending(path: "src")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data("a".utf8).write(to: source.appending(path: "a.txt"))
+        try Data("b".utf8).write(to: source.appending(path: "b.txt"))
+
+        func zip(_ items: [String], as name: String) throws -> URL {
+            let archive = folder.appending(path: name)
+            let process = Process()
+            process.executableURL = URL(filePath: "/usr/bin/zip")
+            process.currentDirectoryURL = source
+            process.arguments = ["-q", archive.path] + items
+            try process.run()
+            process.waitUntilExit()
+            return archive
+        }
+        let single = try zip(["a.txt"], as: "Single.zip")
+        let multi = try zip(["a.txt", "b.txt"], as: "Pair.zip")
+        try FileManager.default.removeItem(at: source.appending(path: "a.txt"))
+        await DownloadsWatcher.unzip(single)
+        await DownloadsWatcher.unzip(multi)
+        let names = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path))
+        XCTAssertTrue(names.contains("a.txt"), "single item comes out as is")
+        XCTAssertTrue(names.contains("Pair"), "several items go in a folder named after the zip")
+        XCTAssertFalse(names.contains("Single.zip"))
+        XCTAssertFalse(names.contains("Pair.zip"))
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: folder.appending(path: "Pair").path)), ["a.txt", "b.txt"])
+    }
+
+    func testUniqueNames() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "unique-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data().write(to: folder.appending(path: "Clip.mov"))
+        XCTAssertEqual(DownloadsWatcher.uniqueURL(for: "Clip.mov", in: folder).lastPathComponent, "Clip 2.mov")
+        XCTAssertEqual(DownloadsWatcher.uniqueURL(for: "New.mov", in: folder).lastPathComponent, "New.mov")
+    }
+}

@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showSettings() {
         if window == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 520, height: 640),
+                contentRect: NSRect(x: 0, y: 0, width: 540, height: 720),
                 styleMask: [.titled, .closable, .miniaturizable],
                 backing: .buffered, defer: false
             )
@@ -72,6 +72,10 @@ final class TweakController {
     private let dmg = DMGInstaller()
     private let shortcutBanners = ShortcutBannerDismisser()
     private let greenButton = GreenButtonFill()
+    private let ejector = SleepEjector()
+    let renderAwake = RenderKeepAwake()
+    private let linkCleaner = LinkCleaner()
+    private let quitter = LastWindowQuitter()
     private var hotKey: HotKey?
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
@@ -113,10 +117,11 @@ final class TweakController {
             break // Applied in didWake.
         case .muteIcon:
             on ? mute.start() : mute.stop()
-        case .lowercaseExtensions, .calendarInvites:
+        case .lowercaseExtensions, .calendarInvites, .unzipDownloads:
             downloads.lowercaseExtensions = settings?.isOn(.lowercaseExtensions) ?? false
             downloads.openCalendarInvites = settings?.isOn(.calendarInvites) ?? false
-            let needed = downloads.lowercaseExtensions || downloads.openCalendarInvites
+            downloads.unzipArchives = settings?.isOn(.unzipDownloads) ?? false
+            let needed = downloads.lowercaseExtensions || downloads.openCalendarInvites || downloads.unzipArchives
             if needed, !downloads.isRunning { downloads.start() }
             if !needed { downloads.stop() }
         case .dmgInstaller:
@@ -134,6 +139,16 @@ final class TweakController {
         case .greenButtonFills:
             greenButton.stop()
             if on && hasAccessibility { greenButton.start() }
+        case .ejectBeforeSleep:
+            if on { Notifier.requestPermission() }
+            on ? ejector.start() : ejector.stop()
+        case .awakeWhileRendering:
+            on ? renderAwake.start() : renderAwake.stop()
+        case .cleanCopiedLinks:
+            on ? linkCleaner.start() : linkCleaner.stop()
+        case .quitOnLastWindow:
+            quitter.bundleIDs = Set(settings?.quitApps ?? [])
+            on && hasAccessibility ? quitter.start() : quitter.stop()
         }
     }
 

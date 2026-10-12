@@ -7,6 +7,7 @@ import Foundation
 final class DownloadsWatcher {
     var lowercaseExtensions = false
     var openCalendarInvites = false
+    var unzipArchives = false
 
     private let folder: URL
     private var source: DispatchSourceFileSystemObject?
@@ -92,6 +93,9 @@ final class DownloadsWatcher {
         if openCalendarInvites, url.pathExtension.lowercased() == "ics" {
             openInvite(url)
         }
+        if unzipArchives, url.pathExtension.lowercased() == "zip" {
+            Task { await Self.unzip(url) }
+        }
     }
 
     // MARK: - Calendar invites
@@ -126,6 +130,59 @@ final class DownloadsWatcher {
             if depth == 0 { output.append(line) }
         }
         return output.joined(separator: "\r\n")
+    }
+
+    // MARK: - Zip archives
+
+    /// Extracts next to the archive like Archive Utility (a single item comes out as is,
+    /// several land in a folder named after the zip), then trashes the zip.
+    static func unzip(_ archive: URL) async {
+        let folder = archive.deletingLastPathComponent()
+        let staging = FileManager.default.temporaryDirectory.appending(path: "tweaks-unzip-\(UUID().uuidString)")
+        let succeeded = await Task.detached { () -> Bool in
+            try? FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+            let process = Process()
+            process.executableURL = URL(filePath: "/usr/bin/ditto")
+            process.arguments = ["-x", "-k", archive.path, staging.path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            guard (try? process.run()) != nil else { return false }
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        }.value
+        defer { try? FileManager.default.removeItem(at: staging) }
+        guard succeeded else { return }
+
+        let items = ((try? FileManager.default.contentsOfDirectory(at: staging, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.lastPathComponent != "__MACOSX" && $0.lastPathComponent != ".DS_Store" }
+        guard !items.isEmpty else { return }
+        do {
+            if items.count == 1 {
+                try FileManager.default.moveItem(at: items[0], to: uniqueURL(for: items[0].lastPathComponent, in: folder))
+            } else {
+                let destination = uniqueURL(for: archive.deletingPathExtension().lastPathComponent, in: folder)
+                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
+                for item in items {
+                    try FileManager.default.moveItem(at: item, to: destination.appending(path: item.lastPathComponent))
+                }
+            }
+            try FileManager.default.trashItem(at: archive, resultingItemURL: nil)
+        } catch {
+            // Leave the zip in place if anything went wrong.
+        }
+    }
+
+    /// "Clip.mov" → "Clip 2.mov" when the name is taken.
+    static func uniqueURL(for name: String, in folder: URL) -> URL {
+        let candidate = folder.appending(path: name)
+        guard FileManager.default.fileExists(atPath: candidate.path) else { return candidate }
+        let base = (name as NSString).deletingPathExtension
+        let ext = (name as NSString).pathExtension
+        for index in 2...999 {
+            let next = folder.appending(path: ext.isEmpty ? "\(base) \(index)" : "\(base) \(index).\(ext)")
+            if !FileManager.default.fileExists(atPath: next.path) { return next }
+        }
+        return folder.appending(path: "\(base) \(UUID().uuidString.prefix(6))\(ext.isEmpty ? "" : ".\(ext)")")
     }
 
     // MARK: - Extensions

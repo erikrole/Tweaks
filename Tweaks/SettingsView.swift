@@ -32,10 +32,22 @@ struct SettingsView: View {
                 row(.blockMusicLaunch)
             }
 
-            Section("Downloads") {
+            Section("Downloads and clipboard") {
                 row(.lowercaseExtensions)
                 row(.calendarInvites)
                 row(.dmgInstaller)
+                row(.unzipDownloads)
+                row(.cleanCopiedLinks)
+            }
+
+            Section("Sleep") {
+                row(.ejectBeforeSleep)
+                row(.awakeWhileRendering)
+                if let holding = controller.renderAwake.holdingFor {
+                    Label("Keeping your Mac awake: \(holding) is rendering", systemImage: "cup.and.saucer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Windows and notifications") {
@@ -44,6 +56,21 @@ struct SettingsView: View {
                 row(.greenButtonFills)
                 Button("Clear notifications now") { controller.clearNotifications() }
                     .disabled(!controller.hasAccessibility)
+            }
+
+            Section("Quit when the last window closes") {
+                row(.quitOnLastWindow)
+                ForEach(settings.quitApps, id: \.self) { bundleID in
+                    HStack {
+                        Text(Self.appName(for: bundleID))
+                        Spacer()
+                        Button("Remove") {
+                            settings.setQuitApps(settings.quitApps.filter { $0 != bundleID })
+                        }
+                        .buttonStyle(.link)
+                    }
+                }
+                Button("Add App…") { addQuitApp() }
             }
 
             Section {
@@ -64,7 +91,23 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 640)
+        .frame(width: 540, height: 720)
+    }
+
+    private func addQuitApp() {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(filePath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Add"
+        guard panel.runModal() == .OK else { return }
+        let added = panel.urls.compactMap { Bundle(url: $0)?.bundleIdentifier }
+        settings.setQuitApps(Array(Set(settings.quitApps + added)).sorted { Self.appName(for: $0) < Self.appName(for: $1) })
+    }
+
+    static func appName(for bundleID: String) -> String {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
     }
 
     private func row(_ tweak: Tweak) -> some View {
