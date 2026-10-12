@@ -2,7 +2,7 @@ import Testing
 @testable import FinderUtilitiesKit
 
 @Suite struct ScopeRootsTests {
-    let home = "/Users/role"
+    let home = "/Users/user"
 
     @Test func includesRootVolumesAndCloudFolders() {
         let r = ScopeRoots.compute(
