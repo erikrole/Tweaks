@@ -18,10 +18,17 @@ struct SettingsView: View {
                         Text("Clearing notifications, dismissing Shortcut banners, the green button and blocking Music read or click other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
-                        Button("Open Accessibility Settings") {
-                            AX.requestTrust()
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                        HStack {
+                            Button("Open Accessibility Settings") {
+                                AX.requestTrust()
+                                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                            }
+                            Button("Already on? Relaunch Tweaks") { AX.relaunch() }
                         }
+                        Text("If Tweaks is switched on there and this still shows, macOS is holding an old answer; relaunching picks it up. If it's still stuck, remove Tweaks from the list with the minus button and add it again.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.vertical, 4)
                 }

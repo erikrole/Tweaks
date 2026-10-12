@@ -110,7 +110,21 @@ final class TweakController {
             MainActor.assumeIsolated { self?.didWake() }
         }
         Tweak.allCases.forEach(apply)
+        // If any tweak needs Accessibility and it's missing, ask once at launch so the
+        // system adds a fresh, correctly signed Tweaks entry to the list.
+        if !AX.isTrusted, Tweak.allCases.contains(where: { $0.needsAccessibility && settings?.isOn($0) == true }) {
+            AX.requestTrust()
+        }
+        refreshAccessibility()
         // Accessibility can be granted while Tweaks runs; pick it up without a relaunch.
+        // macOS posts this when the Accessibility list changes.
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.apple.accessibility.api"), object: nil, queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                MainActor.assumeIsolated { self?.refreshAccessibility() }
+            }
+        }
         let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshAccessibility() }
         }
@@ -120,6 +134,7 @@ final class TweakController {
 
     func refreshAccessibility() {
         let trusted = AX.isTrusted
+        UserDefaults.standard.set(trusted, forKey: "accessibilityTrusted")
         guard trusted != hasAccessibility else { return }
         hasAccessibility = trusted
         Tweak.allCases.filter(\.needsAccessibility).forEach(apply)

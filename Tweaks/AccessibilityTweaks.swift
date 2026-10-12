@@ -5,7 +5,28 @@ import Carbon.HIToolbox
 // MARK: - Accessibility helpers
 
 enum AX {
-    static var isTrusted: Bool { AXIsProcessTrusted() }
+    /// Whether Tweaks may use Accessibility. AXIsProcessTrusted() can keep answering
+    /// "no" for a while after you switch Tweaks on in System Settings, so also try a
+    /// harmless real call: if the system answers it, the permission is there.
+    static var isTrusted: Bool {
+        if AXIsProcessTrusted() { return true }
+        let systemWide = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(systemWide, 0.2)
+        var value: AnyObject?
+        let result = AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &value)
+        return result == .success || result == .noValue
+    }
+
+    /// Relaunches Tweaks: the reliable way to pick up a permission macOS cached as "no".
+    @MainActor
+    static func relaunch() {
+        let path = Bundle.main.bundleURL.path
+        let process = Process()
+        process.executableURL = URL(filePath: "/bin/sh")
+        process.arguments = ["-c", "sleep 0.5; /usr/bin/open \"$0\"", path]
+        try? process.run()
+        NSApp.terminate(nil)
+    }
 
     /// Shows macOS's "allow Tweaks to control your computer" prompt if needed.
     static func requestTrust() {
