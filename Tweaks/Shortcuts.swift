@@ -132,7 +132,9 @@ final class ShortcutRecorder: NSView {
     var shortcut: Shortcut?
     var onChange: (Shortcut?) -> Void
     private var recording = false
-    private var monitor: Any?
+    /// Installed and removed on the main thread. deinit is nonisolated, so the compiler
+    /// cannot prove that; nothing else touches this token.
+    nonisolated(unsafe) private var monitor: Any?
     private var hint: String?
     private let button = NSButton()
     private let clear = NSButton()
@@ -198,27 +200,31 @@ final class ShortcutRecorder: NSView {
         hint = nil
         refreshTitle()
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            let code = Int(event.keyCode)
-            if code == kVK_Escape { self.stopRecording(); return nil }
-            if code == kVK_Delete || code == kVK_ForwardDelete {
-                self.onChange(nil)
-                self.shortcut = nil
+            // The monitor block is not isolated to the main actor. The window that
+            // installed it is, and local monitors are delivered on the main thread.
+            MainActor.assumeIsolated {
+                guard let self else { return event }
+                let code = Int(event.keyCode)
+                if code == kVK_Escape { self.stopRecording(); return nil }
+                if code == kVK_Delete || code == kVK_ForwardDelete {
+                    self.onChange(nil)
+                    self.shortcut = nil
+                    self.stopRecording()
+                    return nil
+                }
+                let modifiers = Shortcut.carbonModifiers(from: event.modifierFlags)
+                guard modifiers & UInt32(cmdKey | controlKey | optionKey) != 0 else {
+                    self.hint = "Add ⌘, ⌃ or ⌥"
+                    self.refreshTitle()
+                    return nil
+                }
+                let shortcut = Shortcut(keyCode: UInt32(event.keyCode), modifiers: modifiers,
+                                        key: Shortcut.keyName(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers))
+                self.shortcut = shortcut
+                self.onChange(shortcut)
                 self.stopRecording()
                 return nil
             }
-            let modifiers = Shortcut.carbonModifiers(from: event.modifierFlags)
-            guard modifiers & UInt32(cmdKey | controlKey | optionKey) != 0 else {
-                self.hint = "Add ⌘, ⌃ or ⌥"
-                self.refreshTitle()
-                return nil
-            }
-            let shortcut = Shortcut(keyCode: UInt32(event.keyCode), modifiers: modifiers,
-                                    key: Shortcut.keyName(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers))
-            self.shortcut = shortcut
-            self.onChange(shortcut)
-            self.stopRecording()
-            return nil
         }
     }
 

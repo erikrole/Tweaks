@@ -15,16 +15,13 @@ public final class TweaksMediaReader: NSObject {
     @objc(factsForPath:)
     public static func facts(forPath path: String) -> NSDictionary {
         let box = Box()
-        let group = DispatchGroup()
-        group.enter()
+        box.enter()
         Task {
-            box.set(await collect(URL(filePath: path)))
-            group.leave()
+            box.finish(await collect(URL(filePath: path)))
         }
         // Bound a hung share. MetadataService already abandons the caller; this lets the
         // GCD thread go back to the pool instead of waiting on AVFoundation forever.
-        _ = group.wait(timeout: .now() + 6)
-        return box.get()
+        return box.wait()
     }
 
     /// Image facts overwrite video facts when both exist, matching the old provider order
@@ -132,17 +129,23 @@ public final class TweaksMediaReader: NSObject {
         return nil
     }
 
+    /// DispatchGroup is captured only here, so the unstructured task stays Sendable.
     private final class Box: @unchecked Sendable {
         private let lock = NSLock()
+        private let group = DispatchGroup()
         private var dict: NSDictionary = [:]
 
-        func set(_ value: NSDictionary) {
+        func enter() { group.enter() }
+
+        func finish(_ value: NSDictionary) {
             lock.lock()
             dict = value
             lock.unlock()
+            group.leave()
         }
 
-        func get() -> NSDictionary {
+        func wait() -> NSDictionary {
+            _ = group.wait(timeout: .now() + 6)
             lock.lock()
             defer { lock.unlock() }
             return dict

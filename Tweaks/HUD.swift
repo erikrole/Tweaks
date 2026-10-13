@@ -1,6 +1,8 @@
 import AppKit
 
 /// Warm paper and ink, shared by the settings window, the Keep Awake panel and the HUD.
+/// Main-actor isolated: `NSColor` is a class, so a plain static would be shared mutable state.
+@MainActor
 enum Paper {
     static let background = NSColor(srgbRed: 0.945, green: 0.933, blue: 0.906, alpha: 1)
     static let ink = NSColor(srgbRed: 0.18, green: 0.16, blue: 0.13, alpha: 1)
@@ -31,20 +33,21 @@ enum HUD {
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.12
-            panel.animator().alphaValue = 1
+            MainActor.assumeIsolated { HUD.panel?.animator().alphaValue = 1 }
         }
 
         hideWork?.cancel()
         let work = DispatchWorkItem {
             MainActor.assumeIsolated {
+                guard HUD.panel != nil else { return }
                 NSAnimationContext.runAnimationGroup({ context in
                     context.duration = 0.25
-                    panel.animator().alphaValue = 0
+                    MainActor.assumeIsolated { HUD.panel?.animator().alphaValue = 0 }
                 }, completionHandler: {
                     MainActor.assumeIsolated {
-                        panel.orderOut(nil)
-                        panel.contentView = nil
-                        if self.panel === panel { self.panel = nil }
+                        HUD.panel?.orderOut(nil)
+                        HUD.panel?.contentView = nil
+                        HUD.panel = nil
                     }
                 })
             }

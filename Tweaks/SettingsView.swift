@@ -2,14 +2,19 @@ import AppKit
 import Darwin
 import ObjectiveC
 import Observation
+import os
 
 /// Finder Sync is loaded only while this window is open. The idle app does not link it.
 enum FinderExtensionBridge {
-    private static var loaded = false
+    private static let loaded = OSAllocatedUnfairLock(initialState: false)
 
     static func prepare() -> Bool {
-        if loaded { return NSClassFromString("FIFinderSyncController") != nil }
-        loaded = true
+        let firstTime = loaded.withLock { value -> Bool in
+            if value { return false }
+            value = true
+            return true
+        }
+        if !firstTime { return NSClassFromString("FIFinderSyncController") != nil }
         let path = "/System/Library/Frameworks/FinderSync.framework/FinderSync"
         return dlopen(path, RTLD_LAZY) != nil && NSClassFromString("FIFinderSyncController") != nil
     }
@@ -102,9 +107,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     required init?(coder: NSCoder) { nil }
 
     func windowWillClose(_ notification: Notification) {
-        let close = onClose
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated { close?() }
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated { self?.onClose?() }
         }
     }
 

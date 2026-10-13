@@ -1,34 +1,40 @@
 import FinderUtilitiesKit
 import Foundation
 import ObjectiveC
+import os
 
 /// Reads media facts from `TweaksMedia.bundle` the first time a real file is inspected.
 /// The extension does not link AVFoundation or ImageIO, so those frameworks are not
 /// mapped while Finder Sync is idle.
 struct BundledMediaProvider: MetadataProvider {
     func metadata(for url: URL) async throws -> MediaMetadata {
-        let raw: [String: Any] = await withCheckedContinuation { continuation in
-            // Block on a GCD thread. Waiting here on a Swift task can deadlock the
-            // cooperative pool, because the bundle's own read schedules a task.
+        let path = url.path
+        // MediaFacts is Sendable. The raw dictionary is not, so it stays on the GCD thread.
+        // Waiting here on a Swift task can deadlock the cooperative pool, because the
+        // bundle's own read schedules a task.
+        let facts: MediaFacts = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
-                continuation.resume(returning: MediaLibrary.facts(for: url.path) ?? [:])
+                let raw = MediaLibrary.facts(for: path) ?? [:]
+                continuation.resume(returning: MediaFacts(dictionary: raw))
             }
         }
         var metadata = MediaMetadata()
-        MediaFacts(dictionary: raw).apply(to: &metadata)
+        facts.apply(to: &metadata)
         return metadata
     }
 }
 
 enum MediaLibrary {
-    private static let lock = NSLock()
-    private static var reader: AnyClass?
-    private static var gaveUp = false
+    /// `AnyClass` is not Sendable. The unfair lock is the only way into this cache.
+    private struct Cache: @unchecked Sendable {
+        var reader: AnyClass?
+        var gaveUp = false
+    }
+
+    private static let cache = OSAllocatedUnfairLock(initialState: Cache())
 
     static func facts(for path: String) -> [String: Any]? {
-        lock.lock()
-        let cls = load()
-        lock.unlock()
+        let cls = cache.withLock(load)
         guard let cls, let dict = invoke(cls, path: path) else { return nil }
         var out: [String: Any] = [:]
         for key in dict.allKeys {
@@ -38,15 +44,15 @@ enum MediaLibrary {
         return out
     }
 
-    private static func load() -> AnyClass? {
-        if let reader { return reader }
-        if gaveUp { return nil }
-        guard let url = bundleURL() else { gaveUp = true; return nil }
+    private static func load(_ cache: inout Cache) -> AnyClass? {
+        if let reader = cache.reader { return reader }
+        if cache.gaveUp { return nil }
+        guard let url = bundleURL() else { cache.gaveUp = true; return nil }
         let bundle = Bundle(url: url)
-        guard bundle?.load() == true else { gaveUp = true; return nil }
+        guard bundle?.load() == true else { cache.gaveUp = true; return nil }
         let cls = bundle?.principalClass ?? NSClassFromString("TweaksMediaReader")
-        guard let cls else { gaveUp = true; return nil }
-        reader = cls
+        guard let cls else { cache.gaveUp = true; return nil }
+        cache.reader = cls
         return cls
     }
 

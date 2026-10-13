@@ -191,6 +191,7 @@ final class PanelModel {
 }
 
 /// A borderless panel that can take keyboard focus without activating Tweaks.
+@MainActor
 final class KeyablePanel: NSPanel {
     var onKey: ((String, UInt16) -> Bool)?
     var onResignKey: (() -> Void)?
