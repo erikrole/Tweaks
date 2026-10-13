@@ -97,12 +97,29 @@ enum OutputAudio {
         return status == noErr && device != 0 ? device : nil
     }
 
-    private static func volumeAddress() -> AudioObjectPropertyAddress {
+    /// Per-channel scalar. The macOS 27 SDK no longer has
+    /// `kAudioHardwareServiceDeviceProperty_VirtualMainVolume`; the main element is the
+    /// device volume, and channels 1 and 2 cover devices that only expose a pair.
+    private static func volumeAddress(element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
-            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mSelector: kAudioDevicePropertyVolumeScalar,
             mScope: kAudioDevicePropertyScopeOutput,
-            mElement: kAudioObjectPropertyElementMain
+            mElement: element
         )
+    }
+
+    private static func readScalar(_ device: AudioDeviceID, element: AudioObjectPropertyElement) -> Float? {
+        var address = volumeAddress(element: element)
+        var value = Float32(0)
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
+        return value
+    }
+
+    private static func writeScalar(_ device: AudioDeviceID, element: AudioObjectPropertyElement, _ volume: Float32) -> Bool {
+        var address = volumeAddress(element: element)
+        var value = volume
+        return AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &value) == noErr
     }
 
     static func muteAddress() -> AudioObjectPropertyAddress {
@@ -115,18 +132,16 @@ enum OutputAudio {
 
     static func volume() -> Float? {
         guard let device = defaultDevice() else { return nil }
-        var address = volumeAddress()
-        var value = Float32(0)
-        var size = UInt32(MemoryLayout<Float32>.size)
-        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
-        return value
+        if let value = readScalar(device, element: kAudioObjectPropertyElementMain) { return value }
+        return readScalar(device, element: 1)
     }
 
     static func setVolume(_ volume: Float) {
         guard let device = defaultDevice() else { return }
-        var address = volumeAddress()
-        var value = Float32(min(max(volume, 0), 1))
-        AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &value)
+        let value = Float32(min(max(volume, 0), 1))
+        if writeScalar(device, element: kAudioObjectPropertyElementMain, value) { return }
+        _ = writeScalar(device, element: 1, value)
+        _ = writeScalar(device, element: 2, value)
     }
 
     static func isMuted() -> Bool {
@@ -285,9 +300,10 @@ final class MusicLaunchBlocker {
         ) { [weak self] notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   app.bundleIdentifier == Self.musicBundleID else { return }
+            let pid = app.processIdentifier
             Task { @MainActor in
                 guard let self, Self.shouldBlock(launchAt: Date(), lastPlayKey: self.lastPlayKey) else { return }
-                app.terminate()
+                NSRunningApplication(processIdentifier: pid)?.terminate()
             }
         }
     }

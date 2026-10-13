@@ -200,31 +200,32 @@ final class ShortcutRecorder: NSView {
         hint = nil
         refreshTitle()
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            // The monitor block is not isolated to the main actor. The window that
-            // installed it is, and local monitors are delivered on the main thread.
-            MainActor.assumeIsolated {
-                guard let self else { return event }
-                let code = Int(event.keyCode)
-                if code == kVK_Escape { self.stopRecording(); return nil }
+            // NSEvent is not Sendable. Pull the fields off it before hopping to the main actor.
+            let code = Int(event.keyCode)
+            let modifiers = Shortcut.carbonModifiers(from: event.modifierFlags)
+            let characters = event.charactersIgnoringModifiers
+            let swallow = MainActor.assumeIsolated { () -> Bool in
+                guard let self else { return false }
+                if code == kVK_Escape { self.stopRecording(); return true }
                 if code == kVK_Delete || code == kVK_ForwardDelete {
                     self.onChange(nil)
                     self.shortcut = nil
                     self.stopRecording()
-                    return nil
+                    return true
                 }
-                let modifiers = Shortcut.carbonModifiers(from: event.modifierFlags)
                 guard modifiers & UInt32(cmdKey | controlKey | optionKey) != 0 else {
                     self.hint = "Add ⌘, ⌃ or ⌥"
                     self.refreshTitle()
-                    return nil
+                    return true
                 }
-                let shortcut = Shortcut(keyCode: UInt32(event.keyCode), modifiers: modifiers,
-                                        key: Shortcut.keyName(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers))
+                let shortcut = Shortcut(keyCode: UInt32(code), modifiers: modifiers,
+                                        key: Shortcut.keyName(keyCode: UInt16(code), characters: characters))
                 self.shortcut = shortcut
                 self.onChange(shortcut)
                 self.stopRecording()
-                return nil
+                return true
             }
+            return swallow ? nil : event
         }
     }
 

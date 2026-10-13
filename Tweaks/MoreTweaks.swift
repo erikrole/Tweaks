@@ -389,7 +389,7 @@ final class LastWindowQuitter {
         timer?.invalidate()
         timer = nil
         hadWindows = []
-        emptyPolls = []
+        emptyPolls = [:]
     }
 
     /// No Accessibility queries unless one of the chosen apps is actually running.
@@ -399,7 +399,7 @@ final class LastWindowQuitter {
             timer?.invalidate()
             timer = nil
             hadWindows = []
-            emptyPolls = []
+            emptyPolls = [:]
             return
         }
         guard timer == nil else { return }
