@@ -1,32 +1,40 @@
 import AppKit
 import Carbon.HIToolbox
-import SwiftUI
 
 @main
-struct TweaksApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-
-    var body: some Scene {
-        Settings {
-            EmptyView()
+enum TweaksMain {
+    static func main() {
+        // The main thread is the main actor; NSApplication.delegate is weak.
+        MainActor.assumeIsolated {
+            let app = NSApplication.shared
+            let delegate = AppDelegate()
+            app.delegate = delegate
+            withExtendedLifetime(delegate) {
+                app.run()
+            }
         }
     }
 }
 
 /// Runs in the background with no menu bar icon. Opening Tweaks again (from Finder,
-/// Spotlight or Raycast) shows its settings window.
+/// Spotlight or Raycast) shows its settings window. AppKit only: SwiftUI stays unmapped
+/// while Tweaks is idle.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
     private let settings = TweakSettings()
     private let launchAtLogin = LaunchAtLoginController()
     private let controller = TweakController()
-    private var window: NSWindow?
+    private var settingsWindow: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         installURLHandler()
         controller.settings = settings
-        settings.onChange = { [weak self] tweak in self?.controller.apply(tweak) }
+        settings.onChange = { [weak self] tweak in
+            self?.controller.apply(tweak)
+            self?.settingsWindow?.sync()
+        }
         controller.start()
 
         let firstLaunch = UserDefaults.standard.object(forKey: "hasLaunched") == nil
@@ -34,9 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if firstLaunch { showSettings() }
     }
 
-    /// tweaks:// links. SwiftUI's app lifecycle installs its own URL handler during launch
-    /// and doesn't pass URLs to the delegate when no scene claims them, so take the Apple
-    /// Event over once launch has finished.
+    /// tweaks:// links, taken directly because there is no SwiftUI scene to claim them.
     private func installURLHandler() {
         NSAppleEventManager.shared().setEventHandler(
             self, andSelector: #selector(handleURLEvent(_:withReply:)),
@@ -56,41 +62,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func showSettings() {
-        if window == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 540, height: 720),
-                styleMask: [.titled, .closable, .miniaturizable],
-                backing: .buffered, defer: false
-            )
-            window.title = "Tweaks"
-            window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(
-                rootView: SettingsView(settings: settings, controller: controller, launchAtLogin: launchAtLogin)
-            )
-            window.center()
-            window.delegate = self
-            self.window = window
+        if settingsWindow == nil {
+            let window = SettingsWindowController(settings: settings, tweaks: controller, launchAtLogin: launchAtLogin)
+            window.onClose = { [weak self] in
+                self?.settingsWindow = nil
+                NSApp.setActivationPolicy(.accessory)
+            }
+            settingsWindow = window
         }
         controller.refreshAccessibility()
+        settingsWindow?.sync()
         // A normal app while the window is open: Dock icon, ⌘-Tab, its own menu bar.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
-    }
-
-    /// Closing the window keeps Tweaks running in the background and takes the Dock icon away.
-    func windowWillClose(_ notification: Notification) {
-        guard (notification.object as? NSWindow) === window else { return }
-        DispatchQueue.main.async {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        settingsWindow?.showWindow(nil)
     }
 
     /// ⌘Q (or Quit from the Dock) while the window is open just closes it; Tweaks keeps
     /// working. The Quit Tweaks button in the window really quits.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if Self.reallyQuit { return .terminateNow }
-        if let window, window.isVisible {
+        if let window = settingsWindow?.window, window.isVisible {
             window.close()
             return .terminateCancel
         }
@@ -143,7 +135,8 @@ final class TweakController {
         }
         refreshAccessibility()
         // Accessibility can be granted while Tweaks runs; pick it up without a relaunch.
-        // macOS posts this when the Accessibility list changes.
+        // macOS posts this when the Accessibility list changes. The timer is only a backup
+        // while permission is still missing, so a trusted idle process doesn't wake for it.
         DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("com.apple.accessibility.api"), object: nil, queue: .main
         ) { [weak self] _ in
@@ -151,19 +144,34 @@ final class TweakController {
                 MainActor.assumeIsolated { self?.refreshAccessibility() }
             }
         }
-        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshAccessibility() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        accessibilityTimer = timer
     }
+
+    /// Backup poll, only while Accessibility is still off.
+    static let accessibilityInterval: TimeInterval = 30
 
     func refreshAccessibility() {
         let trusted = AX.isTrusted
         UserDefaults.standard.set(trusted, forKey: "accessibilityTrusted")
-        guard trusted != hasAccessibility else { return }
-        hasAccessibility = trusted
-        Tweak.allCases.filter(\.needsAccessibility).forEach(apply)
+        if trusted != hasAccessibility {
+            hasAccessibility = trusted
+            Tweak.allCases.filter(\.needsAccessibility).forEach(apply)
+        }
+        armAccessibilityTimer()
+    }
+
+    private func armAccessibilityTimer() {
+        if hasAccessibility {
+            accessibilityTimer?.invalidate()
+            accessibilityTimer = nil
+            return
+        }
+        guard accessibilityTimer == nil else { return }
+        let timer = Timer(timeInterval: Self.accessibilityInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshAccessibility() }
+        }
+        timer.tolerance = 10
+        RunLoop.main.add(timer, forMode: .common)
+        accessibilityTimer = timer
     }
 
     func apply(_ tweak: Tweak) {
@@ -172,12 +180,16 @@ final class TweakController {
         case .capsLockNoDelay:
             capsLockTimer?.invalidate()
             capsLockTimer = nil
-            guard on else { return }
-            CapsLockTweak.apply()
-            // Reapply now and then: plugging in a keyboard resets it.
-            let timer = Timer(timeInterval: 300, repeats: true) { _ in CapsLockTweak.apply() }
-            RunLoop.main.add(timer, forMode: .common)
-            capsLockTimer = timer
+            if on {
+                CapsLockTweak.apply()
+                // Reapply now and then: plugging in a keyboard resets it.
+                let timer = Timer(timeInterval: CapsLockTweak.reapplyInterval, repeats: true) { _ in CapsLockTweak.apply() }
+                timer.tolerance = 60
+                RunLoop.main.add(timer, forMode: .common)
+                capsLockTimer = timer
+            } else {
+                CapsLockTweak.restore()
+            }
         case .wakeVolumeLimit:
             break // Applied in didWake.
         case .muteIcon:
@@ -209,13 +221,19 @@ final class TweakController {
             on ? linkCleaner.start() : linkCleaner.stop()
         case .quitOnLastWindow:
             quitter.bundleIDs = Set(settings?.quitApps ?? [])
-            on && hasAccessibility ? quitter.start() : quitter.stop()
+            if on && hasAccessibility {
+                quitter.start()
+                quitter.appsChanged()
+            } else {
+                quitter.stop()
+            }
         case .unmountSharesBeforeSleep:
             on ? shareSleep.start() : shareSleep.stop()
         case .keepAwakeHotKey:
             register(.keepAwake)
             register(.keepAwakePanel)
             register(.screenOff)
+            if !on { keepAwake.stop() }
         case .autoConnectShares:
             shareConnect.shares = (settings?.autoShares ?? []).compactMap(URL.init(string:))
             shareConnect.stop()

@@ -1,6 +1,5 @@
 import AppKit
 import Observation
-import SwiftUI
 
 /// The Keep Awake chooser: a floating panel centered near the top of the screen you're
 /// on, like Raycast. Arrow keys move, Return picks, number keys pick a duration, letters
@@ -32,8 +31,10 @@ final class KeepAwakePanelController {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.hidesOnDeactivate = false
-        panel.contentView = NSHostingView(rootView: KeepAwakePanelView(model: model))
-        let size = panel.contentView?.fittingSize ?? NSSize(width: 560, height: 360)
+        let root = KeepAwakePanelRoot(model: model)
+        panel.contentView = root
+        root.layoutSubtreeIfNeeded()
+        let size = root.fittingSize.width > 1 ? root.fittingSize : NSSize(width: 340, height: 420)
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
             panel.setFrame(NSRect(x: frame.midX - size.width / 2, y: frame.maxY - frame.height * 0.25 - size.height,
@@ -190,6 +191,7 @@ final class PanelModel {
 }
 
 /// A borderless panel that can take keyboard focus without activating Tweaks.
+@MainActor
 final class KeyablePanel: NSPanel {
     var onKey: ((String, UInt16) -> Bool)?
     var onResignKey: (() -> Void)?
@@ -208,158 +210,164 @@ final class KeyablePanel: NSPanel {
     }
 }
 
-private struct KeepAwakePanelView: View {
-    @Bindable var model: PanelModel
+/// A narrow paper list. Rebuilt when the selection or a toggle changes; the panel itself
+/// is key, so these buttons never take the keyboard.
+@MainActor
+final class KeepAwakePanelRoot: NSView {
+    private let model: PanelModel
+    private let stack = NSStackView()
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            ForEach(model.sections) { section in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(section.title.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    FlowRow(spacing: 6) {
-                        ForEach(section.items) { item in
-                            Chip(item: item, selected: model.selection == item.id) { model.run(item) }
-                                .onHover { if $0 { model.selection = item.id } }
-                        }
-                    }
+    init(model: PanelModel) {
+        self.model = model
+        super.init(frame: NSRect(x: 0, y: 0, width: 340, height: 200))
+        wantsLayer = true
+        layer?.backgroundColor = Paper.background.cgColor
+        layer?.cornerRadius = 4
+        layer?.borderWidth = 1
+        layer?.borderColor = Paper.line.cgColor
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            widthAnchor.constraint(equalToConstant: 340),
+        ])
+        render()
+        track()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    private func render() {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let title = NSTextField(labelWithString: "Keep Awake")
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
+        title.textColor = Paper.ink
+        let subtitle = NSTextField(labelWithString: model.keepAwake.session == nil
+            ? "Return keeps it awake for 12 hours"
+            : model.keepAwake.statusLine)
+        subtitle.font = .systemFont(ofSize: 12)
+        subtitle.textColor = Paper.secondary
+        subtitle.lineBreakMode = .byWordWrapping
+        subtitle.maximumNumberOfLines = 2
+        subtitle.preferredMaxLayoutWidth = 300
+        let header = NSStackView(views: [title, subtitle])
+        header.orientation = .vertical
+        header.alignment = .leading
+        header.spacing = 2
+        stack.addArrangedSubview(header)
+
+        for section in model.sections {
+            let heading = NSTextField(labelWithString: section.title)
+            heading.font = .systemFont(ofSize: 11, weight: .semibold)
+            heading.textColor = Paper.secondary
+            let rows = NSStackView()
+            rows.orientation = .vertical
+            rows.alignment = .leading
+            rows.spacing = 2
+            for item in section.items {
+                rows.addArrangedSubview(row(item))
+            }
+            let block = NSStackView(views: [heading, rows])
+            block.orientation = .vertical
+            block.alignment = .leading
+            block.spacing = 4
+            stack.addArrangedSubview(block)
+        }
+
+        let rule = NSBox()
+        rule.boxType = .separator
+        rule.widthAnchor.constraint(equalToConstant: 312).isActive = true
+        stack.addArrangedSubview(rule)
+        stack.addArrangedSubview(optionRow(
+            title: model.displayOn ? "Display stays on" : "Display can sleep",
+            key: "D",
+            on: model.displayOn,
+            action: #selector(toggleDisplay)
+        ))
+        stack.addArrangedSubview(optionRow(
+            title: "Only while plugged in",
+            key: "P",
+            on: model.onlyOnPower,
+            action: #selector(togglePower)
+        ))
+        let hint = NSTextField(labelWithString: "Arrows move · return starts · esc closes")
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = Paper.secondary
+        stack.addArrangedSubview(hint)
+        invalidateIntrinsicContentSize()
+    }
+
+    private func row(_ item: PanelItem) -> NSButton {
+        let selected = model.selection == item.id
+        var title = item.title
+        if let key = item.key { title += "  \(key)" }
+        let button = NSButton(title: title, target: self, action: #selector(pick(_:)))
+        button.identifier = NSUserInterfaceItemIdentifier(item.id)
+        button.bezelStyle = .recessed
+        button.isBordered = selected || item.prominent
+        button.font = .systemFont(ofSize: 13, weight: selected ? .semibold : .regular)
+        button.contentTintColor = item.id == "stop" ? NSColor(srgbRed: 0.55, green: 0.22, blue: 0.16, alpha: 1) : Paper.ink
+        button.alignment = .left
+        button.refusesFirstResponder = true
+        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        if let icon = item.icon?.copy() as? NSImage {
+            icon.size = NSSize(width: 16, height: 16)
+            button.image = icon
+            button.imagePosition = .imageLeading
+        }
+        button.widthAnchor.constraint(equalToConstant: 312).isActive = true
+        return button
+    }
+
+    private func optionRow(title: String, key: String, on: Bool, action: Selector) -> NSButton {
+        let button = NSButton(title: "\(on ? "●" : "○")  \(title)  \(key)", target: self, action: action)
+        button.bezelStyle = .recessed
+        button.isBordered = false
+        button.font = .systemFont(ofSize: 12)
+        button.contentTintColor = Paper.ink
+        button.alignment = .left
+        button.refusesFirstResponder = true
+        button.widthAnchor.constraint(equalToConstant: 312).isActive = true
+        return button
+    }
+
+    @objc private func pick(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue,
+              let item = model.sections.flatMap(\.items).first(where: { $0.id == id }) else { return }
+        model.run(item)
+    }
+
+    @objc private func toggleDisplay() {
+        model.keepAwake.setKeepsDisplayOn(!model.displayOn)
+    }
+
+    @objc private func togglePower() {
+        model.keepAwake.setOnlyOnPower(!model.onlyOnPower)
+    }
+
+    private func track() {
+        withObservationTracking { [weak self] in
+            guard let self else { return }
+            _ = self.model.selection
+            _ = self.model.displayOn
+            _ = self.model.onlyOnPower
+            _ = self.model.keepAwake.statusLine
+            _ = self.model.keepAwake.session
+        } onChange: { [weak self] in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.render()
+                    self?.track()
                 }
             }
-            Divider().overlay(Color.white.opacity(0.08))
-            HStack(spacing: 6) {
-                Toggle(title: model.displayOn ? "Display stays on" : "Display can sleep", key: "D", isOn: model.displayOn) {
-                    model.keepAwake.setKeepsDisplayOn(!model.displayOn)
-                }
-                Toggle(title: "Only while plugged in", key: "P", isOn: model.onlyOnPower) {
-                    model.keepAwake.setOnlyOnPower(!model.onlyOnPower)
-                }
-                Spacer()
-                Text("←→↑↓ move · ⏎ start · esc close")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(18)
-        .frame(width: 620, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThickMaterial))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.1)))
-        .environment(\.colorScheme, .dark)
-        .padding(1)
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: model.keepAwake.session == nil ? "cup.and.saucer" : "cup.and.saucer.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(model.keepAwake.session == nil ? Color.secondary : Color.orange)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Keep Awake").font(.system(size: 15, weight: .semibold))
-                Text(model.keepAwake.session == nil ? "Return keeps it awake for 12 hours" : model.keepAwake.statusLine)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-}
-
-private struct Chip: View {
-    let item: PanelItem
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon = item.icon {
-                    Image(nsImage: icon).resizable().frame(width: 16, height: 16)
-                } else if let symbol = item.symbol {
-                    Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                }
-                Text(item.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                if let key = item.key { KeyCap(key) }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(selected ? Color.orange.opacity(0.3) : Color.white.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(selected ? Color.orange : (item.prominent ? Color.orange.opacity(0.5) : Color.white.opacity(0.06))))
-            .foregroundStyle(item.id == "stop" ? Color.red : Color.primary)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct Toggle: View {
-    let title: String
-    let key: String
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isOn ? Color.orange : Color.secondary)
-                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                KeyCap(key)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.06)))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct KeyCap: View {
-    let key: String
-    init(_ key: String) { self.key = key }
-
-    var body: some View {
-        Text(key)
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 4).padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.08)))
-    }
-}
-
-/// Lays chips out left to right, wrapping onto new lines.
-private struct FlowRow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 540
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0 && x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return CGSize(width: width, height: y + rowHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX && x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
         }
     }
 }

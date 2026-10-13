@@ -106,7 +106,8 @@ struct JobWatcher {
     private mutating func isBusy(_ job: JobCondition, now: Date) -> Bool {
         switch job {
         case .render:
-            return RenderKeepAwake.busyRenderer(in: sampler.sample()) != nil || RenderProcesses.anyRunning()
+            let snap = sampler.sampleRenderers()
+            return RenderKeepAwake.busyRenderer(in: snap.usage) != nil || snap.paths.contains(where: RenderProcesses.isRenderer)
         case .downloads:
             return Self.downloadsInProgress()
         case .upload:

@@ -50,6 +50,9 @@ final class KeepAwake {
     static let warningLead: TimeInterval = 5 * 60
     static let defaultDuration: TimeInterval = 12 * 3600
 
+    /// How often a running session is checked. The five-minute warning doesn't need a tighter loop.
+    static let watchInterval: TimeInterval = 30
+
     private var assertion: IOPMAssertionID = 0
     private var statusItem: NSStatusItem?
     private var timer: Timer?
@@ -165,10 +168,10 @@ final class KeepAwake {
 
     private func startWatching() {
         timer?.invalidate()
-        let timer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.watchInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
-        timer.tolerance = 3
+        timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
         check()
