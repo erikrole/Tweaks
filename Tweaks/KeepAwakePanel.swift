@@ -27,6 +27,7 @@ final class KeepAwakePanelController {
                                  backing: .buffered, defer: false)
         panel.isOpaque = false
         panel.backgroundColor = .clear
+        panel.appearance = NSAppearance(named: .aqua)
         panel.hasShadow = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
@@ -35,7 +36,8 @@ final class KeepAwakePanelController {
         panel.contentView = root
         root.layoutSubtreeIfNeeded()
         let size = root.fittingSize.width > 1 ? root.fittingSize : NSSize(width: 340, height: 420)
-        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
+        let cursor = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(cursor) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
             panel.setFrame(NSRect(x: frame.midX - size.width / 2, y: frame.maxY - frame.height * 0.25 - size.height,
                                   width: size.width, height: size.height), display: true)
@@ -220,11 +222,6 @@ final class KeepAwakePanelRoot: NSView {
     init(model: PanelModel) {
         self.model = model
         super.init(frame: NSRect(x: 0, y: 0, width: 340, height: 200))
-        wantsLayer = true
-        layer?.backgroundColor = Paper.background.cgColor
-        layer?.cornerRadius = 4
-        layer?.borderWidth = 1
-        layer?.borderColor = Paper.line.cgColor
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -244,6 +241,17 @@ final class KeepAwakePanelRoot: NSView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        Paper.background.setFill()
+        bounds.fill()
+        Paper.line.setStroke()
+        let border = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
+        border.lineWidth = 1
+        border.stroke()
+    }
+
+    override var isOpaque: Bool { true }
 
     private func render() {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
