@@ -23,10 +23,12 @@ final class KeepAwakePanelController {
         model.onDone = { [weak self] in self?.close() }
         self.model = model
 
-        let panel = KeyablePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
+        let panel = KeyablePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                                  backing: .buffered, defer: false)
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
+        // Opaque on purpose. A clear panel with a shadow keeps the window server redrawing
+        // the shadow for as long as the panel object exists.
+        panel.isOpaque = true
+        panel.backgroundColor = Paper.background
         panel.appearance = NSAppearance(named: .aqua)
         panel.hasShadow = true
         panel.level = .floating
@@ -50,6 +52,7 @@ final class KeepAwakePanelController {
 
     func close() {
         panel?.onResignKey = nil
+        panel?.contentView = nil
         panel?.orderOut(nil)
         panel = nil
         model = nil
@@ -251,8 +254,6 @@ final class KeepAwakePanelRoot: NSView {
         border.stroke()
     }
 
-    override var isOpaque: Bool { true }
-
     private func render() {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let title = NSTextField(labelWithString: "Keep Awake")
@@ -370,10 +371,11 @@ final class KeepAwakePanelRoot: NSView {
             _ = self.model.keepAwake.statusLine
             _ = self.model.keepAwake.session
         } onChange: { [weak self] in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
                 MainActor.assumeIsolated {
-                    self?.render()
-                    self?.track()
+                    guard let self, self.window != nil else { return }
+                    self.render()
+                    self.track()
                 }
             }
         }

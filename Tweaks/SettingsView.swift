@@ -88,6 +88,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var pinnedToTop = false
     private var fitting = false
     private var tracking = false
+    /// Set in windowWillClose. Layout, observation and Finder Sync queries stop with the window.
+    private var closed = false
 
     init(settings: TweakSettings, tweaks: TweakController, launchAtLogin: LaunchAtLoginController) {
         self.settings = settings
@@ -101,9 +103,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Tweaks"
         window.isReleasedWhenClosed = false
         // Paper is a light palette. Aqua keeps switches, buttons and fields on that side in Dark Mode.
+        // Leave the titlebar opaque. A transparent one is layer-backed, and that display link
+        // keeps running after the window is ordered out for as long as the window object exists.
         window.appearance = NSAppearance(named: .aqua)
-        window.titlebarAppearsTransparent = true
-        window.titlebarSeparatorStyle = .line
+        window.isOpaque = true
         window.isMovableByWindowBackground = true
         window.backgroundColor = Paper.background
         super.init(window: window)
@@ -118,6 +121,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     required init?(coder: NSCoder) { nil }
 
     func windowWillClose(_ notification: Notification) {
+        closed = true
+        window?.delegate = nil
+        // Drop the scroll view before the controller goes. A tall document was being
+        // redrawn on a display link even after the window had ordered out.
+        scroll.documentView = nil
+        window?.contentView = nil
+        columnConstraints.removeAll()
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated { self?.onClose?() }
         }
@@ -127,13 +137,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         super.showWindow(sender)
         fitStack()
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self, !self.closed, self.window?.isVisible == true else { return }
             self.fitStack()
             self.pinToTopIfNeeded()
         }
     }
 
     func windowDidResize(_ notification: Notification) {
+        guard !closed, window?.isVisible == true else { return }
         fitStack()
         pinToTopIfNeeded()
     }
@@ -390,6 +401,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - State
 
     func sync() {
+        guard !closed else { return }
         for (tweak, toggle) in toggles {
             let on = settings.isOn(tweak)
             if toggle.state != (on ? .on : .off) { toggle.state = on ? .on : .off }
@@ -468,10 +480,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func fitStack() {
-        guard !fitting else { return }
+        // Nothing to lay out while the window is closed or ordered out. A hidden document
+        // that keeps invalidating itself is what held a display link with no window on screen.
+        guard !closed, !fitting, window?.isVisible == true else { return }
         fitting = true
         defer { fitting = false }
-        let width = scroll.contentSize.width > 1 ? scroll.contentSize.width : 500
+        // contentView bounds, not contentSize: contentSize shrinks when a scroller appears,
+        // which was changing the document width and scheduling another layout.
+        let boundsWidth = window?.contentView?.bounds.width ?? 0
+        let width = boundsWidth > 1 ? boundsWidth : 500
         let inner = max(200, width - stack.edgeInsets.left - stack.edgeInsets.right)
         for constraint in columnConstraints where constraint.constant != inner {
             constraint.constant = inner
@@ -506,7 +523,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func track() {
-        guard !tracking else { return }
+        guard !closed, !tracking else { return }
         tracking = true
         withObservationTracking { [weak self] in
             guard let self else { return }
@@ -521,9 +538,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.settings.quitApps
             for tweak in Tweak.allCases { _ = self.settings.isOn(tweak) }
         } onChange: { [weak self] in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
                 MainActor.assumeIsolated {
-                    guard let self else { return }
+                    guard let self, !self.closed else { return }
                     self.tracking = false
                     self.sync()
                     self.track()

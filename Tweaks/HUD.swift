@@ -11,12 +11,12 @@ enum Paper {
 }
 
 /// A small slip of paper near the bottom of the screen you're on. It never takes focus
-/// or catches clicks, and it is thrown away after it fades so it doesn't sit in memory.
+/// or catches clicks, and it is thrown away when its time is up so it doesn't sit in memory.
 @MainActor
 enum HUD {
     private static var panel: NSPanel?
     private static var hideWork: DispatchWorkItem?
-    /// Bumped on every show, so a fade-out that was already running cannot dismiss the next slip.
+    /// Bumped on every show, so a hide already queued cannot dismiss the next slip.
     private static var generation = 0
 
     static func show(_ text: String, symbol: String, duration: TimeInterval = 1.6) {
@@ -37,40 +37,31 @@ enum HUD {
             panel.setFrame(NSRect(x: frame.midX - size.width / 2, y: frame.minY + frame.height * 0.12,
                                   width: size.width, height: size.height), display: true)
         }
-        if existing == nil { panel.alphaValue = 0 }
+        panel.alphaValue = 1
         panel.orderFrontRegardless()
-        // A second slip replaces the fade already running. Duration 0 retargets alpha to 1
-        // so the previous fade-out cannot finish by leaving this one invisible.
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = existing == nil ? 0.12 : 0
-            MainActor.assumeIsolated { HUD.panel?.animator().alphaValue = 1 }
-        }
 
+        // Shown and removed directly. Fading it installed a display link, and a clear
+        // panel with an opaque slip was keeping that link after the slip was gone.
         hideWork?.cancel()
         let work = DispatchWorkItem {
-            MainActor.assumeIsolated {
-                guard HUD.generation == token, HUD.panel != nil else { return }
-                NSAnimationContext.runAnimationGroup({ context in
-                    context.duration = 0.25
-                    MainActor.assumeIsolated { HUD.panel?.animator().alphaValue = 0 }
-                }, completionHandler: {
-                    MainActor.assumeIsolated {
-                        guard HUD.generation == token else { return }
-                        HUD.panel?.orderOut(nil)
-                        HUD.panel?.contentView = nil
-                        HUD.panel = nil
-                    }
-                })
-            }
+            MainActor.assumeIsolated { HUD.dismiss(token) }
         }
         hideWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 
+    private static func dismiss(_ token: Int) {
+        guard generation == token else { return }
+        panel?.orderOut(nil)
+        panel?.contentView = nil
+        panel = nil
+        hideWork = nil
+    }
+
     private static func makePanel() -> NSPanel {
         let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
+        panel.isOpaque = true
+        panel.backgroundColor = Paper.background
         panel.hasShadow = false
         panel.appearance = NSAppearance(named: .aqua)
         panel.level = .statusBar
@@ -127,8 +118,6 @@ private final class HUDSlip: NSView {
         border.lineWidth = 1
         border.stroke()
     }
-
-    override var isOpaque: Bool { true }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
