@@ -20,7 +20,8 @@
 		82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273D3495028E3E79230CC808 /* TweaksTests.swift */; };
 		88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */; };
 		8F4700A6A72F6F69C334405D /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */; };
-		964820E2F94EA4499E765A9E /* AVMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */; };
+		A11A0003A11A0003A11A0003 /* MediaReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A0001A11A0001A11A0001 /* MediaReader.swift */; };
+		A11A0011A11A0011A11A0011 /* BundledMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A0012A11A0012A11A0012 /* BundledMedia.swift */; };
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
 		B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */; };
@@ -29,11 +30,17 @@
 		C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
-		FD85C403331C7080B71FB593 /* ImageMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */; };
 		FDA03C8814D4B70296AA203D /* TweaksFinderSync.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A11A000DA11A000DA11A000D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9729A04781A7794DF7BC9158 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A11A0006A11A0006A11A0006;
+			remoteInfo = TweaksMedia;
+		};
 		6383D3C0F898602F522499CB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 9729A04781A7794DF7BC9158 /* Project object */;
@@ -68,9 +75,10 @@
 		047645AA5D8C2579E6ABF4C7 /* FinderUtilitiesKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FinderUtilitiesKit; path = Packages/FinderUtilitiesKit; sourceTree = SOURCE_ROOT; };
 		099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemTweaks.swift; sourceTree = "<group>"; };
 		09A1FB2997040A869AD5920F /* Tweaks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tweaks.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVMetadataProvider.swift; sourceTree = "<group>"; };
+		A11A0001A11A0001A11A0001 /* MediaReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaReader.swift; sourceTree = "<group>"; };
+		A11A0002A11A0002A11A0002 /* TweaksMedia.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TweaksMedia.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		A11A0012A11A0012A11A0012 /* BundledMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledMedia.swift; sourceTree = "<group>"; };
 		168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGInstaller.swift; sourceTree = "<group>"; };
-		1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageMetadataProvider.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
 		2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwakePanel.swift; sourceTree = "<group>"; };
@@ -119,6 +127,7 @@
 		3D2FB6853B8C63FE18C9F290 = {
 			isa = PBXGroup;
 			children = (
+				A11A000AA11A000AA11A000A /* MediaReader */,
 				60E9E96DF8C40FAD6A24FE8B /* FinderSync */,
 				5E58AD444F925AB4E50E583A /* Packages */,
 				6D6F34D6B49738B6F2946F56 /* Tweaks */,
@@ -131,6 +140,7 @@
 			isa = PBXGroup;
 			children = (
 				09A1FB2997040A869AD5920F /* Tweaks.app */,
+				A11A0002A11A0002A11A0002 /* TweaksMedia.bundle */,
 				CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */,
 				658EF92576770693D3686C4F /* TweaksTests.xctest */,
 			);
@@ -145,13 +155,20 @@
 			path = Packages;
 			sourceTree = "<group>";
 		};
+		A11A000AA11A000AA11A000A /* MediaReader */ = {
+			isa = PBXGroup;
+			children = (
+				A11A0001A11A0001A11A0001 /* MediaReader.swift */,
+			);
+			path = MediaReader;
+			sourceTree = "<group>";
+		};
 		60E9E96DF8C40FAD6A24FE8B /* FinderSync */ = {
 			isa = PBXGroup;
 			children = (
-				0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */,
+				A11A0012A11A0012A11A0012 /* BundledMedia.swift */,
 				93A0F2E06285ADDB181F6A88 /* FinderSync.entitlements */,
 				9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */,
-				1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */,
 				B5C2178EC6AB88894C211F68 /* Info.plist */,
 				F635E28C8BA73956FF610E36 /* ScopeController.swift */,
 			);
@@ -224,16 +241,35 @@
 			productReference = 658EF92576770693D3686C4F /* TweaksTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A11A0006A11A0006A11A0006 /* TweaksMedia */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A11A0007A11A0007A11A0007 /* Build configuration list for PBXNativeTarget "TweaksMedia" */;
+			buildPhases = (
+				A11A0004A11A0004A11A0004 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TweaksMedia;
+			packageProductDependencies = (
+			);
+			productName = TweaksMedia;
+			productReference = A11A0002A11A0002A11A0002 /* TweaksMedia.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
 		42697243E13473D11804E628 /* TweaksFinderSync */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E405E115D0CD9F11A1C8D210 /* Build configuration list for PBXNativeTarget "TweaksFinderSync" */;
 			buildPhases = (
 				5671978252CE444DF9671D6D /* Sources */,
 				4D09C3931D71D13E3981C91D /* Frameworks */,
+				A11A0010A11A0010A11A0010 /* Copy media reader into the extension */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A11A000EA11A000EA11A000E /* PBXTargetDependency */,
 			);
 			name = TweaksFinderSync;
 			packageProductDependencies = (
@@ -262,6 +298,9 @@
 					42697243E13473D11804E628 = {
 						DevelopmentTeam = T26T3G8C7Q;
 					};
+					A11A0006A11A0006A11A0006 = {
+						DevelopmentTeam = T26T3G8C7Q;
+					};
 				};
 			};
 			buildConfigurationList = 593905C37EE164F978345B80 /* Build configuration list for PBXProject "Tweaks" */;
@@ -283,6 +322,7 @@
 			targets = (
 				15E97068B15B6160EF4D1B48 /* Tweaks */,
 				307F43979BA3A0A8DC4A665F /* TweaksTests */,
+				A11A0006A11A0006A11A0006 /* TweaksMedia */,
 				42697243E13473D11804E628 /* TweaksFinderSync */,
 			);
 		};
@@ -300,13 +340,35 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A11A0004A11A0004A11A0004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11A0003A11A0003A11A0003 /* MediaReader.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A11A0010A11A0010A11A0010 /* Copy media reader into the extension */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy media reader into the extension";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\nsrc=\"${BUILT_PRODUCTS_DIR}/TweaksMedia.bundle\"\ndest=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/TweaksMedia.bundle\"\nif [[ ! -d \"$src\" ]]; then\n  echo \"error: TweaksMedia.bundle was not built at $src\" >&2\n  exit 1\nfi\nmkdir -p \"$(dirname \"$dest\")\"\nrm -rf \"$dest\"\ncp -R \"$src\" \"$dest\"\nif [[ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" && -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" && \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]]; then\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"$dest\"\nfi\n";
+		};
 		5671978252CE444DF9671D6D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				964820E2F94EA4499E765A9E /* AVMetadataProvider.swift in Sources */,
+				A11A0011A11A0011A11A0011 /* BundledMedia.swift in Sources */,
 				6C17064C17028AEF286FE9F5 /* FinderSyncExtension.swift in Sources */,
-				FD85C403331C7080B71FB593 /* ImageMetadataProvider.swift in Sources */,
 				785E6FFDD4DC1C0476E3BE62 /* ScopeController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -349,6 +411,11 @@
 			isa = PBXTargetDependency;
 			target = 15E97068B15B6160EF4D1B48 /* Tweaks */;
 			targetProxy = 95B70D27BC1A27D88C278D84 /* PBXContainerItemProxy */;
+		};
+		A11A000EA11A000EA11A000E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A11A0006A11A0006A11A0006 /* TweaksMedia */;
+			targetProxy = A11A000DA11A000DA11A000D /* PBXContainerItemProxy */;
 		};
 		AC0C6680ACB3E24899FF2576 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -615,6 +682,44 @@
 			};
 			name = Debug;
 		};
+		A11A0008A11A0008A11A0008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T26T3G8C7Q;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPrincipalClass = TweaksMediaReader;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.MediaReader;
+				PRODUCT_NAME = TweaksMedia;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A11A0009A11A0009A11A0009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T26T3G8C7Q;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPrincipalClass = TweaksMediaReader;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.MediaReader;
+				PRODUCT_NAME = TweaksMedia;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -641,6 +746,15 @@
 			buildConfigurations = (
 				511A245D19CF0C5793AEF6FC /* Debug */,
 				E9E3263AD199E9CCFCE128FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A11A0007A11A0007A11A0007 /* Build configuration list for PBXNativeTarget "TweaksMedia" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A11A0008A11A0008A11A0008 /* Debug */,
+				A11A0009A11A0009A11A0009 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

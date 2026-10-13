@@ -1,4 +1,4 @@
-import Cocoa
+import AppKit
 import FinderSync
 import FinderUtilitiesKit
 import OSLog
@@ -8,7 +8,9 @@ private let log = Logger(subsystem: "com.erole.Tweaks.FinderSync", category: "me
 /// Thin Finder Sync adapter. `menu(for:)` does no file I/O: it only builds strings.
 final class FinderSyncExtension: FIFinderSync {
     private var selection: [URL] = []
-    private let metadata = MetadataService(providers: [FileAttributeProvider(), AVMetadataProvider(), ImageMetadataProvider()])
+    /// File attributes always; AVFoundation and ImageIO only after the first real inspect,
+    /// via a bundle that is not linked into this process.
+    private let metadata = MetadataService(providers: [FileAttributeProvider(), BundledMediaProvider()])
     private let formatter = MetadataFormatter()
 
     override init() {

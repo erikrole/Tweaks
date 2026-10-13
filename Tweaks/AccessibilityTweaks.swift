@@ -220,15 +220,26 @@ final class TapOrHold {
 /// Watches for the "Shortcut is running" banner and closes it as soon as it appears.
 @MainActor
 final class ShortcutBannerDismisser {
+    /// Walking Notification Center's accessibility tree is the expensive part. Most of the
+    /// time Shortcuts isn't running, and then there is nothing to close.
+    static let pollInterval: TimeInterval = 3
+    static let shortcutBundleIDs: Set<String> = [
+        "com.apple.shortcuts",
+        "com.apple.shortcuts.events",
+        "com.apple.shortcuts.ShortcutsViewService",
+    ]
+
     private var timer: Timer?
+
+    static func shortcutsMightBeRunning(_ apps: [NSRunningApplication] = NSWorkspace.shared.runningApplications) -> Bool {
+        apps.contains { $0.bundleIdentifier.map(shortcutBundleIDs.contains) == true }
+    }
 
     func start() {
         guard timer == nil else { return }
-        // A light poll: the Notification Center tree is small and this costs well under a
-        // millisecond when nothing is showing.
-        let timer = Timer(timeInterval: 1, repeats: true) { _ in
+        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { _ in
             MainActor.assumeIsolated {
-                guard AX.isTrusted else { return }
+                guard AX.isTrusted, Self.shortcutsMightBeRunning() else { return }
                 for notification in NotificationCloser.visibleNotifications()
                 where NotificationCloser.isShortcutRunning(notification.summary) {
                     if let action = notification.closeAction {
@@ -237,7 +248,7 @@ final class ShortcutBannerDismisser {
                 }
             }
         }
-        timer.tolerance = 0.3
+        timer.tolerance = 1
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -254,11 +265,30 @@ final class ShortcutBannerDismisser {
 /// screen); a second click restores the window. Holding ⌥ keeps the normal behaviour.
 @MainActor
 final class GreenButtonFill {
+    private struct SavedWindow {
+        let element: AXUIElement
+        let frame: CGRect
+    }
+
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var savedFrames: [String: CGRect] = [:]
+    private var savedFrames: [String: SavedWindow] = [:]
     private var swallowNextMouseUp = false
     fileprivate static weak var current: GreenButtonFill?
+
+    enum FillDecision: Equatable {
+        /// Save the window's current frame, then move it to the visible frame.
+        case fill(save: CGRect)
+        /// Put the window back where it was before it was filled.
+        case restore(CGRect)
+    }
+
+    static func decision(frame: CGRect, target: CGRect, saved: CGRect?) -> FillDecision {
+        if approximatelyEqual(frame, target), let saved {
+            return .restore(saved)
+        }
+        return .fill(save: frame)
+    }
 
     func start() {
         guard tap == nil, AX.isTrusted else { return }
@@ -279,6 +309,13 @@ final class GreenButtonFill {
         if let runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes) }
         tap = nil
         runLoopSource = nil
+        swallowNextMouseUp = false
+        if Self.current === self { Self.current = nil }
+        let saved = savedFrames
+        savedFrames = [:]
+        for window in saved.values {
+            Self.setFrame(window.frame, of: window.element)
+        }
     }
 
     /// Returns true when the event was handled and should be swallowed.
@@ -340,12 +377,14 @@ final class GreenButtonFill {
         guard let frame = Self.frame(of: window), let screen = Self.screen(containing: frame) else { return }
         let target = Self.axVisibleFrame(of: screen)
         let key = Self.windowKey(window)
-        if Self.approximatelyEqual(frame, target), let saved = savedFrames[key] {
-            Self.setFrame(saved, of: window)
-            savedFrames[key] = nil
-        } else {
-            savedFrames[key] = frame
+        switch Self.decision(frame: frame, target: target, saved: savedFrames[key]?.frame) {
+        case let .fill(previous):
+            savedFrames[key] = SavedWindow(element: window, frame: previous)
             Self.setFrame(target, of: window)
+        case let .restore(previous):
+            if Self.setFrame(previous, of: window) {
+                savedFrames[key] = nil
+            }
         }
     }
 
@@ -361,13 +400,17 @@ final class GreenButtonFill {
         return CGRect(origin: position, size: size)
     }
 
-    private static func setFrame(_ frame: CGRect, of window: AXUIElement) {
+    @discardableResult
+    static func setFrame(_ frame: CGRect, of window: AXUIElement) -> Bool {
         var position = frame.origin
         var size = frame.size
-        if let value = AXValueCreate(.cgPoint, &position) { AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, value) }
-        if let value = AXValueCreate(.cgSize, &size) { AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, value) }
+        guard let positionValue = AXValueCreate(.cgPoint, &position),
+              let sizeValue = AXValueCreate(.cgSize, &size) else { return false }
+        let moved = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue) == .success
+        let resized = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue) == .success
         // Some apps clamp the first resize against the old position; apply position again.
-        if let value = AXValueCreate(.cgPoint, &position) { AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, value) }
+        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
+        return moved && resized
     }
 
     private static func screen(containing axFrame: CGRect) -> NSScreen? {

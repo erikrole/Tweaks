@@ -2,7 +2,6 @@ import AppKit
 import Foundation
 import NetFS
 import Network
-import SystemConfiguration
 
 // MARK: - Network shares
 
@@ -145,6 +144,7 @@ final class ShareSleepManager {
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
     private var toRemount: [URL] = []
+    private var remountTask: Task<Void, Never>?
 
     func start() {
         guard sleepObserver == nil else { return }
@@ -163,11 +163,17 @@ final class ShareSleepManager {
         if let wakeObserver { center.removeObserver(wakeObserver) }
         sleepObserver = nil
         wakeObserver = nil
+        // Anything already unmounted still has to come back. A remount that is
+        // already running is that restore; don't cancel it.
+        let pending = toRemount
+        toRemount = []
+        if !pending.isEmpty { beginRemount(pending) }
     }
 
     private var skipped: [String] = []
 
     private func willSleep() {
+        remountTask?.cancel()
         skipped = []
         // Leave shares alone while a render runs or a file on them is open: a render
         // reading footage or writing frames there would fail on the next file.
@@ -194,16 +200,27 @@ final class ShareSleepManager {
         }
         let urls = toRemount
         toRemount = []
+        beginRemount(urls)
+    }
+
+    private func beginRemount(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
-        Task {
+        remountTask?.cancel()
+        remountTask = Task {
             // Give Wi-Fi or VPN time to come back before trying.
+            var remaining = urls
             for attempt in 0..<12 {
+                if Task.isCancelled { return }
                 try? await Task.sleep(for: .seconds(attempt == 0 ? 8 : 15))
-                var remaining: [URL] = []
-                for url in ShareAutoConnect.sharesToMount(wanted: urls, mounted: NetworkShares.mounted().map(\.serverURL)) {
+                if Task.isCancelled { return }
+                let mounted = NetworkShares.mounted().map(\.serverURL)
+                var still: [URL] = []
+                for url in ShareAutoConnect.sharesToMount(wanted: remaining, mounted: mounted) {
+                    if Task.isCancelled { return }
                     if await NetworkShares.isReachable(url), await ShareMounter.shared.mount(url) { continue }
-                    remaining.append(url)
+                    still.append(url)
                 }
+                remaining = still
                 if remaining.isEmpty { return }
             }
         }
@@ -215,9 +232,13 @@ final class ShareSleepManager {
 @MainActor
 final class ShareAutoConnect {
     var shares: [URL] = []
+    /// Backup for VPNs that connect without a path change.
+    static let pollInterval: TimeInterval = 5 * 60
+
     private var monitor: NWPathMonitor?
     private var pending: DispatchWorkItem?
     private var timer: Timer?
+    private var checkTask: Task<Void, Never>?
 
     func start() {
         guard monitor == nil else { return }
@@ -229,10 +250,10 @@ final class ShareAutoConnect {
         monitor.start(queue: DispatchQueue(label: "Tweaks.shares"))
         self.monitor = monitor
         // VPNs often connect without a path change; check every few minutes as well.
-        let timer = Timer(timeInterval: 180, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.scheduleCheck() }
         }
-        timer.tolerance = 30
+        timer.tolerance = 60
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
         scheduleCheck()
@@ -244,6 +265,9 @@ final class ShareAutoConnect {
         timer?.invalidate()
         timer = nil
         pending?.cancel()
+        pending = nil
+        checkTask?.cancel()
+        checkTask = nil
     }
 
     private func scheduleCheck() {
@@ -257,9 +281,13 @@ final class ShareAutoConnect {
 
     private func check() {
         let wanted = shares
-        Task {
+        checkTask?.cancel()
+        checkTask = Task {
             let mounted = NetworkShares.mounted().map(\.serverURL)
-            for url in Self.sharesToMount(wanted: wanted, mounted: mounted) where await NetworkShares.isReachable(url) {
+            for url in Self.sharesToMount(wanted: wanted, mounted: mounted) {
+                if Task.isCancelled { return }
+                guard await NetworkShares.isReachable(url) else { continue }
+                if Task.isCancelled { return }
                 _ = await ShareMounter.shared.mount(url)
             }
         }

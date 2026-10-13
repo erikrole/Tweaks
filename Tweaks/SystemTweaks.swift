@@ -1,5 +1,4 @@
 import AppKit
-import AudioToolbox
 import CoreAudio
 import Foundation
 
@@ -8,11 +7,74 @@ import Foundation
 /// Removes the short hold macOS requires before Caps Lock turns on. The setting lives in
 /// the HID system and resets when a keyboard reconnects or the Mac restarts, so it's
 /// reapplied on launch, on wake and every few minutes.
+/// Caps Lock delay, in nanoseconds, as `hidutil` stores `CapsLockDelayOverride`.
+enum CapsLockDelay {
+    static let disabled = 0
+    /// macOS's usual hold before Caps Lock toggles. Used when the tweak is turned off
+    /// and Tweaks never saw a different value (the property was already 0, or unset).
+    static let systemDefaultNanoseconds = 250_000_000
+    static let savedKey = "capsLockDelayOverrideOriginal"
+
+    static func parse(hidutilOutput: String) -> Int? {
+        let trimmed = hidutilOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "(null)" else { return nil }
+        guard let data = trimmed.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        let value = json["CapsLockDelayOverride"]
+        if value is NSNull { return nil }
+        if let number = value as? Int { return number }
+        if let number = value as? Double { return Int(number) }
+        if let number = value as? NSNumber { return number.intValue }
+        return nil
+    }
+
+    /// A delay worth putting back. The tweak's own 0 is not an original setting.
+    static func original(from current: Int?) -> Int? {
+        guard let current, current > 0 else { return nil }
+        return current
+    }
+
+    static func restoreNanoseconds(saved: Int?) -> Int {
+        if let saved, saved > 0 { return saved }
+        return systemDefaultNanoseconds
+    }
+}
+
 enum CapsLockTweak {
-    static func apply() {
+    /// How often to put the override back. Keyboards forget it on reconnect; wake covers the common case.
+    static let reapplyInterval: TimeInterval = 15 * 60
+
+    static func apply(defaults: UserDefaults = .standard, reader: () -> Int? = readCurrent, writer: (Int) -> Void = write) {
+        if defaults.object(forKey: CapsLockDelay.savedKey) == nil,
+           let original = CapsLockDelay.original(from: reader()) {
+            defaults.set(original, forKey: CapsLockDelay.savedKey)
+        }
+        writer(CapsLockDelay.disabled)
+    }
+
+    static func restore(defaults: UserDefaults = .standard, writer: (Int) -> Void = write) {
+        let saved = defaults.object(forKey: CapsLockDelay.savedKey) as? Int
+        writer(CapsLockDelay.restoreNanoseconds(saved: saved))
+    }
+
+    private static func readCurrent() -> Int? {
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/hidutil")
-        process.arguments = ["property", "--set", #"{"CapsLockDelayOverride":0}"#]
+        process.arguments = ["property", "--get", "CapsLockDelayOverride"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return CapsLockDelay.parse(hidutilOutput: String(decoding: data, as: UTF8.self))
+    }
+
+    private static func write(_ nanoseconds: Int) {
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/bin/hidutil")
+        process.arguments = ["property", "--set", "{\"CapsLockDelayOverride\":\(nanoseconds)}"]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try? process.run()

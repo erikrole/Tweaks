@@ -1,7 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
 import Observation
-import SwiftUI
 
 /// A key plus modifiers, stored in Carbon form for RegisterEventHotKey.
 struct Shortcut: Codable, Equatable, Sendable {
@@ -128,51 +127,97 @@ final class ShortcutStore {
 
 /// Click, then press the new keys. Esc cancels, ⌫ clears. Needs at least one of ⌘⌃⌥
 /// so a plain letter can't be stolen from every app.
-struct ShortcutRecorder: View {
-    let shortcut: Shortcut?
-    let onChange: (Shortcut?) -> Void
-    @State private var recording = false
-    @State private var monitor: Any?
-    @State private var hint: String?
+@MainActor
+final class ShortcutRecorder: NSView {
+    var shortcut: Shortcut?
+    var onChange: (Shortcut?) -> Void
+    private var recording = false
+    private var monitor: Any?
+    private var hint: String?
+    private let button = NSButton()
+    private let clear = NSButton()
 
-    var body: some View {
-        HStack(spacing: 6) {
-            Button(action: toggleRecording) {
-                Text(recording ? (hint ?? "Type shortcut…") : (shortcut?.label ?? "Record"))
-                    .font(.system(.callout, design: .rounded).weight(.medium))
-                    .frame(minWidth: 110)
-            }
-            .buttonStyle(.bordered)
-            .tint(recording ? .accentColor : nil)
-            if shortcut != nil, !recording {
-                Button { onChange(nil) } label: { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                    .help("Remove shortcut")
-            }
-        }
-        .onDisappear(perform: stopRecording)
+    init(shortcut: Shortcut?, onChange: @escaping (Shortcut?) -> Void) {
+        self.shortcut = shortcut
+        self.onChange = onChange
+        super.init(frame: NSRect(x: 0, y: 0, width: 160, height: 24))
+        button.target = self
+        button.action = #selector(toggleRecording)
+        button.bezelStyle = .rounded
+        button.font = .systemFont(ofSize: 12, weight: .medium)
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        clear.target = self
+        clear.action = #selector(clearShortcut)
+        clear.title = "×"
+        clear.bezelStyle = .inline
+        clear.font = .systemFont(ofSize: 14)
+        clear.contentTintColor = Paper.secondary
+        clear.toolTip = "Remove shortcut"
+        clear.setContentHuggingPriority(.required, for: .horizontal)
+        let row = NSStackView(views: [button, clear])
+        row.orientation = .horizontal
+        row.spacing = 4
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.topAnchor.constraint(equalTo: topAnchor),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor),
+            button.widthAnchor.constraint(greaterThanOrEqualToConstant: 108),
+        ])
+        refreshTitle()
     }
 
-    private func toggleRecording() {
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    func display(_ shortcut: Shortcut?) {
+        self.shortcut = shortcut
+        guard !recording else { return }
+        refreshTitle()
+    }
+
+    private func refreshTitle() {
+        button.title = recording ? (hint ?? "Type shortcut…") : (shortcut?.label ?? "Record")
+        clear.isHidden = shortcut == nil || recording
+    }
+
+    @objc private func toggleRecording() {
         recording ? stopRecording() : startRecording()
+    }
+
+    @objc private func clearShortcut() {
+        onChange(nil)
+        shortcut = nil
+        refreshTitle()
     }
 
     private func startRecording() {
         recording = true
         hint = nil
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        refreshTitle()
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
             let code = Int(event.keyCode)
-            if code == kVK_Escape { stopRecording(); return nil }
-            if code == kVK_Delete || code == kVK_ForwardDelete { onChange(nil); stopRecording(); return nil }
-            let modifiers = Shortcut.carbonModifiers(from: event.modifierFlags)
-            guard modifiers & UInt32(cmdKey | controlKey | optionKey) != 0 else {
-                hint = "Add ⌘, ⌃ or ⌥"
+            if code == kVK_Escape { self.stopRecording(); return nil }
+            if code == kVK_Delete || code == kVK_ForwardDelete {
+                self.onChange(nil)
+                self.shortcut = nil
+                self.stopRecording()
                 return nil
             }
-            onChange(Shortcut(keyCode: UInt32(event.keyCode), modifiers: modifiers,
-                              key: Shortcut.keyName(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers)))
-            stopRecording()
+            let modifiers = Shortcut.carbonModifiers(from: event.modifierFlags)
+            guard modifiers & UInt32(cmdKey | controlKey | optionKey) != 0 else {
+                self.hint = "Add ⌘, ⌃ or ⌥"
+                self.refreshTitle()
+                return nil
+            }
+            let shortcut = Shortcut(keyCode: UInt32(event.keyCode), modifiers: modifiers,
+                                    key: Shortcut.keyName(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers))
+            self.shortcut = shortcut
+            self.onChange(shortcut)
+            self.stopRecording()
             return nil
         }
     }
@@ -182,5 +227,15 @@ struct ShortcutRecorder: View {
         monitor = nil
         recording = false
         hint = nil
+        refreshTitle()
+    }
+
+    deinit {
+        if let monitor {
+            let token = monitor
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { NSEvent.removeMonitor(token) }
+            }
+        }
     }
 }

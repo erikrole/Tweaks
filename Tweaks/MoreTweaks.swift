@@ -101,34 +101,61 @@ final class RenderKeepAwake {
 
     nonisolated static let busyCores = 0.5
     static let releaseAfter: TimeInterval = 120
+    /// While nothing is rendering. Launch notifications cover an app starting in between.
+    static let idleInterval: TimeInterval = 45
+    static let busyInterval: TimeInterval = 15
 
     private var timer: Timer?
+    private var timerInterval: TimeInterval?
+    private var launchObserver: NSObjectProtocol?
+    private var terminateObserver: NSObjectProtocol?
     private var sampler = CPUSampler()
     private var assertion: IOPMAssertionID = 0
     private var lastBusy: Date?
     private(set) var holdingFor: String?
 
     func start() {
-        guard timer == nil else { return }
-        let timer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in
+        guard launchObserver == nil else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        launchObserver = center.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
-        timer.tolerance = 3
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
+        terminateObserver = center.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.check() }
+        }
+        schedule(idle: true)
         check()
     }
 
     func stop() {
+        let center = NSWorkspace.shared.notificationCenter
+        if let launchObserver { center.removeObserver(launchObserver) }
+        if let terminateObserver { center.removeObserver(terminateObserver) }
+        launchObserver = nil
+        terminateObserver = nil
         timer?.invalidate()
         timer = nil
+        timerInterval = nil
         release()
     }
 
+    private func schedule(idle: Bool) {
+        let interval = idle ? Self.idleInterval : Self.busyInterval
+        guard timerInterval != interval else { return }
+        timer?.invalidate()
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.check() }
+        }
+        timer.tolerance = idle ? 15 : 5
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+        timerInterval = interval
+    }
+
     private func check() {
-        let usage = sampler.sample()
+        let snap = sampler.sampleRenderers()
         // aerender waiting on footage from the NAS can sit near 0% CPU; it still counts.
-        let busy = Self.busyRenderer(in: usage) ?? (RenderProcesses.anyRunning() ? "aerender" : nil)
+        let busy = Self.busyRenderer(in: snap.usage) ?? (snap.paths.contains(where: RenderProcesses.isRenderer) ? "aerender" : nil)
         let now = Date()
         if let busy {
             lastBusy = now
@@ -137,6 +164,7 @@ final class RenderKeepAwake {
             release()
             self.lastBusy = nil
         }
+        schedule(idle: busy == nil && self.lastBusy == nil)
     }
 
     /// The first renderer using at least `busyCores`, from per-executable CPU in percent.
@@ -175,14 +203,22 @@ struct CPUSampler {
     private var previous: [pid_t: UInt64] = [:]
     private var previousAt: UInt64 = 0
 
-    mutating func sample() -> [String: Double] {
+    /// Full path, then CPU, and only for render apps. Everything else is skipped so an
+    /// idle Mac isn't paying rusage for every process on a timer.
+    mutating func sampleRenderers() -> (paths: [String], usage: [String: Double]) {
         var pids = [pid_t](repeating: 0, count: 8192)
         let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         let now = mach_absolute_time()
         let elapsed = previousAt == 0 ? 0 : now - previousAt
         var current: [pid_t: UInt64] = [:]
+        var paths: [String] = []
         var usage: [String: Double] = [:]
+        var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         for pid in pids.prefix(max(0, count)) where pid > 0 {
+            guard proc_pidpath(pid, &pathBuffer, UInt32(pathBuffer.count)) > 0 else { continue }
+            let path = String(cString: pathBuffer)
+            guard Self.shouldMeasure(path) else { continue }
+            paths.append(path)
             var info = rusage_info_v4()
             let status = withUnsafeMutablePointer(to: &info) {
                 $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(pid, RUSAGE_INFO_V4, $0) }
@@ -192,13 +228,15 @@ struct CPUSampler {
             let ticks = info.ri_user_time + info.ri_system_time
             current[pid] = ticks
             guard elapsed > 0, let before = previous[pid], ticks >= before else { continue }
-            var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-            guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { continue }
-            usage[String(cString: path), default: 0] += Double(ticks - before) / Double(elapsed) * 100
+            usage[path, default: 0] += Double(ticks - before) / Double(elapsed) * 100
         }
         previous = current
         previousAt = now
-        return usage
+        return (paths, usage)
+    }
+
+    static func shouldMeasure(_ path: String) -> Bool {
+        RenderKeepAwake.renderers.contains { $0.matches(path) } || RenderProcesses.isRenderer(path)
     }
 }
 
@@ -209,6 +247,10 @@ struct CPUSampler {
 /// from password managers.
 @MainActor
 final class LinkCleaner {
+    /// Clipboard checks wake the process. Two seconds is soon enough for a paste, and the
+    /// tolerance lets the system coalesce the wakeup.
+    static let pollInterval: TimeInterval = 2
+
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
 
@@ -234,10 +276,10 @@ final class LinkCleaner {
     func start() {
         guard timer == nil else { return }
         lastChangeCount = NSPasteboard.general.changeCount
-        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
-        timer.tolerance = 0.2
+        timer.tolerance = 0.75
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -312,30 +354,76 @@ final class LinkCleaner {
 @MainActor
 final class LastWindowQuitter {
     var bundleIDs: Set<String> = []
+    static let pollInterval: TimeInterval = 2.5
+
     private var timer: Timer?
+    private var launchObserver: NSObjectProtocol?
+    private var terminateObserver: NSObjectProtocol?
     private var hadWindows: Set<pid_t> = []
     private var emptyPolls: [pid_t: Int] = [:]
 
     func start() {
+        guard launchObserver == nil else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        launchObserver = center.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.armTimerIfNeeded() }
+        }
+        terminateObserver = center.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.armTimerIfNeeded() }
+        }
+        armTimerIfNeeded()
+    }
+
+    /// The chosen apps changed while the tweak is already running.
+    func appsChanged() {
+        guard launchObserver != nil else { return }
+        armTimerIfNeeded()
+    }
+
+    func stop() {
+        let center = NSWorkspace.shared.notificationCenter
+        if let launchObserver { center.removeObserver(launchObserver) }
+        if let terminateObserver { center.removeObserver(terminateObserver) }
+        launchObserver = nil
+        terminateObserver = nil
+        timer?.invalidate()
+        timer = nil
+        hadWindows = []
+        emptyPolls = []
+    }
+
+    /// No Accessibility queries unless one of the chosen apps is actually running.
+    private func armTimerIfNeeded() {
+        let running = watchedApplications()
+        guard !running.isEmpty else {
+            timer?.invalidate()
+            timer = nil
+            hadWindows = []
+            emptyPolls = []
+            return
+        }
         guard timer == nil else { return }
-        let timer = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
-        timer.tolerance = 0.5
+        timer.tolerance = 0.8
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
 
-    func stop() {
-        timer?.invalidate()
-        timer = nil
-        hadWindows = []
+    private func watchedApplications() -> [NSRunningApplication] {
+        guard !bundleIDs.isEmpty else { return [] }
+        return NSWorkspace.shared.runningApplications.filter { app in
+            app.bundleIdentifier.map(bundleIDs.contains) == true && !app.isTerminated
+        }
     }
 
     private func check() {
         guard AX.isTrusted, !bundleIDs.isEmpty else { return }
-        let running = NSWorkspace.shared.runningApplications.filter { app in
-            app.bundleIdentifier.map(bundleIDs.contains) == true && !app.isTerminated
+        let running = watchedApplications()
+        if running.isEmpty {
+            armTimerIfNeeded()
+            return
         }
         let livePIDs = Set(running.map(\.processIdentifier))
         hadWindows.formIntersection(livePIDs)
