@@ -68,7 +68,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var toggles: [Tweak: NSSwitch] = [:]
     private var accessNotes: [Tweak: NSTextField] = [:]
     private var recorders: [ShortcutAction: ShortcutRecorder] = [:]
-    private var wrapping: [NSTextField] = []
     private let banner = NSStackView()
     private let countdownSwitch = NSSwitch()
     private let sessionLabel = NSTextField(labelWithString: "")
@@ -81,7 +80,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let finderLabel = NSTextField(labelWithString: "")
     private let loginSwitch = NSSwitch()
     private let loginError = NSTextField(labelWithString: "")
+    private let accessRow = NSStackView()
+    private var measured: [(NSTextField, CGFloat)] = []
+    private var columnConstraints: [NSLayoutConstraint] = []
+    private var shownShares: [String] = []
+    private var shownApps: [String] = []
+    private var pinnedToTop = false
+    private var fitting = false
     private var tracking = false
+    /// Set in windowWillClose. Layout, observation and Finder Sync queries stop with the window.
+    private var closed = false
 
     init(settings: TweakSettings, tweaks: TweakController, launchAtLogin: LaunchAtLoginController) {
         self.settings = settings
@@ -94,6 +102,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         )
         window.title = "Tweaks"
         window.isReleasedWhenClosed = false
+        // Paper is a light palette. Aqua keeps switches, buttons and fields on that side in Dark Mode.
+        // Leave the titlebar opaque. A transparent one is layer-backed, and that display link
+        // keeps running after the window is ordered out for as long as the window object exists.
+        window.appearance = NSAppearance(named: .aqua)
+        window.isOpaque = true
+        window.isMovableByWindowBackground = true
         window.backgroundColor = Paper.background
         super.init(window: window)
         window.delegate = self
@@ -107,6 +121,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     required init?(coder: NSCoder) { nil }
 
     func windowWillClose(_ notification: Notification) {
+        closed = true
+        window?.delegate = nil
+        // Drop the scroll view before the controller goes. A tall document was being
+        // redrawn on a display link even after the window had ordered out.
+        scroll.documentView = nil
+        window?.contentView = nil
+        columnConstraints.removeAll()
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated { self?.onClose?() }
         }
@@ -115,6 +136,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
         fitStack()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.closed, self.window?.isVisible == true else { return }
+            self.fitStack()
+            self.pinToTopIfNeeded()
+        }
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard !closed, window?.isVisible == true else { return }
+        fitStack()
+        pinToTopIfNeeded()
     }
 
     // MARK: - Build
@@ -124,25 +156,20 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         scroll.backgroundColor = Paper.background
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
+        scroll.automaticallyAdjustsContentInsets = false
         scroll.borderType = .noBorder
 
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 16
-        stack.edgeInsets = NSEdgeInsets(top: 8, left: 22, bottom: 22, right: 22)
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 18, left: 22, bottom: 24, right: 22)
         stack.detachesHiddenViews = true
         scroll.documentView = stack
 
         banner.orientation = .vertical
         banner.alignment = .leading
         banner.spacing = 6
-        banner.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-        banner.wantsLayer = true
-        banner.layer?.backgroundColor = Paper.wash.cgColor
-        banner.layer?.borderWidth = 1
-        banner.layer?.borderColor = Paper.line.cgColor
-        banner.layer?.cornerRadius = 2
-        let bannerText = wrappingLabel("Clearing notifications, dismissing Shortcut banners, the green button and blocking Music need permission to look at other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility. If the switch is already on and this is still here, quit Tweaks and open it again.", size: 12, color: Paper.secondary)
+        let bannerText = wrappingLabel("Clearing notifications, dismissing Shortcut banners, the green button and blocking Music need permission to look at other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility. If the switch is already on and this is still here, quit Tweaks and open it again.", size: 12, color: Paper.secondary, reserve: 16)
         let openAccess = button("Open Accessibility Settings", #selector(openAccessibility))
         let relaunch = button("Relaunch", #selector(relaunch))
         let bannerButtons = NSStackView(views: [openAccess, relaunch])
@@ -151,7 +178,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         banner.addArrangedSubview(plainLabel("Some tweaks need Accessibility", size: 13, weight: .semibold, color: Paper.ink))
         banner.addArrangedSubview(bannerText)
         banner.addArrangedSubview(bannerButtons)
-        stack.addArrangedSubview(banner)
+        let marker = Rule()
+        marker.vertical = true
+        accessRow.orientation = .horizontal
+        accessRow.alignment = .top
+        accessRow.distribution = .fill
+        accessRow.spacing = 10
+        accessRow.addArrangedSubview(marker)
+        accessRow.addArrangedSubview(banner)
+        marker.widthAnchor.constraint(equalToConstant: 2).isActive = true
+        marker.heightAnchor.constraint(equalTo: banner.heightAnchor).isActive = true
+        marker.setContentHuggingPriority(.required, for: .horizontal)
+        pin(accessRow)
+        stack.addArrangedSubview(accessRow)
 
         addSection("Shortcuts")
         for action in ShortcutAction.allCases {
@@ -159,7 +198,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 self?.tweaks.shortcuts.set(shortcut, for: action)
             }
             recorders[action] = recorder
-            stack.addArrangedSubview(labeledRow(action.title, trailing: recorder))
+            stack.addArrangedSubview(labeledRow(action.title, trailing: recorder, reserve: 156))
         }
         stack.addArrangedSubview(note("Click a shortcut, then press the new keys. Delete clears it, Esc cancels. Hyper is ⌃⌥⇧⌘."))
 
@@ -177,15 +216,22 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         sessionLabel.font = .systemFont(ofSize: 12)
         sessionLabel.textColor = Paper.secondary
         sessionLabel.lineBreakMode = .byTruncatingTail
+        sessionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        sessionLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let stop = button("Stop", #selector(stopKeepAwake))
         sessionRow.orientation = .horizontal
+        sessionRow.distribution = .fill
         sessionRow.spacing = 8
         sessionRow.addArrangedSubview(sessionLabel)
         sessionRow.addArrangedSubview(stop)
+        pin(sessionRow)
         stack.addArrangedSubview(sessionRow)
         addToggles([.ejectBeforeSleep, .awakeWhileRendering])
         renderLabel.font = .systemFont(ofSize: 12)
         renderLabel.textColor = Paper.secondary
+        renderLabel.lineBreakMode = .byWordWrapping
+        renderLabel.maximumNumberOfLines = 0
+        measured.append((renderLabel, 0))
         stack.addArrangedSubview(renderLabel)
 
         addSection("Windows and notifications")
@@ -197,11 +243,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         sharesBox.orientation = .vertical
         sharesBox.alignment = .leading
         sharesBox.spacing = 4
+        pin(sharesBox)
         stack.addArrangedSubview(sharesBox)
         shareField.placeholderString = "smb://server/share"
         shareField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        shareField.textColor = Paper.ink
         shareField.target = self
         shareField.action = #selector(addShare)
+        shareField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        shareField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addShareButton.title = "Add"
         addShareButton.bezelStyle = .rounded
         addShareButton.target = self
@@ -209,14 +259,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         addShareButton.setContentHuggingPriority(.required, for: .horizontal)
         let addRow = NSStackView(views: [shareField, addShareButton])
         addRow.orientation = .horizontal
+        addRow.distribution = .fill
         addRow.spacing = 8
-        shareField.widthAnchor.constraint(greaterThanOrEqualToConstant: 280).isActive = true
+        pin(addRow)
         stack.addArrangedSubview(addRow)
 
         addSection("Finder")
         stack.addArrangedSubview(note("Copy Path shortens NAS, Box and Google Drive roots. Copy Original Path and Inspect Media are on the same menu. Turn the extension on under Finder Extensions."))
         finderLabel.font = .systemFont(ofSize: 12)
         finderLabel.textColor = Paper.secondary
+        finderLabel.lineBreakMode = .byTruncatingTail
         let finderButton = button("Finder Extensions…", #selector(showFinderExtensions))
         stack.addArrangedSubview(labeledRowView(finderLabel, trailing: finderButton))
 
@@ -225,6 +277,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         appsBox.orientation = .vertical
         appsBox.alignment = .leading
         appsBox.spacing = 4
+        pin(appsBox)
         stack.addArrangedSubview(appsBox)
         stack.addArrangedSubview(button("Add App…", #selector(addQuitApp)))
 
@@ -234,7 +287,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(labeledRow("Launch at login", trailing: loginSwitch))
         loginError.font = .systemFont(ofSize: 11)
         loginError.textColor = Paper.secondary
-        wrapping.append(loginError)
+        loginError.lineBreakMode = .byWordWrapping
+        loginError.maximumNumberOfLines = 0
+        measured.append((loginError, 0))
         stack.addArrangedSubview(loginError)
         stack.addArrangedSubview(note("Closing this window leaves Tweaks running, with no Dock icon. Open it again from Finder or Spotlight."))
         let quit = button("Quit Tweaks", #selector(quitTweaks))
@@ -244,23 +299,25 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func addSection(_ title: String) {
+        if let last = stack.arrangedSubviews.last {
+            stack.setCustomSpacing(20, after: last)
+        }
         let header = plainLabel(title, size: 11, weight: .semibold, color: Paper.secondary)
-        let rule = NSBox()
-        rule.boxType = .separator
-        rule.title = ""
+        let rule = Rule()
+        pin(rule)
+        rule.heightAnchor.constraint(equalToConstant: 1).isActive = true
         let block = NSStackView(views: [header, rule])
         block.orientation = .vertical
         block.alignment = .leading
         block.spacing = 4
-        rule.widthAnchor.constraint(equalToConstant: 456).isActive = true
         stack.addArrangedSubview(block)
     }
 
     private func addToggles(_ tweaks: [Tweak]) {
         for tweak in tweaks {
-            let title = plainLabel(tweak.title, size: 13, weight: .regular, color: Paper.ink)
-            let detail = wrappingLabel(tweak.detail, size: 11, color: Paper.secondary)
-            let note = wrappingLabel("Waiting for Accessibility permission", size: 11, color: Paper.secondary)
+            let title = wrappingLabel(tweak.title, size: 13, color: Paper.ink, reserve: 72)
+            let detail = wrappingLabel(tweak.detail, size: 11, color: Paper.secondary, reserve: 72)
+            let note = wrappingLabel("Waiting for Accessibility permission", size: 11, color: Paper.secondary, reserve: 72)
             note.isHidden = true
             accessNotes[tweak] = note
             let text = NSStackView(views: [title, detail, note])
@@ -278,18 +335,40 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func labeledRow(_ title: String, trailing: NSView) -> NSView {
-        labeledRowView(plainLabel(title, size: 13, weight: .regular, color: Paper.ink), trailing: trailing)
+    private func labeledRow(_ title: String, trailing: NSView, reserve: CGFloat = 72) -> NSView {
+        let label = plainLabel(title, size: 13, weight: .regular, color: Paper.ink)
+        measured.append((label, reserve))
+        return labeledRowView(label, trailing: trailing)
     }
 
-    private func labeledRowView(_ leading: NSView, trailing: NSView) -> NSView {
+    /// Title on the left, control on the right, across the column. `matching` is for rows
+    /// added later inside an already-pinned box (the share list, the app list).
+    private func labeledRowView(_ leading: NSView, trailing: NSView, matching box: NSView? = nil) -> NSView {
         let row = NSStackView(views: [leading, trailing])
         row.orientation = .horizontal
         row.alignment = .centerY
-        row.spacing = 12
+        row.spacing = 16
+        row.distribution = .fill
         leading.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        leading.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         trailing.setContentHuggingPriority(.required, for: .horizontal)
+        trailing.setContentCompressionResistancePriority(.required, for: .horizontal)
+        if let box {
+            let width = row.widthAnchor.constraint(equalTo: box.widthAnchor)
+            width.priority = NSLayoutConstraint.Priority(999)
+            width.isActive = true
+        } else {
+            pin(row)
+        }
         return row
+    }
+
+    /// Column width, updated once the scroll view knows how wide it is.
+    private func pin(_ view: NSView) {
+        let width = view.widthAnchor.constraint(equalToConstant: 456)
+        width.priority = NSLayoutConstraint.Priority(999)
+        width.isActive = true
+        columnConstraints.append(width)
     }
 
     private func plainLabel(_ text: String, size: CGFloat, weight: NSFont.Weight, color: NSColor) -> NSTextField {
@@ -301,9 +380,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         return label
     }
 
-    private func wrappingLabel(_ text: String, size: CGFloat, color: NSColor) -> NSTextField {
+    private func wrappingLabel(_ text: String, size: CGFloat, color: NSColor, reserve: CGFloat = 0) -> NSTextField {
         let label = plainLabel(text, size: size, weight: .regular, color: color)
-        wrapping.append(label)
+        measured.append((label, reserve))
         return label
     }
 
@@ -322,13 +401,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - State
 
     func sync() {
+        guard !closed else { return }
         for (tweak, toggle) in toggles {
             let on = settings.isOn(tweak)
             if toggle.state != (on ? .on : .off) { toggle.state = on ? .on : .off }
             let waiting = tweak.needsAccessibility && !tweaks.hasAccessibility && on
             accessNotes[tweak]?.isHidden = !waiting
         }
-        banner.isHidden = tweaks.hasAccessibility
+        accessRow.isHidden = tweaks.hasAccessibility
         for (action, recorder) in recorders {
             recorder.display(tweaks.shortcuts.shortcut(for: action))
         }
@@ -362,8 +442,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func rebuildShares() {
+        let shares = settings.autoShares
+        sharesBox.isHidden = shares.isEmpty
+        guard shares != shownShares else { return }
+        shownShares = shares
         sharesBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for share in settings.autoShares {
+        for share in shares {
             let label = NSTextField(labelWithString: share)
             label.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
             label.textColor = Paper.ink
@@ -373,37 +457,73 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             remove.bezelStyle = .inline
             remove.font = .systemFont(ofSize: 11)
             remove.contentTintColor = Paper.secondary
-            sharesBox.addArrangedSubview(labeledRowView(label, trailing: remove))
+            sharesBox.addArrangedSubview(labeledRowView(label, trailing: remove, matching: sharesBox))
         }
-        sharesBox.isHidden = settings.autoShares.isEmpty
     }
 
     private func rebuildApps() {
+        let apps = settings.quitApps
+        appsBox.isHidden = apps.isEmpty
+        guard apps != shownApps else { return }
+        shownApps = apps
         appsBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for bundleID in settings.quitApps {
+        for bundleID in apps {
             let label = plainLabel(Self.appName(for: bundleID), size: 13, weight: .regular, color: Paper.ink)
+            label.lineBreakMode = .byTruncatingTail
             let remove = NSButton(title: "Remove", target: self, action: #selector(removeApp(_:)))
             remove.identifier = NSUserInterfaceItemIdentifier(bundleID)
             remove.bezelStyle = .inline
             remove.font = .systemFont(ofSize: 11)
             remove.contentTintColor = Paper.secondary
-            appsBox.addArrangedSubview(labeledRowView(label, trailing: remove))
+            appsBox.addArrangedSubview(labeledRowView(label, trailing: remove, matching: appsBox))
         }
-        appsBox.isHidden = settings.quitApps.isEmpty
     }
 
     private func fitStack() {
-        let width = scroll.contentSize.width > 1 ? scroll.contentSize.width : 500
-        let textWidth = max(160, width - 22 - 22 - 80)
-        for label in wrapping {
-            label.preferredMaxLayoutWidth = textWidth
+        // Nothing to lay out while the window is closed or ordered out. A hidden document
+        // that keeps invalidating itself is what held a display link with no window on screen.
+        guard !closed, !fitting, window?.isVisible == true else { return }
+        fitting = true
+        defer { fitting = false }
+        // contentView bounds, not contentSize: contentSize shrinks when a scroller appears,
+        // which was changing the document width and scheduling another layout.
+        let boundsWidth = window?.contentView?.bounds.width ?? 0
+        let width = boundsWidth > 1 ? boundsWidth : 500
+        let inner = max(200, width - stack.edgeInsets.left - stack.edgeInsets.right)
+        for constraint in columnConstraints where constraint.constant != inner {
+            constraint.constant = inner
         }
+        for (label, reserve) in measured {
+            let limit = max(120, inner - reserve)
+            if label.preferredMaxLayoutWidth != limit { label.preferredMaxLayoutWidth = limit }
+        }
+        stack.layoutSubtreeIfNeeded()
         let height = max(stack.fittingSize.height, 200)
-        stack.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        let next = NSRect(x: 0, y: 0, width: width, height: height)
+        if stack.frame != next {
+            let origin = scroll.contentView.bounds.origin
+            stack.frame = next
+            if pinnedToTop {
+                scroll.contentView.scroll(to: origin)
+                scroll.reflectScrolledClipView(scroll.contentView)
+            }
+        }
+    }
+
+    /// The document view is not flipped, so a tall stack opens on its last section until
+    /// this runs once, after the window is visible and the clip view has its real height.
+    private func pinToTopIfNeeded() {
+        guard !pinnedToTop, let window, window.isVisible else { return }
+        let clip = scroll.contentView
+        guard clip.bounds.height > window.contentLayoutRect.height * 0.8, stack.frame.height > 1 else { return }
+        pinnedToTop = true
+        let y = max(0, stack.frame.height - clip.bounds.height)
+        clip.scroll(to: NSPoint(x: 0, y: y))
+        scroll.reflectScrolledClipView(clip)
     }
 
     private func track() {
-        guard !tracking else { return }
+        guard !closed, !tracking else { return }
         tracking = true
         withObservationTracking { [weak self] in
             guard let self else { return }
@@ -418,9 +538,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.settings.quitApps
             for tweak in Tweak.allCases { _ = self.settings.isOn(tweak) }
         } onChange: { [weak self] in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
                 MainActor.assumeIsolated {
-                    guard let self else { return }
+                    guard let self, !self.closed else { return }
                     self.tracking = false
                     self.sync()
                     self.track()
@@ -504,5 +624,24 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static func appName(for bundleID: String) -> String {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
         return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+}
+
+/// A 1pt hairline, or a 2pt vertical mark beside the Accessibility note.
+@MainActor
+private final class Rule: NSView {
+    var vertical = false {
+        didSet { invalidateIntrinsicContentSize() }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        vertical
+            ? NSSize(width: 2, height: NSView.noIntrinsicMetric)
+            : NSSize(width: NSView.noIntrinsicMetric, height: 1)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        Paper.line.setFill()
+        bounds.fill()
     }
 }

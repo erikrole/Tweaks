@@ -476,6 +476,17 @@ final class ShortcutTests: XCTestCase {
         XCTAssertFalse(CPUSampler.shouldMeasure("/Applications/Safari.app/Contents/MacOS/Safari"))
     }
 
+    func testHiddenUIDoesNotInstallADisplayLink() throws {
+        let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let files = ["Tweaks/SettingsView.swift", "Tweaks/HUD.swift", "Tweaks/KeepAwakePanel.swift"]
+        for relative in files {
+            let source = try String(contentsOf: root.appending(path: relative), encoding: .utf8)
+            for banned in ["titlebarAppearsTransparent", "animator(", "NSAnimationContext"] {
+                XCTAssertFalse(source.contains(banned), "\(relative) \(banned)")
+            }
+        }
+    }
+
     func testIdleWorkIsNotOnATightLoop() {
         XCTAssertGreaterThanOrEqual(LinkCleaner.pollInterval, 2)
         XCTAssertGreaterThanOrEqual(ShortcutBannerDismisser.pollInterval, 3)

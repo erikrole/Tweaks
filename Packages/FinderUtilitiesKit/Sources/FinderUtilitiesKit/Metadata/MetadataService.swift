@@ -50,7 +50,8 @@ public final class MetadataService: @unchecked Sendable {
         return cache[url.path] ?? .loading
     }
 
-    /// Starts background reads for uncached files. Returns immediately.
+    /// Starts background reads for uncached files. Returns immediately. `menu(for:)` uses this
+    /// and `state(for:)`, and does not wait: a sleep loop on that path wakes Finder on every right-click.
     public func prefetch(_ urls: [URL]) {
         for url in urls {
             let path = url.path
@@ -69,18 +70,6 @@ public final class MetadataService: @unchecked Sendable {
                 finish(path, vol.key, result)
             }
         }
-    }
-
-    /// Polls the cache for up to `seconds` so a fast local read can finish before the menu is shown.
-    /// Does no I/O itself; the bound keeps `menu(for:)` responsive when the read is slow.
-    public func state(for url: URL, waitingUpTo seconds: TimeInterval) -> MetadataState {
-        let deadline = Date().addingTimeInterval(seconds)
-        var s = state(for: url)
-        while s == .loading && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
-            s = state(for: url)
-        }
-        return s
     }
 
     /// Forgets cached results (call when files may have changed).

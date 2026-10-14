@@ -81,6 +81,16 @@ private struct Counting: MetadataProvider {
         #expect(await counter.n == 0)
     }
 
+    @Test func menuReadDoesNotSpinWhileAReadHangs() {
+        let svc = MetadataService(providers: [Hanging()], datalessCheck: { _ in false },
+                                  timeouts: .init(local: 0.2, network: 0.2))
+        let url = URL(fileURLWithPath: "/Users/user/a.mov")
+        svc.prefetch([url])
+        let start = Date()
+        #expect(svc.state(for: url) == .loading)
+        #expect(Date().timeIntervalSince(start) < 0.05)
+    }
+
     @Test func menuReadIsInstantAndPrefetchFillsCache() async throws {
         var m = MediaMetadata(); m.width = 1920; m.height = 1080
         let svc = MetadataService(providers: [Fixed(meta: m)], datalessCheck: { _ in false })

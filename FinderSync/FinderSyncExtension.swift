@@ -36,14 +36,13 @@ final class FinderSyncExtension: FIFinderSync {
         original.target = self
         menu.addItem(original)
 
-        // One bounded wait serves both the top-level line and the submenu. A dead share fails fast
-        // (breaker or timeout) rather than holding the menu for the whole budget.
+        // Cache only. Waiting here used to sleep the Finder Sync thread (up to a second on a
+        // network file) so the first menu could show numbers. The read still runs in the background;
+        // this menu says "Loading…" until the cache has them.
         var state: MetadataState?
         if selection.count == 1, let url = selection.first, !url.hasDirectoryPath {
-            let budget: TimeInterval = VolumeInfo.classify(path: url.path).kind == .local ? 0.15 : 1.0
             metadata.prefetch([url])
-            state = metadata.state(for: url, waitingUpTo: budget)
-            log.info("inspect \(VolumeInfo.classify(path: url.path).key, privacy: .public): \(String(describing: state), privacy: .public)")
+            state = metadata.state(for: url)
         }
         for line in quickInfo(state) { menu.addItem(line) }
         menu.addItem(inspectItem(state))
@@ -58,8 +57,7 @@ final class FinderSyncExtension: FIFinderSync {
         return [row]
     }
 
-    /// Reads only the in-memory cache and kicks off a background prefetch; no I/O happens here.
-    /// First open shows "Loading…"; reopening the menu shows the values.
+    /// Lines from the cache `menu(for:)` just read. First open shows "Loading…"; the next one has the values.
     private func inspectItem(_ state: MetadataState?) -> NSMenuItem {
         let item = NSMenuItem(title: "Inspect Media", action: nil, keyEquivalent: "")
         let sub = NSMenu(title: "Inspect Media")
