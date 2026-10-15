@@ -413,7 +413,8 @@ final class KeepAwake {
         stopDownloadSource()
     }
 
-    private func check() {
+    /// File-visible: the IOPS callback sits above this type, and `private` stops at the type.
+    fileprivate func check() {
         guard var current = session else { return }
         let now = Date()
         let battery = Battery.current()
