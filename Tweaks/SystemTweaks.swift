@@ -35,7 +35,7 @@ enum OutputAudio {
         return status == noErr && device != 0 ? device : nil
     }
 
-    private static func volumeAddress() -> AudioObjectPropertyAddress {
+    static func volumeAddress() -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
@@ -51,8 +51,8 @@ enum OutputAudio {
         )
     }
 
-    static func volume() -> Float? {
-        guard let device = defaultDevice() else { return nil }
+    static func volume(device: AudioDeviceID? = nil) -> Float? {
+        guard let device = device ?? defaultDevice() else { return nil }
         var address = volumeAddress()
         var value = Float32(0)
         var size = UInt32(MemoryLayout<Float32>.size)
@@ -60,11 +60,12 @@ enum OutputAudio {
         return value
     }
 
-    static func setVolume(_ volume: Float) {
-        guard let device = defaultDevice() else { return }
+    @discardableResult
+    static func setVolume(_ volume: Float, device: AudioDeviceID? = nil) -> Bool {
+        guard let device = device ?? defaultDevice(), volume.isFinite else { return false }
         var address = volumeAddress()
         var value = Float32(min(max(volume, 0), 1))
-        AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &value)
+        return AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &value) == noErr
     }
 
     static func isMuted() -> Bool {
@@ -76,8 +77,8 @@ enum OutputAudio {
         return value != 0
     }
 
-    static func setMuted(_ muted: Bool) {
-        guard let device = defaultDevice() else { return }
+    static func setMuted(_ muted: Bool, device: AudioDeviceID? = nil) {
+        guard let device = device ?? defaultDevice() else { return }
         var address = muteAddress()
         var value = UInt32(muted ? 1 : 0)
         AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<UInt32>.size), &value)
@@ -198,7 +199,7 @@ final class MusicLaunchBlocker {
     private var launchObserver: NSObjectProtocol?
     private var lastPlayKey: Date?
 
-    static let musicBundleID = "com.apple.Music"
+    nonisolated static let musicBundleID = "com.apple.Music"
     /// How soon after the key a launch counts as caused by it.
     static let window: TimeInterval = 3
 

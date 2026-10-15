@@ -1,0 +1,52 @@
+# Tweaks roadmap
+
+## Current state
+
+The 2026-10-12 validation pass adds repeatable Release benchmarks and regression
+coverage for Downloads collisions and watcher restarts. Finder menu metadata no
+longer blocks the menu, DMG identity inspection runs off the main actor, and the
+embedded extension now follows the app's version settings.
+
+The follow-up performance pass reduces render-poll CPU time by 75%, and reduces
+CPU time for 10,000-file Downloads watcher/completion checks by 89%/93% on the
+measured host. Both full app configurations pass 59 tests, including the existing
+live-share check. See [performance results](docs/performance-2026-10-12.md).
+
+See [validation evidence and boundaries](docs/validation-2026-10-12.md).
+
+The file-work pass moves Downloads discovery, settling checks, renames, invite
+preparation/cleanup, archive validation/moves, and remaining DMG filesystem calls
+off the main actor. Discovery has its own queue; archive extraction is serialized.
+File identity checks protect queued work from changed or replaced paths, and
+cancelled sessions cannot process later queued files. See
+[file-work profiles](docs/file-work-profile-2026-10-12.md) for the measured results.
+
+Five selected additions are implemented locally: saved layouts per monitor setup,
+per-device volume limits, Finder image exports, safe-eject action/shortcut, and
+duplicate-download review. New automatic behavior is off by default. The additions
+preserve originals and require explicit duplicate-trash actions; their file work
+stays off the main actor. Debug and Release each pass 90 tests, including 20 new
+feature regressions; two opt-in profiles are skipped. The Finder package passes
+17 tests. See [feature validation](docs/features-2026-10-12.md) for checks and the
+installation boundary.
+
+## Next validation
+
+- On the updated signed app, verify monitor disconnect/reconnect and matching AX
+  windows, USB/Bluetooth audio transitions and rounded volume controls, Finder-to-
+  host image requests, and safe eject with both idle and busy multi-volume drives.
+  These features have fixture coverage; no real window/audio/eject operations have
+  been performed for acceptance yet.
+- Exercise Finder menus with the signed extension on a real SMB share, a slow or
+  disconnected server, and cloud placeholders; verify both responsiveness and the
+  Loading-to-cached-result behavior.
+- Validate actual NAS disconnect/reconnect and sleep/wake cycles. The existing
+  reachability/already-mounted no-op test passed during the performance follow-up.
+- After installing the updated signed build, profile idle CPU, wakeups, memory,
+  and live Downloads bursts over a longer period. Controlled Release before/after
+  file-work profiles and a short sample of the previously installed app are now
+  available; they do not establish battery savings or long-running memory behavior.
+- Validate Accessibility shortcuts, wake/sleep behavior, and DMG installation in
+  the signed installed app. Unit-test success is not an installation/release gate.
+- Continue the existing Finder plan's host-app Inspector and share robustness work
+  after these measurements; this pass does not change entitlements or distribution.

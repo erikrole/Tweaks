@@ -15,6 +15,22 @@ enum OpenFiles {
         pidsUsing(mountPoint, flags: UInt32(PROC_LISTPIDSPATH_PATH_IS_VOLUME)) > 0
     }
 
+    /// Names of processes holding files on a volume. nil means an incomplete or
+    /// failed read, which manual safe eject treats as a reason to leave it mounted.
+    static func usersOfVolume(_ path: String) -> [String]? {
+        var pids = [pid_t](repeating: 0, count: 4096)
+        let capacity = Int32(pids.count * MemoryLayout<pid_t>.size)
+        let bytes = path.withCString {
+            proc_listpidspath(UInt32(PROC_ALL_PIDS), 0, $0, UInt32(PROC_LISTPIDSPATH_PATH_IS_VOLUME), &pids, capacity)
+        }
+        guard bytes >= 0, bytes < capacity else { return nil }
+        return pids.prefix(Int(bytes) / MemoryLayout<pid_t>.size).filter { $0 > 0 }.map { pid in
+            var name = [CChar](repeating: 0, count: 1024)
+            guard proc_name(pid, &name, UInt32(name.count)) > 0 else { return "PID \(pid)" }
+            return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        }
+    }
+
     private static func pidsUsing(_ path: String, flags: UInt32) -> Int {
         var pids = [pid_t](repeating: 0, count: 512)
         let bytes = path.withCString { pointer in
@@ -35,7 +51,7 @@ enum RenderProcesses {
         for pid in pids.prefix(max(0, count)) where pid > 0 {
             var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
             guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { continue }
-            if isRenderer(String(cString: path)) { return true }
+            if isRenderer(String(decoding: path.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)) { return true }
         }
         return false
     }

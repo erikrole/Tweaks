@@ -34,17 +34,21 @@ final class FinderSyncExtension: FIFinderSync {
         original.target = self
         menu.addItem(original)
 
-        // One bounded wait serves both the top-level line and the submenu. A dead share fails fast
-        // (breaker or timeout) rather than holding the menu for the whole budget.
+        // Never wait for metadata while Finder is constructing a menu. The same cached
+        // result serves the top-level line and submenu; cold reads show Loading….
         var state: MetadataState?
         if selection.count == 1, let url = selection.first, !url.hasDirectoryPath {
-            let budget: TimeInterval = VolumeInfo.classify(path: url.path).kind == .local ? 0.15 : 1.0
-            metadata.prefetch([url])
-            state = metadata.state(for: url, waitingUpTo: budget)
+            state = metadata.menuState(for: url)
             log.info("inspect \(VolumeInfo.classify(path: url.path).key, privacy: .public): \(String(describing: state), privacy: .public)")
         }
         for line in quickInfo(state) { menu.addItem(line) }
         menu.addItem(inspectItem(state))
+        if let request = ImageActionRequest.url(for: selection) {
+            let images = NSMenuItem(title: "Quick Image Actions…", action: #selector(openImageActions(_:)), keyEquivalent: "")
+            images.target = self
+            images.representedObject = request
+            menu.addItem(images)
+        }
         return menu
     }
 
@@ -87,6 +91,11 @@ final class FinderSyncExtension: FIFinderSync {
 
     @objc private func copyOriginalPath(_ sender: Any?) {
         write(selection.map { $0.path(percentEncoded: false) }.joined(separator: "\n"))
+    }
+
+    @objc private func openImageActions(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(request)
     }
 
     private func write(_ text: String) {

@@ -106,7 +106,7 @@ struct JobWatcher {
     private mutating func isBusy(_ job: JobCondition, now: Date) -> Bool {
         switch job {
         case .render:
-            return RenderKeepAwake.busyRenderer(in: sampler.sample()) != nil || RenderProcesses.anyRunning()
+            return RenderKeepAwake.sampleBusyRenderer(using: &sampler) != nil
         case .downloads:
             return Self.downloadsInProgress()
         case .upload:
@@ -122,8 +122,8 @@ struct JobWatcher {
 
     /// Any partial download in ~/Downloads (Chrome, Safari, Firefox, Edge, browsers' temp names).
     static func downloadsInProgress(in folder: URL = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")) -> Bool {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
-        return names.contains { !DownloadsWatcher.isFinishedDownload(URL(filePath: $0)) }
+        let names = DownloadDirectory.names(in: folder) ?? []
+        return names.contains { !DownloadsWatcher.isFinishedDownload(named: $0) }
     }
 
     /// Bytes sent since boot over physical interfaces (en*), so VPN tunnels don't count twice.

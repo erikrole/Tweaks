@@ -7,26 +7,37 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		07BFF3640D52BEF1D0E0670A /* NewTweakSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39CED3D0445E5BB79EF1AA08 /* NewTweakSettingsViews.swift */; };
+		0EBB14037392855A61DA1198 /* DeviceVolumeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */; };
+		1B640C0C290CAF710B6A3889 /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */; };
 		1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E331E81854D32C0B5583B639 /* MoreTweaks.swift */; };
 		2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */; };
 		2B96BEAE3509ECC74E0076F5 /* HUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E4A379C97DAD8B47F5D295 /* HUD.swift */; };
+		2FD8EC43873788B91DC2D2E2 /* FileWorkProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */; };
 		3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
+		415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */; };
+		591127B1B673B1D25A23A9DB /* ImageActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */; };
 		62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */; };
 		65D4944005B264C99ED50D66 /* TweaksApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */; };
 		6B9C065ED6B68745B8A6B145 /* JobWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477EBDD93C6EC737F0A3019F /* JobWatcher.swift */; };
 		6C17064C17028AEF286FE9F5 /* FinderSyncExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */; };
+		72B7F68BE99F37AFC4052D1E /* SafeEject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */; };
 		785E6FFDD4DC1C0476E3BE62 /* ScopeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F635E28C8BA73956FF610E36 /* ScopeController.swift */; };
 		82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273D3495028E3E79230CC808 /* TweaksTests.swift */; };
+		86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */; };
 		88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */; };
 		8F4700A6A72F6F69C334405D /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */; };
+		93A10AD82DC5655B6CE0961D /* DuplicateDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */; };
 		964820E2F94EA4499E765A9E /* AVMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */; };
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
+		B1366F2517E4005E0FAA3E65 /* FileWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9816CFB9221F42C12C38D8B0 /* FileWork.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
 		B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */; };
 		BA45CB800DC3B76D4B2F8E31 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95088360DF10A9B9311768E8 /* AppIcon.icns */; };
 		BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */; };
 		C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */; };
+		D5EA9215B2EFC0C482808342 /* WindowLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5360C1DD194AFD5689306C /* WindowLayouts.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
 		FD85C403331C7080B71FB593 /* ImageMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */; };
@@ -73,27 +84,37 @@
 		1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageMetadataProvider.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
+		296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTweakTests.swift; sourceTree = "<group>"; };
 		2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwakePanel.swift; sourceTree = "<group>"; };
 		35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTweaks.swift; sourceTree = "<group>"; };
+		39CED3D0445E5BB79EF1AA08 /* NewTweakSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTweakSettingsViews.swift; sourceTree = "<group>"; };
 		4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksApp.swift; sourceTree = "<group>"; };
 		477EBDD93C6EC737F0A3019F /* JobWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobWatcher.swift; sourceTree = "<group>"; };
 		5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTweaks.swift; sourceTree = "<group>"; };
+		65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageActions.swift; sourceTree = "<group>"; };
 		658EF92576770693D3686C4F /* TweaksTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TweaksTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
+		7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkProfileTests.swift; sourceTree = "<group>"; };
+		7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeEject.swift; sourceTree = "<group>"; };
 		93A0F2E06285ADDB181F6A88 /* FinderSync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderSync.entitlements; sourceTree = "<group>"; };
 		93A9176A0B9E8E86B927F279 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		95088360DF10A9B9311768E8 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		9816CFB9221F42C12C38D8B0 /* FileWork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWork.swift; sourceTree = "<group>"; };
 		9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSyncExtension.swift; sourceTree = "<group>"; };
+		A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVolumeLimits.swift; sourceTree = "<group>"; };
 		A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwake.swift; sourceTree = "<group>"; };
 		B5C2178EC6AB88894C211F68 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B669558E8002E222EB08AA36 /* TweakSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweakSettings.swift; sourceTree = "<group>"; };
 		B7E4A379C97DAD8B47F5D295 /* HUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUD.swift; sourceTree = "<group>"; };
 		CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TweaksFinderSync.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD5360C1DD194AFD5689306C /* WindowLayouts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowLayouts.swift; sourceTree = "<group>"; };
 		E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsTweaks.swift; sourceTree = "<group>"; };
 		E331E81854D32C0B5583B639 /* MoreTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreTweaks.swift; sourceTree = "<group>"; };
 		F635E28C8BA73956FF610E36 /* ScopeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScopeController.swift; sourceTree = "<group>"; };
+		F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkConcurrencyTests.swift; sourceTree = "<group>"; };
 		F90BB2070E38C524774DE6DD /* Safety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Safety.swift; sourceTree = "<group>"; };
+		FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDownloads.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,12 +126,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8F23C2BAC9355518F5C6680C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1B640C0C290CAF710B6A3889 /* FinderUtilitiesKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		11B2803453AA00B7C62978D9 /* TweaksTests */ = {
 			isa = PBXGroup;
 			children = (
+				F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */,
+				7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */,
+				296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */,
 				273D3495028E3E79230CC808 /* TweaksTests.swift */,
 			);
 			path = TweaksTests;
@@ -163,9 +195,13 @@
 			children = (
 				57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */,
 				95088360DF10A9B9311768E8 /* AppIcon.icns */,
+				A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */,
 				168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */,
 				E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */,
+				FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */,
+				9816CFB9221F42C12C38D8B0 /* FileWork.swift */,
 				B7E4A379C97DAD8B47F5D295 /* HUD.swift */,
+				65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */,
 				93A9176A0B9E8E86B927F279 /* Info.plist */,
 				477EBDD93C6EC737F0A3019F /* JobWatcher.swift */,
 				A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */,
@@ -173,12 +209,15 @@
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
+				39CED3D0445E5BB79EF1AA08 /* NewTweakSettingsViews.swift */,
+				7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */,
 				F90BB2070E38C524774DE6DD /* Safety.swift */,
 				228920353BABF64F9F93E79F /* SettingsView.swift */,
 				663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */,
 				099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */,
 				4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */,
 				B669558E8002E222EB08AA36 /* TweakSettings.swift */,
+				DD5360C1DD194AFD5689306C /* WindowLayouts.swift */,
 			);
 			path = Tweaks;
 			sourceTree = "<group>";
@@ -192,6 +231,7 @@
 			buildPhases = (
 				9E537DDA100698558B7F33A5 /* Sources */,
 				2A63023176B76B0CF13D460C /* Resources */,
+				8F23C2BAC9355518F5C6680C /* Frameworks */,
 				E05B0FE6E1E1F6A47393162D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -201,6 +241,7 @@
 			);
 			name = Tweaks;
 			packageProductDependencies = (
+				B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */,
 			);
 			productName = Tweaks;
 			productReference = 09A1FB2997040A869AD5920F /* Tweaks.app */;
@@ -315,6 +356,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */,
+				2FD8EC43873788B91DC2D2E2 /* FileWorkProfileTests.swift in Sources */,
+				86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */,
 				82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -325,20 +369,27 @@
 			files = (
 				88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */,
 				3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */,
+				0EBB14037392855A61DA1198 /* DeviceVolumeLimits.swift in Sources */,
 				3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */,
+				93A10AD82DC5655B6CE0961D /* DuplicateDownloads.swift in Sources */,
+				B1366F2517E4005E0FAA3E65 /* FileWork.swift in Sources */,
 				2B96BEAE3509ECC74E0076F5 /* HUD.swift in Sources */,
+				591127B1B673B1D25A23A9DB /* ImageActions.swift in Sources */,
 				6B9C065ED6B68745B8A6B145 /* JobWatcher.swift in Sources */,
 				2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */,
 				C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */,
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
+				07BFF3640D52BEF1D0E0670A /* NewTweakSettingsViews.swift in Sources */,
+				72B7F68BE99F37AFC4052D1E /* SafeEject.swift in Sources */,
 				DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */,
 				D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */,
 				BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */,
 				62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */,
 				AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */,
 				65D4944005B264C99ED50D66 /* TweaksApp.swift in Sources */,
+				D5EA9215B2EFC0C482808342 /* WindowLayouts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -665,6 +716,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FinderUtilitiesKit;
+		};
+		B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FinderUtilitiesKit;
 		};

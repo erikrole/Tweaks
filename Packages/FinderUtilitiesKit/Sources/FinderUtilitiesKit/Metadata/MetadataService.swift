@@ -50,6 +50,13 @@ public final class MetadataService: @unchecked Sendable {
         return cache[url.path] ?? .loading
     }
 
+    /// Starts a background read and immediately returns the cached state. A cold menu
+    /// shows Loading; reopening it shows the result without ever waiting on a share.
+    public func menuState(for url: URL) -> MetadataState {
+        prefetch([url])
+        return state(for: url)
+    }
+
     /// Starts background reads for uncached files. Returns immediately.
     public func prefetch(_ urls: [URL]) {
         for url in urls {
@@ -69,18 +76,6 @@ public final class MetadataService: @unchecked Sendable {
                 finish(path, vol.key, result)
             }
         }
-    }
-
-    /// Polls the cache for up to `seconds` so a fast local read can finish before the menu is shown.
-    /// Does no I/O itself; the bound keeps `menu(for:)` responsive when the read is slow.
-    public func state(for url: URL, waitingUpTo seconds: TimeInterval) -> MetadataState {
-        let deadline = Date().addingTimeInterval(seconds)
-        var s = state(for: url)
-        while s == .loading && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
-            s = state(for: url)
-        }
-        return s
     }
 
     /// Forgets cached results (call when files may have changed).

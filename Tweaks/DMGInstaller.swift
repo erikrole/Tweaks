@@ -26,13 +26,14 @@ final class DMGInstaller {
 
     private func handleMount(_ volume: URL) async {
         guard let image = await Self.diskImagePath(for: volume),
-              let app = Self.singleApp(in: volume)
+              let app = try? await FileWork.run({ Self.singleApp(in: volume) })
         else { return }
 
         let name = app.deletingPathExtension().lastPathComponent
         let destination = URL(filePath: "/Applications").appending(path: app.lastPathComponent)
-        let incoming = AppIdentity.read(app)
-        let installed = FileManager.default.fileExists(atPath: destination.path) ? AppIdentity.read(destination) : nil
+        let incoming = await AppIdentity.read(app)
+        let exists = (try? await FileWork.run { FileManager.default.fileExists(atPath: destination.path) }) == true
+        let installed = exists ? await AppIdentity.read(destination) : nil
 
         // Refuse what would be a downgrade or a different developer's app with the same name.
         if let problem = Self.problem(installing: incoming, over: installed) {
@@ -53,33 +54,34 @@ final class DMGInstaller {
 
         // Copy next to the destination first; the installed app is only replaced once the
         // new copy is complete and passes Gatekeeper, so there's never a moment without it.
-        let staging = URL(filePath: "/Applications").appending(path: ".\(app.lastPathComponent).tweaks-staging")
-        try? FileManager.default.removeItem(at: staging)
+        let staging = URL(filePath: "/Applications").appending(path: ".\(app.lastPathComponent).tweaks-staging-\(UUID().uuidString)")
         do {
             try await Self.copy(app, to: staging)
             guard await Self.passesGatekeeper(staging) else {
-                try? FileManager.default.removeItem(at: staging)
+                await Self.remove(staging)
                 Self.tell("Didn't install \(name)", "macOS's Gatekeeper check rejected this copy, so the app you have is unchanged.")
                 return
             }
             if installed != nil {
                 guard await Self.quitAndWait(bundleID: incoming.bundleID ?? installed?.bundleID) else {
-                    try? FileManager.default.removeItem(at: staging)
+                    await Self.remove(staging)
                     Self.tell("Didn't update \(name)", "\(name) is still open. Quit it (saving your work) and open the disk image again.")
                     return
                 }
-                _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging, backupItemName: nil, options: [])
+                try await FileWork.run {
+                    _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging, backupItemName: nil, options: [])
+                }
             } else {
-                try FileManager.default.moveItem(at: staging, to: destination)
+                try await FileWork.run { try FileManager.default.moveItem(at: staging, to: destination) }
             }
         } catch {
-            try? FileManager.default.removeItem(at: staging)
+            await Self.remove(staging)
             Self.tell("Couldn't install \(name)", error.localizedDescription)
             return
         }
 
         await Self.detach(volume)
-        try? FileManager.default.trashItem(at: image, resultingItemURL: nil)
+        try? await FileWork.run { try FileManager.default.trashItem(at: image, resultingItemURL: nil) }
         _ = try? await NSWorkspace.shared.openApplication(at: destination, configuration: NSWorkspace.OpenConfiguration())
     }
 
@@ -122,13 +124,15 @@ final class DMGInstaller {
 
     /// The .dmg behind a mounted volume, if it is a disk image you downloaded.
     static func diskImagePath(for volume: URL) async -> URL? {
-        guard let output = await run("/usr/bin/hdiutil", ["info", "-plist"]),
-              let plist = try? PropertyListSerialization.propertyList(from: output, format: nil) as? [String: Any]
-        else { return nil }
-        return imagePath(for: volume.path, inHdiutilInfo: plist)
+        guard let output = await run("/usr/bin/hdiutil", ["info", "-plist"]) else { return nil }
+        return try? await FileWork.run {
+            guard let plist = try PropertyListSerialization.propertyList(from: output, format: nil) as? [String: Any]
+            else { return nil }
+            return imagePath(for: volume.path, inHdiutilInfo: plist)
+        }
     }
 
-    static func imagePath(for mountPoint: String, inHdiutilInfo plist: [String: Any]) -> URL? {
+    nonisolated static func imagePath(for mountPoint: String, inHdiutilInfo plist: [String: Any]) -> URL? {
         let normalized = mountPoint.hasSuffix("/") ? String(mountPoint.dropLast()) : mountPoint
         for image in plist["images"] as? [[String: Any]] ?? [] {
             let entities = image["system-entities"] as? [[String: Any]] ?? []
@@ -143,7 +147,7 @@ final class DMGInstaller {
     }
 
     /// The one app at the top of the volume; nil if there are none or several.
-    static func singleApp(in volume: URL) -> URL? {
+    nonisolated static func singleApp(in volume: URL) -> URL? {
         let items = (try? FileManager.default.contentsOfDirectory(at: volume, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
         let apps = items.filter { $0.pathExtension == "app" }
         return apps.count == 1 ? apps[0] : nil
@@ -158,6 +162,10 @@ final class DMGInstaller {
 
     private static func detach(_ volume: URL) async {
         _ = await run("/usr/bin/hdiutil", ["detach", volume.path, "-quiet"])
+    }
+
+    private static func remove(_ url: URL) async {
+        try? await FileWork.run { try FileManager.default.removeItem(at: url) }
     }
 
     /// Runs a tool off the main thread; nil on failure.
@@ -184,7 +192,13 @@ struct AppIdentity: Equatable, Sendable {
     let version: String?
     let teamID: String?
 
-    static func read(_ url: URL) -> AppIdentity {
+    /// Bundle and signature inspection can block on disk and Security services.
+    /// Keep it off the main actor so mounting a DMG does not stall shortcuts or UI.
+    static func read(_ url: URL) async -> AppIdentity {
+        await Task.detached(priority: .utility) { readSynchronously(url) }.value
+    }
+
+    private static func readSynchronously(_ url: URL) -> AppIdentity {
         let bundle = Bundle(url: url)
         let version = (bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
             ?? (bundle?.object(forInfoDictionaryKey: "CFBundleVersion") as? String)

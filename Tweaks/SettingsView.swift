@@ -15,7 +15,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Some tweaks need Accessibility permission", systemImage: "hand.raised")
                             .font(.headline)
-                        Text("Clearing notifications, dismissing Shortcut banners, the green button and blocking Music read or click other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility.")
+                        Text("Window layouts, clearing notifications, dismissing Shortcut banners, the green button and blocking Music read or control other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         HStack {
@@ -54,6 +54,8 @@ struct SettingsView: View {
                 row(.wakeVolumeLimit)
                 row(.muteIcon)
                 row(.blockMusicLaunch)
+                row(.deviceVolumeLimits)
+                VolumeLimitsSettings(model: controller.volumeLimits)
             }
 
             Section("Downloads and clipboard") {
@@ -62,6 +64,8 @@ struct SettingsView: View {
                 row(.dmgInstaller)
                 row(.unzipDownloads)
                 row(.cleanCopiedLinks)
+                row(.duplicateDownloads)
+                DuplicateReviewSettings(model: controller.duplicates)
             }
 
             Section("Sleep") {
@@ -80,6 +84,13 @@ struct SettingsView: View {
                     }
                 }
                 row(.ejectBeforeSleep)
+                row(.safeEjectHotKey)
+                HStack {
+                    Button("Eject Idle External Drives") { Task { await controller.safeEject.ejectIdleDrives() } }
+                        .disabled(controller.safeEject.busy)
+                    if controller.safeEject.busy { ProgressView().controlSize(.small) }
+                }
+                ForEach(controller.safeEject.results, id: \.self) { Text($0).font(.caption).textSelection(.enabled) }
                 row(.awakeWhileRendering)
                 if let holding = controller.renderAwake.holdingFor {
                     Label("Keeping your Mac awake: \(holding) is rendering", systemImage: "cup.and.saucer")
@@ -92,6 +103,14 @@ struct SettingsView: View {
                 row(.clearNotificationsHotKey)
                 row(.dismissShortcutNotifications)
                 row(.greenButtonFills)
+                row(.windowLayouts)
+                HStack {
+                    Button("Save This Layout") { Task { await controller.windowLayouts.save() } }
+                    Button("Restore Layout") { Task { await controller.windowLayouts.restore() } }
+                    Button("Forget Layout") { controller.windowLayouts.forgetCurrent() }
+                }
+                .disabled(!settings.isOn(.windowLayouts) || !controller.hasAccessibility || controller.windowLayouts.busy)
+                Text(controller.windowLayouts.status).font(.caption).foregroundStyle(.secondary)
                 Button("Clear notifications now") { controller.clearNotifications() }
                     .disabled(!controller.hasAccessibility)
             }
@@ -118,6 +137,9 @@ struct SettingsView: View {
             }
 
             Section("Finder") {
+                Button("Quick Image Actions…") { controller.imageActions.choose() }
+                Text("Convert or resize selected images and optionally remove metadata. Originals are kept. Also available from Finder's right-click menu.")
+                    .font(.caption).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Finder Utilities")
                     Text("Adds Copy Path (with NAS, Box and Google Drive roots shortened), Copy Original Path and Inspect Media to Finder's right-click menu. Turn it on under Finder Extensions.")
