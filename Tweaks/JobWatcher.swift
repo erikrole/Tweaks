@@ -75,9 +75,12 @@ enum JobCondition: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// Judges whether a job is still going, sampled every check (about 15 s).
+/// Judges whether a job is still going. Downloads are rechecked when that folder
+/// changes. Render, upload, and NAS copy are sampled about once a minute.
 struct JobWatcher {
-    private var quietSince: Date?
+    /// When the job last looked idle, if it looks idle now. Keep Awake uses this to
+    /// sleep until the quiet period is up instead of polling.
+    private(set) var quietSince: Date?
     private var startedAt: Date?
     private var sampler = CPUSampler()
     private var lastUpload: (bytes: UInt64, at: Date)?

@@ -794,7 +794,10 @@ final class ShortcutTests: XCTestCase {
 
     func testHiddenUIDoesNotInstallADisplayLink() throws {
         let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let files = ["Tweaks/SettingsView.swift", "Tweaks/HUD.swift", "Tweaks/KeepAwakePanel.swift"]
+        let files = [
+            "Tweaks/SettingsView.swift", "Tweaks/SettingsPages.swift", "Tweaks/SettingsChrome.swift",
+            "Tweaks/HUD.swift", "Tweaks/KeepAwakePanel.swift",
+        ]
         for relative in files {
             let source = try String(contentsOf: root.appending(path: relative), encoding: .utf8)
             for banned in ["titlebarAppearsTransparent", "animator(", "NSAnimationContext"] {
@@ -808,7 +811,16 @@ final class ShortcutTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(ShortcutBannerDismisser.pollInterval, 3)
         XCTAssertGreaterThanOrEqual(LastWindowQuitter.pollInterval, 2)
         XCTAssertGreaterThanOrEqual(RenderKeepAwake.idleInterval, 30)
-        XCTAssertGreaterThanOrEqual(KeepAwake.watchInterval, 20)
+        XCTAssertGreaterThanOrEqual(KeepAwake.watchInterval, 60)
+        XCTAssertGreaterThanOrEqual(KeepAwake.watchTolerance, 20)
+        XCTAssertGreaterThanOrEqual(KeepAwake.downloadDebounce, 3)
+        XCTAssertEqual(KeepAwake.follow(.indefinitely), .events)
+        XCTAssertEqual(KeepAwake.follow(.date(Date())), .events)
+        XCTAssertEqual(KeepAwake.follow(.appQuits(pid: 1, name: "Preview")), .events)
+        XCTAssertEqual(KeepAwake.follow(.done(.downloads)), .events)
+        XCTAssertEqual(KeepAwake.follow(.done(.render)), .samples)
+        XCTAssertEqual(KeepAwake.follow(.done(.upload)), .samples)
+        XCTAssertEqual(KeepAwake.follow(.done(.nasCopy)), .samples)
         XCTAssertGreaterThanOrEqual(ShareAutoConnect.pollInterval, 180)
         XCTAssertGreaterThanOrEqual(CapsLockTweak.reapplyInterval, 300)
         XCTAssertGreaterThanOrEqual(TweakController.accessibilityInterval, 30)
