@@ -101,7 +101,7 @@ targets:
           fi
           mkdir -p "$(dirname "$dest")"
           rm -rf "$dest"
-          cp -R "$src" "$dest"
+          cp -RL "$src" "$dest"
           if [[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" && "${EXPANDED_CODE_SIGN_IDENTITY}" != "-" ]]; then
             codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "$dest"
           fi
