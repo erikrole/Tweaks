@@ -6,10 +6,14 @@ import IOKit.pwr_mgt
 import Observation
 
 /// IOPS signals this on the main run loop, which is where `KeepAwake` runs.
+/// The pointer isn't Sendable, so only its bits cross into the main-actor closure.
 private func keepAwakePowerChanged(_ context: UnsafeMutableRawPointer?) {
     guard let context else { return }
-    let keepAwake = Unmanaged<KeepAwake>.fromOpaque(context).takeUnretainedValue()
-    MainActor.assumeIsolated { keepAwake.check() }
+    let bits = UInt(bitPattern: context)
+    MainActor.assumeIsolated {
+        guard let context = UnsafeMutableRawPointer(bitPattern: bits) else { return }
+        Unmanaged<KeepAwake>.fromOpaque(context).takeUnretainedValue().check()
+    }
 }
 
 /// A smarter caffeinate. Tap Hyper+/ (⌃⌥⇧⌘/) for 12 hours (tap again to stop, or to add
@@ -254,11 +258,12 @@ final class KeepAwake {
         }
         if launchObserver == nil {
             // aerender is not always an application launch. The sample timer still sees it.
+            // Notification and NSRunningApplication aren't Sendable; the path string is.
             launchObserver = center.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] notification in
+                let path = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.executableURL?.path ?? ""
+                guard CPUSampler.shouldMeasure(path) else { return }
                 MainActor.assumeIsolated {
                     guard let self, case .done(.render) = self.session?.until else { return }
-                    let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                    guard CPUSampler.shouldMeasure(app?.executableURL?.path ?? "") else { return }
                     self.check()
                 }
             }
