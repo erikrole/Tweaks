@@ -29,6 +29,9 @@
 		BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */; };
 		C4A1F3CD901D67927FB993FF /* KeepAwakePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
+		F1B0E002A1B0E002A1B0E002 /* FinderExtensionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B0E001A1B0E001A1B0E001 /* FinderExtensionBridge.swift */; };
+		F1B0E004A1B0E004A1B0E004 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B0E003A1B0E003A1B0E003 /* SettingsChrome.swift */; };
+		F1B0E006A1B0E006A1B0E006 /* SettingsPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B0E005A1B0E005A1B0E005 /* SettingsPages.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
 		FDA03C8814D4B70296AA203D /* TweaksFinderSync.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -80,6 +83,9 @@
 		A11A0012A11A0012A11A0012 /* BundledMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledMedia.swift; sourceTree = "<group>"; };
 		168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGInstaller.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F1B0E001A1B0E001A1B0E001 /* FinderExtensionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderExtensionBridge.swift; sourceTree = "<group>"; };
+		F1B0E003A1B0E003A1B0E003 /* SettingsChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsChrome.swift; sourceTree = "<group>"; };
+		F1B0E005A1B0E005A1B0E005 /* SettingsPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPages.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
 		2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwakePanel.swift; sourceTree = "<group>"; };
 		35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTweaks.swift; sourceTree = "<group>"; };
@@ -190,7 +196,10 @@
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
+				F1B0E001A1B0E001A1B0E001 /* FinderExtensionBridge.swift */,
 				F90BB2070E38C524774DE6DD /* Safety.swift */,
+				F1B0E003A1B0E003A1B0E003 /* SettingsChrome.swift */,
+				F1B0E005A1B0E005A1B0E005 /* SettingsPages.swift */,
 				228920353BABF64F9F93E79F /* SettingsView.swift */,
 				663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */,
 				099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */,
@@ -395,7 +404,10 @@
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
+				F1B0E002A1B0E002A1B0E002 /* FinderExtensionBridge.swift in Sources */,
 				DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */,
+				F1B0E004A1B0E004A1B0E004 /* SettingsChrome.swift in Sources */,
+				F1B0E006A1B0E006A1B0E006 /* SettingsPages.swift in Sources */,
 				D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */,
 				BBB42C331B5B0A5167737749 /* Shortcuts.swift in Sources */,
 				62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */,

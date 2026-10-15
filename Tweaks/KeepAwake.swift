@@ -1,8 +1,16 @@
 import AppKit
+import Darwin
 import Foundation
 import IOKit.ps
 import IOKit.pwr_mgt
 import Observation
+
+/// IOPS signals this on the main run loop, which is where `KeepAwake` runs.
+private func keepAwakePowerChanged(_ context: UnsafeMutableRawPointer?) {
+    guard let context else { return }
+    let keepAwake = Unmanaged<KeepAwake>.fromOpaque(context).takeUnretainedValue()
+    MainActor.assumeIsolated { keepAwake.check() }
+}
 
 /// A smarter caffeinate. Tap Hyper+/ (⌃⌥⇧⌘/) for 12 hours (tap again to stop, or to add
 /// an hour once it's about to end); hold it for the Keep Awake panel. Sessions can run
@@ -39,6 +47,7 @@ final class KeepAwake {
         didSet {
             UserDefaults.standard.set(showsCountdown, forKey: "keepAwakeCountdown")
             updateStatusItem()
+            armCountdown()
         }
     }
     /// Recent choices, newest first, shown at the top of the panel.
@@ -50,12 +59,44 @@ final class KeepAwake {
     static let warningLead: TimeInterval = 5 * 60
     static let defaultDuration: TimeInterval = 12 * 3600
 
-    /// How often a running session is checked. The five-minute warning doesn't need a tighter loop.
-    static let watchInterval: TimeInterval = 30
+    /// How often a render, upload, or NAS-copy session samples the job. Those quiet
+    /// periods are one to three minutes, so a tighter loop only costs wakeups.
+    /// Tolerance is wide on purpose: a late sample ends the session late, not early.
+    static let watchInterval: TimeInterval = 60
+    static let watchTolerance: TimeInterval = 30
+    /// Downloads-folder events arrive in bursts. One look a few seconds later is enough.
+    static let downloadDebounce: TimeInterval = 5
+
+    /// How a running session is followed. Timed and open-ended sessions wait on the
+    /// clock, power-source changes, or the app quitting. Downloads wait on the folder.
+    enum Follow: Equatable {
+        case events
+        /// Samples at `watchInterval`, with `watchTolerance` of slop.
+        case samples
+    }
+
+    static func follow(_ until: Until) -> Follow {
+        switch until {
+        case .done(.render), .done(.upload), .done(.nasCopy):
+            .samples
+        case .done(.downloads), .indefinitely, .date, .appQuits:
+            .events
+        }
+    }
 
     private var assertion: IOPMAssertionID = 0
     private var statusItem: NSStatusItem?
-    private var timer: Timer?
+    private var deadlineTimer: Timer?
+    private var warningTimer: Timer?
+    private var countdownTimer: Timer?
+    private var jobTimer: Timer?
+    private var jobTimerInterval: TimeInterval?
+    private var downloadSource: DispatchSourceFileSystemObject?
+    private var downloadDebounceWork: DispatchWorkItem?
+    /// Stays for the life of the process. Removing it from inside its own callback is unsafe, and it does not poll.
+    private var powerSource: CFRunLoopSource?
+    private var launchObserver: NSObjectProtocol?
+    private var terminateObserver: NSObjectProtocol?
     private var watcher = JobWatcher()
 
     init() {
@@ -120,8 +161,7 @@ final class KeepAwake {
         guard session != nil else { return }
         releaseAssertion()
         session = nil
-        timer?.invalidate()
-        timer = nil
+        stopSessionTimers()
         hideStatusItem()
         if let reason { HUD.show("Mac can sleep again · \(reason)", symbol: "moon.zzz") }
     }
@@ -166,15 +206,211 @@ final class KeepAwake {
 
     // MARK: - Watching
 
+    /// No repeating poll for a timed, indefinite, or "until this app quits" session.
+    /// The end and the five-minute warning are one-shot timers. Battery and plug
+    /// changes arrive from IOPS. Downloads watch the folder. Render, upload, and
+    /// NAS copy still sample, slowly, because CPU, byte counters, and open files
+    /// don't post an event when they go idle.
     private func startWatching() {
-        timer?.invalidate()
+        observePower()
+        observeWorkspace()
+        armSessionClocks()
+        armJobWatch()
+        check()
+    }
+
+    private func stopSessionTimers() {
+        deadlineTimer?.invalidate()
+        deadlineTimer = nil
+        warningTimer?.invalidate()
+        warningTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        stopJobSampling()
+    }
+
+    private func observePower() {
+        guard powerSource == nil else { return }
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        // The source is added to the main run loop below, so the callback is already on this actor.
+        guard let created = IOPSNotificationCreateRunLoopSource(keepAwakePowerChanged, context) else { return }
+        let source = created.takeRetainedValue()
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        powerSource = source
+    }
+
+    private func observeWorkspace() {
+        let center = NSWorkspace.shared.notificationCenter
+        if terminateObserver == nil {
+            terminateObserver = center.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let until = self.session?.until else { return }
+                    switch until {
+                    case .appQuits, .done(.render): self.check()
+                    default: break
+                    }
+                }
+            }
+        }
+        if launchObserver == nil {
+            // aerender is not always an application launch. The sample timer still sees it.
+            launchObserver = center.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] notification in
+                MainActor.assumeIsolated {
+                    guard let self, case .done(.render) = self.session?.until else { return }
+                    let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                    guard CPUSampler.shouldMeasure(app?.executableURL?.path ?? "") else { return }
+                    self.check()
+                }
+            }
+        }
+    }
+
+    private func armSessionClocks() {
+        deadlineTimer?.invalidate()
+        deadlineTimer = nil
+        warningTimer?.invalidate()
+        warningTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        guard let session, case let .date(end) = session.until else { return }
+        let now = Date()
+        if !session.warned {
+            let warnAt = end.addingTimeInterval(-Self.warningLead)
+            if warnAt > now { warningTimer = oneShot(at: warnAt, tolerance: 0) }
+        }
+        if end > now { deadlineTimer = oneShot(at: end, tolerance: 0) }
+        armCountdown()
+    }
+
+    /// One-shots can arrive a moment early. Arm again if the moment they guard is still ahead,
+    /// so a session can't miss its warning or run on past the time you set.
+    private func ensureDateClocks() {
+        guard let session, case let .date(end) = session.until else { return }
+        let now = Date()
+        if end > now, deadlineTimer?.isValid != true {
+            deadlineTimer = oneShot(at: end, tolerance: 0)
+        }
+        if !session.warned {
+            let warnAt = end.addingTimeInterval(-Self.warningLead)
+            if warnAt > now, warningTimer?.isValid != true {
+                warningTimer = oneShot(at: warnAt, tolerance: 0)
+            }
+        }
+    }
+
+    /// The cup shows minutes, so it only needs to move about once a minute.
+    private func armCountdown() {
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        guard showsCountdown, let session, case .date = session.until else { return }
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateStatusItem() }
+        }
+        timer.tolerance = 10
+        let intoMinute = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
+        timer.fireDate = Date().addingTimeInterval(max(1, 60 - intoMinute))
+        RunLoop.main.add(timer, forMode: .common)
+        countdownTimer = timer
+    }
+
+    private func oneShot(at date: Date, tolerance: TimeInterval) -> Timer {
+        let timer = Timer(fire: date, interval: 0, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.check() }
+        }
+        timer.tolerance = tolerance
+        RunLoop.main.add(timer, forMode: .common)
+        return timer
+    }
+
+    private func armJobWatch() {
+        guard let until = session?.until else {
+            stopJobSampling()
+            return
+        }
+        switch until {
+        case .done(.downloads):
+            startDownloadSourceIfNeeded()
+        case .done:
+            stopDownloadSource()
+        default:
+            stopJobSampling()
+        }
+    }
+
+    private func armJobFollowUp() {
+        guard let until = session?.until else { return }
+        switch Self.follow(until) {
+        case .samples:
+            armSampleTimer()
+        case .events:
+            guard case .done(.downloads) = until else { return }
+            if downloadSource != nil {
+                armDownloadQuietDeadline()
+            } else {
+                armSampleTimer()
+            }
+        }
+    }
+
+    private func armSampleTimer() {
+        guard jobTimerInterval != Self.watchInterval else { return }
+        jobTimer?.invalidate()
         let timer = Timer(timeInterval: Self.watchInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
-        timer.tolerance = 10
+        timer.tolerance = Self.watchTolerance
         RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
-        check()
+        jobTimer = timer
+        jobTimerInterval = Self.watchInterval
+    }
+
+    /// One wake when the quiet period is up. Folder events cover the job starting again before then.
+    private func armDownloadQuietDeadline() {
+        jobTimer?.invalidate()
+        jobTimer = nil
+        jobTimerInterval = nil
+        guard let since = watcher.quietSince else { return }
+        let fire = since.addingTimeInterval(JobCondition.downloads.quietPeriod)
+        guard fire > Date() else { return }
+        jobTimer = oneShot(at: fire, tolerance: 0)
+    }
+
+    private func startDownloadSourceIfNeeded() {
+        guard downloadSource == nil else { return }
+        let folder = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
+        let fd = open(folder.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.scheduleDownloadCheck() }
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        downloadSource = source
+    }
+
+    private func scheduleDownloadCheck() {
+        guard case .done(.downloads) = session?.until else { return }
+        downloadDebounceWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.check() }
+        }
+        downloadDebounceWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.downloadDebounce, execute: work)
+    }
+
+    private func stopDownloadSource() {
+        downloadDebounceWork?.cancel()
+        downloadDebounceWork = nil
+        downloadSource?.cancel()
+        downloadSource = nil
+    }
+
+    private func stopJobSampling() {
+        jobTimer?.invalidate()
+        jobTimer = nil
+        jobTimerInterval = nil
+        stopDownloadSource()
     }
 
     private func check() {
@@ -206,6 +442,8 @@ final class KeepAwake {
                      symbol: "hourglass", duration: 4)
         }
         updateStatusItem()
+        ensureDateClocks()
+        armJobFollowUp()
     }
 
     /// Why a session should end now, or nil to keep going. Job conditions are judged
