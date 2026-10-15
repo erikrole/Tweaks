@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		07BFF3640D52BEF1D0E0670A /* NewTweakSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39CED3D0445E5BB79EF1AA08 /* NewTweakSettingsViews.swift */; };
 		0EBB14037392855A61DA1198 /* DeviceVolumeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */; };
+		13E8DF7EB0B9E1613316984E /* MediaReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6529D5EF39EDC973E8F09C64 /* MediaReader.swift */; };
 		1B640C0C290CAF710B6A3889 /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */; };
 		1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E331E81854D32C0B5583B639 /* MoreTweaks.swift */; };
 		2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */; };
@@ -17,6 +17,7 @@
 		3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
 		415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */; };
+		4DFCB8C814030C62E6CF0134 /* BundledMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FBBFB6B0508737DB126C6C /* BundledMedia.swift */; };
 		591127B1B673B1D25A23A9DB /* ImageActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */; };
 		62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */; };
 		65D4944005B264C99ED50D66 /* TweaksApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */; };
@@ -29,7 +30,6 @@
 		88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */; };
 		8F4700A6A72F6F69C334405D /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */; };
 		93A10AD82DC5655B6CE0961D /* DuplicateDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */; };
-		964820E2F94EA4499E765A9E /* AVMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */; };
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B1366F2517E4005E0FAA3E65 /* FileWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9816CFB9221F42C12C38D8B0 /* FileWork.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
@@ -40,7 +40,6 @@
 		D5EA9215B2EFC0C482808342 /* WindowLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5360C1DD194AFD5689306C /* WindowLayouts.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
-		FD85C403331C7080B71FB593 /* ImageMetadataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */; };
 		FDA03C8814D4B70296AA203D /* TweaksFinderSync.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -58,6 +57,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 15E97068B15B6160EF4D1B48;
 			remoteInfo = Tweaks;
+		};
+		AF4ABADC983AE3DEBFCCB851 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9729A04781A7794DF7BC9158 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6253DE88C5D7E23E577D4F1E;
+			remoteInfo = TweaksMedia;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -79,22 +85,22 @@
 		047645AA5D8C2579E6ABF4C7 /* FinderUtilitiesKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FinderUtilitiesKit; path = Packages/FinderUtilitiesKit; sourceTree = SOURCE_ROOT; };
 		099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemTweaks.swift; sourceTree = "<group>"; };
 		09A1FB2997040A869AD5920F /* Tweaks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tweaks.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVMetadataProvider.swift; sourceTree = "<group>"; };
 		168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGInstaller.swift; sourceTree = "<group>"; };
-		1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageMetadataProvider.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
 		296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTweakTests.swift; sourceTree = "<group>"; };
 		2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwakePanel.swift; sourceTree = "<group>"; };
 		35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTweaks.swift; sourceTree = "<group>"; };
-		39CED3D0445E5BB79EF1AA08 /* NewTweakSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTweakSettingsViews.swift; sourceTree = "<group>"; };
 		4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksApp.swift; sourceTree = "<group>"; };
 		477EBDD93C6EC737F0A3019F /* JobWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobWatcher.swift; sourceTree = "<group>"; };
 		5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTweaks.swift; sourceTree = "<group>"; };
+		6529D5EF39EDC973E8F09C64 /* MediaReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaReader.swift; sourceTree = "<group>"; };
 		65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageActions.swift; sourceTree = "<group>"; };
 		658EF92576770693D3686C4F /* TweaksTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TweaksTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
+		68FBBFB6B0508737DB126C6C /* BundledMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledMedia.swift; sourceTree = "<group>"; };
+		77B5861D539F71B4156C522D /* TweaksMedia.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TweaksMedia.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkProfileTests.swift; sourceTree = "<group>"; };
 		7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeEject.swift; sourceTree = "<group>"; };
 		93A0F2E06285ADDB181F6A88 /* FinderSync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderSync.entitlements; sourceTree = "<group>"; };
@@ -152,6 +158,7 @@
 			isa = PBXGroup;
 			children = (
 				60E9E96DF8C40FAD6A24FE8B /* FinderSync */,
+				5E0B33AD5A2D6BDE4C37015B /* MediaReader */,
 				5E58AD444F925AB4E50E583A /* Packages */,
 				6D6F34D6B49738B6F2946F56 /* Tweaks */,
 				11B2803453AA00B7C62978D9 /* TweaksTests */,
@@ -164,9 +171,18 @@
 			children = (
 				09A1FB2997040A869AD5920F /* Tweaks.app */,
 				CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */,
+				77B5861D539F71B4156C522D /* TweaksMedia.bundle */,
 				658EF92576770693D3686C4F /* TweaksTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5E0B33AD5A2D6BDE4C37015B /* MediaReader */ = {
+			isa = PBXGroup;
+			children = (
+				6529D5EF39EDC973E8F09C64 /* MediaReader.swift */,
+			);
+			path = MediaReader;
 			sourceTree = "<group>";
 		};
 		5E58AD444F925AB4E50E583A /* Packages */ = {
@@ -180,10 +196,9 @@
 		60E9E96DF8C40FAD6A24FE8B /* FinderSync */ = {
 			isa = PBXGroup;
 			children = (
-				0E4545BDF39C487B0F1009B5 /* AVMetadataProvider.swift */,
+				68FBBFB6B0508737DB126C6C /* BundledMedia.swift */,
 				93A0F2E06285ADDB181F6A88 /* FinderSync.entitlements */,
 				9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */,
-				1A27258152CA68E162DE681F /* ImageMetadataProvider.swift */,
 				B5C2178EC6AB88894C211F68 /* Info.plist */,
 				F635E28C8BA73956FF610E36 /* ScopeController.swift */,
 			);
@@ -209,7 +224,6 @@
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
-				39CED3D0445E5BB79EF1AA08 /* NewTweakSettingsViews.swift */,
 				7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */,
 				F90BB2070E38C524774DE6DD /* Safety.swift */,
 				228920353BABF64F9F93E79F /* SettingsView.swift */,
@@ -271,10 +285,12 @@
 			buildPhases = (
 				5671978252CE444DF9671D6D /* Sources */,
 				4D09C3931D71D13E3981C91D /* Frameworks */,
+				ECCC9BD9C9D7EBDBD58D0175 /* Copy media reader into the extension */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				951D894DA07A19EF0284D546 /* PBXTargetDependency */,
 			);
 			name = TweaksFinderSync;
 			packageProductDependencies = (
@@ -283,6 +299,23 @@
 			productName = TweaksFinderSync;
 			productReference = CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		6253DE88C5D7E23E577D4F1E /* TweaksMedia */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CBE36B16B34CB3C92BF1D97A /* Build configuration list for PBXNativeTarget "TweaksMedia" */;
+			buildPhases = (
+				B75D20F04C938B555F2EBC13 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TweaksMedia;
+			packageProductDependencies = (
+			);
+			productName = TweaksMedia;
+			productReference = 77B5861D539F71B4156C522D /* TweaksMedia.bundle */;
+			productType = "com.apple.product-type.bundle";
 		};
 /* End PBXNativeTarget section */
 
@@ -301,6 +334,9 @@
 						ProvisioningStyle = Automatic;
 					};
 					42697243E13473D11804E628 = {
+						DevelopmentTeam = T26T3G8C7Q;
+					};
+					6253DE88C5D7E23E577D4F1E = {
 						DevelopmentTeam = T26T3G8C7Q;
 					};
 				};
@@ -324,6 +360,7 @@
 			targets = (
 				15E97068B15B6160EF4D1B48 /* Tweaks */,
 				307F43979BA3A0A8DC4A665F /* TweaksTests */,
+				6253DE88C5D7E23E577D4F1E /* TweaksMedia */,
 				42697243E13473D11804E628 /* TweaksFinderSync */,
 			);
 		};
@@ -340,14 +377,35 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		ECCC9BD9C9D7EBDBD58D0175 /* Copy media reader into the extension */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy media reader into the extension";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nsrc=\"${BUILT_PRODUCTS_DIR}/TweaksMedia.bundle\"\ndest=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/TweaksMedia.bundle\"\nif [[ ! -d \"$src\" ]]; then\n  echo \"error: TweaksMedia.bundle was not built at $src\" >&2\n  exit 1\nfi\nmkdir -p \"$(dirname \"$dest\")\"\nrm -rf \"$dest\"\ncp -R \"$src\" \"$dest\"\nif [[ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" && -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" && \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]]; then\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"$dest\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		5671978252CE444DF9671D6D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				964820E2F94EA4499E765A9E /* AVMetadataProvider.swift in Sources */,
+				4DFCB8C814030C62E6CF0134 /* BundledMedia.swift in Sources */,
 				6C17064C17028AEF286FE9F5 /* FinderSyncExtension.swift in Sources */,
-				FD85C403331C7080B71FB593 /* ImageMetadataProvider.swift in Sources */,
 				785E6FFDD4DC1C0476E3BE62 /* ScopeController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -381,7 +439,6 @@
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
-				07BFF3640D52BEF1D0E0670A /* NewTweakSettingsViews.swift in Sources */,
 				72B7F68BE99F37AFC4052D1E /* SafeEject.swift in Sources */,
 				DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */,
 				D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */,
@@ -393,6 +450,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B75D20F04C938B555F2EBC13 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				13E8DF7EB0B9E1613316984E /* MediaReader.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -400,6 +465,11 @@
 			isa = PBXTargetDependency;
 			target = 15E97068B15B6160EF4D1B48 /* Tweaks */;
 			targetProxy = 95B70D27BC1A27D88C278D84 /* PBXContainerItemProxy */;
+		};
+		951D894DA07A19EF0284D546 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6253DE88C5D7E23E577D4F1E /* TweaksMedia */;
+			targetProxy = AF4ABADC983AE3DEBFCCB851 /* PBXContainerItemProxy */;
 		};
 		AC0C6680ACB3E24899FF2576 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -409,6 +479,29 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1BCB163E781020A225453ECD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T26T3G8C7Q;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPrincipalClass = TweaksMediaReader;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.MediaReader;
+				PRODUCT_NAME = TweaksMedia;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
 		511A245D19CF0C5793AEF6FC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -496,6 +589,29 @@
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
+		};
+		964026AFD09BB7EE2F3566C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T26T3G8C7Q;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPrincipalClass = TweaksMediaReader;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.MediaReader;
+				PRODUCT_NAME = TweaksMedia;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
 		};
 		BD8A535CA5F30F9DEE91A6C4 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -692,6 +808,15 @@
 			buildConfigurations = (
 				511A245D19CF0C5793AEF6FC /* Debug */,
 				E9E3263AD199E9CCFCE128FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CBE36B16B34CB3C92BF1D97A /* Build configuration list for PBXNativeTarget "TweaksMedia" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1BCB163E781020A225453ECD /* Debug */,
+				964026AFD09BB7EE2F3566C8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

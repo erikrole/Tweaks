@@ -756,6 +756,87 @@ final class ShortcutTests: XCTestCase {
         XCTAssertNil(shortcuts.shortcut(for: .keepAwake), "one set of keys, one action")
     }
 
+    func testCapsLockRestoreUsesSavedDelayOrTheSystemDefault() {
+        XCTAssertNil(CapsLockDelay.parse(hidutilOutput: "(null)\n"))
+        XCTAssertNil(CapsLockDelay.parse(hidutilOutput: ""))
+        XCTAssertEqual(CapsLockDelay.parse(hidutilOutput: #"{"CapsLockDelayOverride":0}"#), 0)
+        XCTAssertEqual(CapsLockDelay.parse(hidutilOutput: #"{"CapsLockDelayOverride":100000000}"#), 100_000_000)
+        XCTAssertNil(CapsLockDelay.original(from: nil))
+        XCTAssertNil(CapsLockDelay.original(from: 0), "the tweak's own value is not an original setting")
+        XCTAssertEqual(CapsLockDelay.original(from: 100_000_000), 100_000_000)
+        XCTAssertEqual(CapsLockDelay.restoreNanoseconds(saved: 80_000_000), 80_000_000)
+        XCTAssertEqual(CapsLockDelay.restoreNanoseconds(saved: nil), CapsLockDelay.systemDefaultNanoseconds)
+        XCTAssertEqual(CapsLockDelay.restoreNanoseconds(saved: 0), CapsLockDelay.systemDefaultNanoseconds)
+
+        let defaults = UserDefaults(suiteName: "CapsLock-\(UUID().uuidString)")!
+        var written: [Int] = []
+        CapsLockTweak.apply(defaults: defaults, reader: { 100_000_000 }, writer: { written.append($0) })
+        CapsLockTweak.apply(defaults: defaults, reader: { 0 }, writer: { written.append($0) })
+        CapsLockTweak.restore(defaults: defaults, writer: { written.append($0) })
+        XCTAssertEqual(written, [0, 0, 100_000_000])
+        XCTAssertEqual(defaults.integer(forKey: CapsLockDelay.savedKey), 100_000_000)
+    }
+
+    func testGreenButtonRemembersTheFrameItFilledFrom() {
+        let original = CGRect(x: 40, y: 80, width: 640, height: 400)
+        let filled = CGRect(x: 0, y: 25, width: 1440, height: 900)
+        XCTAssertEqual(GreenButtonFill.decision(frame: original, target: filled, saved: nil), GreenButtonFill.FillDecision.fill(save: original))
+        XCTAssertEqual(GreenButtonFill.decision(frame: filled, target: filled, saved: original), GreenButtonFill.FillDecision.restore(original))
+        XCTAssertEqual(GreenButtonFill.decision(frame: filled, target: filled, saved: nil), GreenButtonFill.FillDecision.fill(save: filled))
+    }
+
+    func testRendererSamplerSkipsUnrelatedProcesses() {
+        XCTAssertTrue(CPUSampler.shouldMeasure("/Applications/Adobe After Effects 2026/Adobe After Effects 2026.app/Contents/MacOS/After Effects"))
+        XCTAssertTrue(CPUSampler.shouldMeasure("/Applications/Adobe After Effects 2026/aerender"))
+        XCTAssertFalse(CPUSampler.shouldMeasure("/Applications/Adobe After Effects 2026/Adobe After Effects 2026.app/Contents/MacOS/After Effects Helper"))
+        XCTAssertFalse(CPUSampler.shouldMeasure("/Applications/Safari.app/Contents/MacOS/Safari"))
+    }
+
+    func testHiddenUIDoesNotInstallADisplayLink() throws {
+        let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let files = ["Tweaks/SettingsView.swift", "Tweaks/HUD.swift", "Tweaks/KeepAwakePanel.swift"]
+        for relative in files {
+            let source = try String(contentsOf: root.appending(path: relative), encoding: .utf8)
+            for banned in ["titlebarAppearsTransparent", "animator(", "NSAnimationContext"] {
+                XCTAssertFalse(source.contains(banned), "\(relative) \(banned)")
+            }
+        }
+    }
+
+    func testIdleWorkIsNotOnATightLoop() {
+        XCTAssertGreaterThanOrEqual(LinkCleaner.pollInterval, 2)
+        XCTAssertGreaterThanOrEqual(ShortcutBannerDismisser.pollInterval, 3)
+        XCTAssertGreaterThanOrEqual(LastWindowQuitter.pollInterval, 2)
+        XCTAssertGreaterThanOrEqual(RenderKeepAwake.idleInterval, 30)
+        XCTAssertGreaterThanOrEqual(KeepAwake.watchInterval, 20)
+        XCTAssertGreaterThanOrEqual(ShareAutoConnect.pollInterval, 180)
+        XCTAssertGreaterThanOrEqual(CapsLockTweak.reapplyInterval, 300)
+        XCTAssertGreaterThanOrEqual(TweakController.accessibilityInterval, 30)
+        XCTAssertFalse(ShortcutBannerDismisser.shortcutsMightBeRunning([]))
+    }
+
+    func testIdleProcessDoesNotLinkTheHeavyFrameworks() throws {
+        let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let tweaks = try FileManager.default.contentsOfDirectory(at: root.appending(path: "Tweaks"), includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "swift" }
+        let finder = try FileManager.default.contentsOfDirectory(at: root.appending(path: "FinderSync"), includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "swift" }
+        XCTAssertFalse(tweaks.isEmpty)
+        XCTAssertFalse(finder.isEmpty)
+        for url in tweaks {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            for banned in ["import SwiftUI", "import FinderSync", "import AudioToolbox"] {
+                XCTAssertFalse(source.contains(banned), "\(url.lastPathComponent) \(banned)")
+            }
+        }
+        for url in finder {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            for banned in ["import AVFoundation", "import ImageIO", "import Cocoa"] {
+                XCTAssertFalse(source.contains(banned), "\(url.lastPathComponent) \(banned)")
+            }
+        }
+    }
+
     func testClearedShortcutStaysCleared() {
         let defaults = UserDefaults(suiteName: "ShortcutTests-\(UUID().uuidString)")!
         ShortcutStore(defaults: defaults).set(nil, for: .clearNotifications)

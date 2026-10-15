@@ -58,12 +58,53 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
         DEVELOPMENT_TEAM: T26T3G8C7Q
+  TweaksMedia:
+    type: bundle
+    platform: macOS
+    sources:
+      - MediaReader
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks.MediaReader
+        PRODUCT_NAME: TweaksMedia
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSPrincipalClass: TweaksMediaReader
+        SKIP_INSTALL: YES
+        DEVELOPMENT_TEAM: T26T3G8C7Q
+        ENABLE_HARDENED_RUNTIME: YES
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "6.0"
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Developer ID Application"
   TweaksFinderSync:
     type: app-extension
     platform: macOS
     sources: [FinderSync]
     dependencies:
       - package: FinderUtilitiesKit
+      - target: TweaksMedia
+    postBuildScripts:
+      - name: Copy media reader into the extension
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          src="${BUILT_PRODUCTS_DIR}/TweaksMedia.bundle"
+          dest="${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/TweaksMedia.bundle"
+          if [[ ! -d "$src" ]]; then
+            echo "error: TweaksMedia.bundle was not built at $src" >&2
+            exit 1
+          fi
+          mkdir -p "$(dirname "$dest")"
+          rm -rf "$dest"
+          cp -R "$src" "$dest"
+          if [[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" && "${EXPANDED_CODE_SIGN_IDENTITY}" != "-" ]]; then
+            codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "$dest"
+          fi
     info:
       path: FinderSync/Info.plist
       properties:

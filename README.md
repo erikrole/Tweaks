@@ -7,7 +7,9 @@ where every tweak has its own switch.
 
 **Keyboard and sound**
 - Caps Lock with no delay: a normal tap toggles it instantly (`hidutil`
-  `CapsLockDelayOverride`, reapplied on wake and every five minutes).
+  `CapsLockDelayOverride`, reapplied on wake and every fifteen minutes). Turning it
+  off puts the previous delay back, or macOS's usual quarter-second hold if Tweaks
+  never saw another value.
 - Volume capped at 40% after waking.
 - Optional volume limits for individual output devices, with an option to mute the
   next output when switching away from a selected device. Limits never raise the
@@ -54,7 +56,8 @@ where every tweak has its own switch.
 
 **Keep Awake** (replaces caffeinate)
 - Shortcuts are changeable in the Tweaks window (Keep Awake, the Keep Awake panel,
-  Screen off, Clear notifications). By default, tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
+  Screen off, Clear notifications). Turning Keep Awake off releases the sleep
+  assertion, so the Mac can sleep again. By default, tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
   the last five minutes, to add an hour.
 - Hold Hyper+/ (or click the menu bar cup) for the Keep Awake panel, centered on the
   screen you're on: Recent choices; 1–12 hours (number keys); until it's done (render
@@ -80,7 +83,9 @@ where every tweak has its own switch.
   Inspect Media (frame size, frame rate, duration, codec, alpha, color, audio, DPI).
   Turn it on in System Settings › Login Items & Extensions › Finder Extensions. The
   path logic lives in `Packages/FinderUtilitiesKit`; see
-  `docs/finder-utilities-plan.md`.
+  `docs/finder-utilities-plan.md`. AVFoundation and ImageIO live in
+  `TweaksMedia.bundle` and are loaded the first time Inspect Media reads a real
+  file, so Finder Sync does not keep them mapped while it is idle.
 - Finder menus open without waiting for metadata. A first lookup may show
   “Loading…”; reopen the menu to see the cached result.
 - **Quick Image Actions…** opens selected images in Tweaks for JPEG, PNG, or HEIC
@@ -112,6 +117,16 @@ asynchronous snapshot of existing files; only later arrivals are processed. File
 checks, renames, invite preparation, ZIP validation/extraction, and DMG file work
 run in the background so they do not block settings or shortcuts. ZIPs extract one
 at a time, and files changed while queued must settle again before extraction.
+
+The settings window, Keep Awake panel and HUD are AppKit. SwiftUI is not linked, so
+an idle Tweaks process does not map it. Finder Sync is loaded in the app only while
+the settings window is open. Polls that used to run all the time (Accessibility,
+copied links, Shortcut banners, quit-on-last-window, render CPU) now wait longer,
+or don't run until the thing they watch is actually happening. Turning a tweak off
+stops its timer or observer; Caps Lock, Keep Awake and the green button also put
+back the delay, the sleep assertion, or the window frames they changed. Network
+shares unmounted for sleep are still remounted if that switch is turned off before
+they come back.
 
 ## Build and run
 

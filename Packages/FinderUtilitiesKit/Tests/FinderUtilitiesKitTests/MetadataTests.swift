@@ -81,6 +81,16 @@ private struct Counting: MetadataProvider {
         #expect(await counter.n == 0)
     }
 
+    @Test func menuReadDoesNotSpinWhileAReadHangs() {
+        let svc = MetadataService(providers: [Hanging()], datalessCheck: { _ in false },
+                                  timeouts: .init(local: 0.2, network: 0.2))
+        let url = URL(fileURLWithPath: "/Users/user/a.mov")
+        svc.prefetch([url])
+        let start = Date()
+        #expect(svc.state(for: url) == .loading)
+        #expect(Date().timeIntervalSince(start) < 0.05)
+    }
+
     @Test func menuReadIsInstantAndPrefetchFillsCache() async throws {
         var m = MediaMetadata(); m.width = 1920; m.height = 1080
         let svc = MetadataService(providers: [Fixed(meta: m)], datalessCheck: { _ in false })
@@ -136,6 +146,32 @@ private struct Counting: MetadataProvider {
         let m = try await FileAttributeProvider().metadata(for: url)
         #expect(m.fileSize == 5)
         #expect(FileFlags.isDataless(url) == false)
+    }
+
+    @Test func mediaFactsFillOnlyTheKeysTheyHave() {
+        let facts = MediaFacts(dictionary: [
+            "width": 1920, "height": 1080, "frameRate": 23.976, "codec": "H.264",
+            "hasAlpha": false, "duration": 12.5, "audioChannels": 2, "colorSpace": "Rec. 709",
+            "codecEmpty": "",
+        ])
+        var metadata = MediaMetadata()
+        metadata.dpi = 72
+        metadata.codec = "keep"
+        facts.apply(to: &metadata)
+        #expect(metadata.width == 1920)
+        #expect(metadata.height == 1080)
+        #expect(metadata.frameRate == 23.976)
+        #expect(metadata.codec == "H.264")
+        #expect(metadata.hasAlpha == false)
+        #expect(metadata.duration == 12.5)
+        #expect(metadata.audioChannels == 2)
+        #expect(metadata.colorSpace == "Rec. 709")
+        #expect(metadata.dpi == 72)
+        let blank = MediaFacts(dictionary: ["codec": "  ", "width": NSNumber(value: 640)])
+        var again = MediaMetadata()
+        blank.apply(to: &again)
+        #expect(again.codec == nil)
+        #expect(again.width == 640)
     }
 }
 

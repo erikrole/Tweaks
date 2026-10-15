@@ -52,6 +52,7 @@ public final class MetadataService: @unchecked Sendable {
 
     /// Starts a background read and immediately returns the cached state. A cold menu
     /// shows Loading; reopening it shows the result without ever waiting on a share.
+    /// There is no sleep loop on this path: waiting wakes Finder on every right-click.
     public func menuState(for url: URL) -> MetadataState {
         prefetch([url])
         return state(for: url)

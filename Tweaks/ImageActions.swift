@@ -1,6 +1,5 @@
 import AppKit
 import ImageIO
-import SwiftUI
 import UniformTypeIdentifiers
 import FinderUtilitiesKit
 
@@ -124,65 +123,122 @@ final class ImageActions {
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Quick Image Actions"
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: ImageActionsView(files: files))
+        let panel = ImageActionsPanel(files: files)
+        window.contentView = panel.view
         window.center()
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         self.window = window
+        self.panel = panel
     }
+
+    private var panel: ImageActionsPanel?
 }
 
-private struct ImageActionsView: View {
-    let files: [URL]
-    @State private var format = ImageExportOptions.Format.jpeg
-    @State private var edge = 2048
-    @State private var removeMetadata = true
-    @State private var busy = false
-    @State private var status = "Originals are kept. Exports get a new name beside each source."
-    @State private var outputs: [URL] = []
+/// AppKit only, like the rest of Tweaks: SwiftUI is never mapped for this panel.
+@MainActor
+private final class ImageActionsPanel: NSObject {
+    let view = NSView()
+    private let files: [URL]
+    private let format = NSPopUpButton()
+    private let edge = NSPopUpButton()
+    private let metadata = NSButton(checkboxWithTitle: "Remove metadata, including location", target: nil, action: nil)
+    private let save = NSButton(title: "Save Copies", target: nil, action: nil)
+    private let showCopiesButton = NSButton(title: "Show Copies", target: nil, action: nil)
+    private let spinner = NSProgressIndicator()
+    private let statusLabel = NSTextField(wrappingLabelWithString: "Originals are kept. Exports get a new name beside each source.")
+    private var outputs: [URL] = []
+    private let edges = [0, 1024, 2048, 4096]
 
-    var body: some View {
-        Form {
-            Section("Selected images (\(files.count))") {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(files, id: \.self) { file in
-                            Text(file.path).font(.caption).textSelection(.enabled)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(maxHeight: 120)
-            }
-            Picker("Format", selection: $format) {
-                ForEach(ImageExportOptions.Format.allCases) { Text($0.rawValue.uppercased()).tag($0) }
-            }
-            Picker("Longest edge", selection: $edge) {
-                Text("Original size").tag(0)
-                ForEach([1024, 2048, 4096], id: \.self) { Text("\($0) pixels").tag($0) }
-            }
-            Toggle("Remove metadata, including location", isOn: $removeMetadata)
-            Text("JPEG uses a white background for transparency. Animated and multi-page images are left unchanged.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                if busy { ProgressView().controlSize(.small) }
-                Button("Save Copies") { Task { await export() } }.disabled(busy)
-                if !outputs.isEmpty { Button("Show Copies") { NSWorkspace.shared.activateFileViewerSelecting(outputs) } }
-            }
-            Text(status).font(.caption).textSelection(.enabled)
-        }.formStyle(.grouped).padding().frame(width: 520, height: 500)
+    init(files: [URL]) {
+        self.files = files
+        super.init()
+        format.addItems(withTitles: ImageExportOptions.Format.allCases.map { $0.rawValue.uppercased() })
+        edge.addItems(withTitles: edges.map { $0 == 0 ? "Original size" : "\($0) pixels" })
+        edge.selectItem(at: 2)
+        metadata.state = .on
+        save.target = self
+        save.action = #selector(exportCopies)
+        save.bezelStyle = .rounded
+        showCopiesButton.target = self
+        showCopiesButton.action = #selector(showCopies)
+        showCopiesButton.bezelStyle = .rounded
+        showCopiesButton.isHidden = true
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.isDisplayedWhenStopped = false
+        statusLabel.font = .systemFont(ofSize: 11)
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.isSelectable = true
+
+        let list = NSTextField(wrappingLabelWithString: files.map(\.path).joined(separator: "\n"))
+        list.font = .systemFont(ofSize: 11)
+        list.isSelectable = true
+        list.preferredMaxLayoutWidth = 460
+        let scroll = NSScrollView()
+        scroll.documentView = list
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        scroll.heightAnchor.constraint(equalToConstant: 120).isActive = true
+
+        let note = NSTextField(wrappingLabelWithString: "JPEG uses a white background for transparency. Animated and multi-page images are left unchanged.")
+        note.font = .systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
+        let buttons = NSStackView(views: [spinner, save, showCopiesButton])
+        buttons.spacing = 8
+        let column = NSStackView(views: [
+            NSTextField(labelWithString: "Selected images (\(files.count))"), scroll,
+            row("Format", format), row("Longest edge", edge), metadata, note, buttons, statusLabel,
+        ])
+        column.orientation = .vertical
+        column.alignment = .leading
+        column.spacing = 10
+        column.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(column)
+        NSLayoutConstraint.activate([
+            column.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
+            column.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            column.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            scroll.widthAnchor.constraint(equalTo: column.widthAnchor),
+            note.widthAnchor.constraint(equalTo: column.widthAnchor),
+            statusLabel.widthAnchor.constraint(equalTo: column.widthAnchor),
+        ])
     }
 
-    private func export() async {
-        busy = true
-        defer { busy = false }
+    private func row(_ title: String, _ control: NSView) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.widthAnchor.constraint(equalToConstant: 110).isActive = true
+        let row = NSStackView(views: [label, control])
+        row.spacing = 8
+        return row
+    }
+
+    @objc private func showCopies() {
+        NSWorkspace.shared.activateFileViewerSelecting(outputs)
+    }
+
+    @objc private func exportCopies() {
+        let formats = ImageExportOptions.Format.allCases
+        let chosen = formats[max(0, min(format.indexOfSelectedItem, formats.count - 1))]
+        let longest = edges[max(0, min(edge.indexOfSelectedItem, edges.count - 1))]
+        let options = ImageExportOptions(format: chosen, longestEdge: longest == 0 ? nil : longest,
+                                         removeMetadata: metadata.state == .on)
+        save.isEnabled = false
+        showCopiesButton.isHidden = true
+        spinner.startAnimation(nil)
         outputs = []
-        var errors: [String] = []
-        let options = ImageExportOptions(format: format, longestEdge: edge == 0 ? nil : edge, removeMetadata: removeMetadata)
-        for file in files {
-            do {
-                let output = try await FileWork.run { try ImageExporter.export(file, options: options, to: file.deletingLastPathComponent()) }
-                outputs.append(output)
-            } catch { errors.append("\(file.lastPathComponent): \(error.localizedDescription)") }
+        Task { @MainActor in
+            var errors: [String] = []
+            for file in files {
+                do {
+                    let output = try await FileWork.run { try ImageExporter.export(file, options: options, to: file.deletingLastPathComponent()) }
+                    outputs.append(output)
+                } catch { errors.append("\(file.lastPathComponent): \(error.localizedDescription)") }
+            }
+            statusLabel.stringValue = "Saved \(outputs.count) of \(files.count) copies." + (errors.isEmpty ? "" : "\n" + errors.joined(separator: "\n"))
+            showCopiesButton.isHidden = outputs.isEmpty
+            spinner.stopAnimation(nil)
+            save.isEnabled = true
         }
-        status = "Saved \(outputs.count) of \(files.count) copies." + (errors.isEmpty ? "" : "\n" + errors.joined(separator: "\n"))
     }
 }

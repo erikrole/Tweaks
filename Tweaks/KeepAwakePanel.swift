@@ -1,6 +1,5 @@
 import AppKit
 import Observation
-import SwiftUI
 
 /// The Keep Awake chooser: a floating panel centered near the top of the screen you're
 /// on, like Raycast. Arrow keys move, Return picks, number keys pick a duration, letters
@@ -24,17 +23,23 @@ final class KeepAwakePanelController {
         model.onDone = { [weak self] in self?.close() }
         self.model = model
 
-        let panel = KeyablePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
+        let panel = KeyablePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                                  backing: .buffered, defer: false)
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
+        // Opaque on purpose. A clear panel with a shadow keeps the window server redrawing
+        // the shadow for as long as the panel object exists.
+        panel.isOpaque = true
+        panel.backgroundColor = NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 1)
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.hasShadow = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.hidesOnDeactivate = false
-        panel.contentView = NSHostingView(rootView: KeepAwakePanelView(model: model))
-        let size = panel.contentView?.fittingSize ?? NSSize(width: 560, height: 360)
-        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
+        let root = KeepAwakePanelRoot(model: model)
+        panel.contentView = root
+        root.layoutSubtreeIfNeeded()
+        let size = root.fittingSize.width > 1 ? root.fittingSize : NSSize(width: 620, height: 420)
+        let cursor = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(cursor) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
             panel.setFrame(NSRect(x: frame.midX - size.width / 2, y: frame.maxY - frame.height * 0.25 - size.height,
                                   width: size.width, height: size.height), display: true)
@@ -47,6 +52,7 @@ final class KeepAwakePanelController {
 
     func close() {
         panel?.onResignKey = nil
+        panel?.contentView = nil
         panel?.orderOut(nil)
         panel = nil
         model = nil
@@ -190,6 +196,7 @@ final class PanelModel {
 }
 
 /// A borderless panel that can take keyboard focus without activating Tweaks.
+@MainActor
 final class KeyablePanel: NSPanel {
     var onKey: ((String, UInt16) -> Bool)?
     var onResignKey: (() -> Void)?
@@ -208,158 +215,248 @@ final class KeyablePanel: NSPanel {
     }
 }
 
-private struct KeepAwakePanelView: View {
-    @Bindable var model: PanelModel
+/// The dark chip panel. Plain AppKit (no SwiftUI, to keep idle memory low). Rebuilt when
+/// the selection or a toggle changes; the panel itself is key, so chips never take the keyboard.
+@MainActor
+final class KeepAwakePanelRoot: NSView {
+    static let width: CGFloat = 620
+    static let inset: CGFloat = 18
+    private static let orange = NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
+    private static let background = NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 1)
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            ForEach(model.sections) { section in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(section.title.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    FlowRow(spacing: 6) {
-                        ForEach(section.items) { item in
-                            Chip(item: item, selected: model.selection == item.id) { model.run(item) }
-                                .onHover { if $0 { model.selection = item.id } }
-                        }
-                    }
-                }
-            }
-            Divider().overlay(Color.white.opacity(0.08))
-            HStack(spacing: 6) {
-                Toggle(title: model.displayOn ? "Display stays on" : "Display can sleep", key: "D", isOn: model.displayOn) {
-                    model.keepAwake.setKeepsDisplayOn(!model.displayOn)
-                }
-                Toggle(title: "Only while plugged in", key: "P", isOn: model.onlyOnPower) {
-                    model.keepAwake.setOnlyOnPower(!model.onlyOnPower)
-                }
-                Spacer()
-                Text("←→↑↓ move · ⏎ start · esc close")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(18)
-        .frame(width: 620, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThickMaterial))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.1)))
-        .environment(\.colorScheme, .dark)
-        .padding(1)
+    private let model: PanelModel
+    private var contentHeight: CGFloat = 200
+
+    override var isFlipped: Bool { true }
+
+    init(model: PanelModel) {
+        self.model = model
+        super.init(frame: NSRect(x: 0, y: 0, width: Self.width, height: 200))
+        appearance = NSAppearance(named: .darkAqua)
+        render()
+        track()
     }
 
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: model.keepAwake.session == nil ? "cup.and.saucer" : "cup.and.saucer.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(model.keepAwake.session == nil ? Color.secondary : Color.orange)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Keep Awake").font(.system(size: 15, weight: .semibold))
-                Text(model.keepAwake.session == nil ? "Return keeps it awake for 12 hours" : model.keepAwake.statusLine)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: Self.width, height: contentHeight) }
+    override var fittingSize: NSSize { NSSize(width: Self.width, height: contentHeight) }
+
+    override func draw(_ dirtyRect: NSRect) {
+        Self.background.setFill()
+        bounds.fill()
+        NSColor.white.withAlphaComponent(0.12).setStroke()
+        let border = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
+        border.lineWidth = 1
+        border.stroke()
+    }
+
+    private func label(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = .systemFont(ofSize: size, weight: weight)
+        field.textColor = color
+        field.sizeToFit()
+        return field
+    }
+
+    private func render() {
+        subviews.forEach { $0.removeFromSuperview() }
+        let inset = Self.inset
+        let maxX = Self.width - inset
+        var y = inset
+
+        // Header
+        let active = model.keepAwake.session != nil
+        let cup = NSImageView(image: NSImage(systemSymbolName: active ? "cup.and.saucer.fill" : "cup.and.saucer",
+                                             accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 18, weight: .semibold)) ?? NSImage())
+        cup.contentTintColor = active ? Self.orange : .secondaryLabelColor
+        cup.frame = NSRect(x: inset, y: y + 4, width: 24, height: 24)
+        addSubview(cup)
+        let title = label("Keep Awake", size: 15, weight: .semibold, color: .labelColor)
+        title.setFrameOrigin(NSPoint(x: inset + 34, y: y))
+        addSubview(title)
+        let subtitle = label(active ? model.keepAwake.statusLine : "Return keeps it awake for 12 hours",
+                             size: 12, color: .secondaryLabelColor)
+        subtitle.setFrameOrigin(NSPoint(x: inset + 34, y: y + 18))
+        addSubview(subtitle)
+        y += 32 + 14
+
+        // Sections of wrapping chips
+        for section in model.sections {
+            let heading = label(section.title.uppercased(), size: 10, weight: .semibold, color: .secondaryLabelColor)
+            heading.setFrameOrigin(NSPoint(x: inset, y: y))
+            addSubview(heading)
+            y += heading.frame.height + 6
+            var x = inset
+            var rowHeight: CGFloat = 0
+            for item in section.items {
+                let chip = ChipView(title: item.title, key: item.key, symbol: item.symbol, icon: item.icon,
+                                    selected: model.selection == item.id, prominent: item.prominent,
+                                    destructive: item.id == "stop")
+                chip.onClick = { [weak self] in self?.model.run(item) }
+                chip.onHover = { [weak self] in self?.model.selection = item.id }
+                let size = chip.frame.size
+                if x > inset, x + size.width > maxX { x = inset; y += rowHeight + 6; rowHeight = 0 }
+                chip.setFrameOrigin(NSPoint(x: x, y: y))
+                addSubview(chip)
+                x += size.width + 6
+                rowHeight = max(rowHeight, size.height)
             }
-            Spacer()
+            y += rowHeight + 14
+        }
+
+        // Divider + options
+        let rule = NSBox(frame: NSRect(x: inset, y: y, width: Self.width - inset * 2, height: 1))
+        rule.boxType = .custom
+        rule.borderWidth = 0
+        rule.fillColor = NSColor.white.withAlphaComponent(0.08)
+        addSubview(rule)
+        y += 14
+        var x = inset
+        var height: CGFloat = 0
+        for (text, key, on, action) in [
+            (model.displayOn ? "Display stays on" : "Display can sleep", "D", model.displayOn, { [weak self] in
+                guard let self else { return }
+                self.model.keepAwake.setKeepsDisplayOn(!self.model.displayOn) } as () -> Void),
+            ("Only while plugged in", "P", model.onlyOnPower, { [weak self] in
+                guard let self else { return }
+                self.model.keepAwake.setOnlyOnPower(!self.model.onlyOnPower) } as () -> Void),
+        ] {
+            let chip = ChipView(title: text, key: key, symbol: on ? "checkmark.circle.fill" : "circle", icon: nil,
+                                selected: false, prominent: false, destructive: false, checked: on)
+            chip.onClick = action
+            chip.setFrameOrigin(NSPoint(x: x, y: y))
+            addSubview(chip)
+            x += chip.frame.width + 6
+            height = max(height, chip.frame.height)
+        }
+        let hint = label("←→↑↓ move · ⏎ start · esc close", size: 10, color: .tertiaryLabelColor)
+        hint.setFrameOrigin(NSPoint(x: maxX - hint.frame.width, y: y + (height - hint.frame.height) / 2))
+        addSubview(hint)
+        y += height + inset
+
+        contentHeight = y
+        setFrameSize(NSSize(width: Self.width, height: y))
+        invalidateIntrinsicContentSize()
+        needsDisplay = true
+    }
+
+    private func track() {
+        withObservationTracking { [weak self] in
+            guard let self else { return }
+            _ = self.model.selection
+            _ = self.model.displayOn
+            _ = self.model.onlyOnPower
+            _ = self.model.keepAwake.statusLine
+            _ = self.model.keepAwake.session
+        } onChange: { [weak self] in
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.window != nil else { return }
+                    self.render()
+                    self.track()
+                }
+            }
         }
     }
 }
 
-private struct Chip: View {
-    let item: PanelItem
-    let selected: Bool
-    let action: () -> Void
+/// A rounded chip: optional icon or symbol, title, and a small key cap.
+@MainActor
+private final class ChipView: NSView {
+    var onClick: (() -> Void)?
+    var onHover: (() -> Void)?
+    private let title: String
+    private let key: String?
+    private let image: NSImage?
+    private let selected: Bool
+    private let prominent: Bool
+    private let destructive: Bool
+    private let checked: Bool
 
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon = item.icon {
-                    Image(nsImage: icon).resizable().frame(width: 16, height: 16)
-                } else if let symbol = item.symbol {
-                    Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                }
-                Text(item.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                if let key = item.key { KeyCap(key) }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(selected ? Color.orange.opacity(0.3) : Color.white.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(selected ? Color.orange : (item.prominent ? Color.orange.opacity(0.5) : Color.white.opacity(0.06))))
-            .foregroundStyle(item.id == "stop" ? Color.red : Color.primary)
+    override var isFlipped: Bool { true }
+
+    init(title: String, key: String?, symbol: String?, icon: NSImage?, selected: Bool, prominent: Bool,
+         destructive: Bool, checked: Bool = false) {
+        self.title = title
+        self.key = key
+        self.selected = selected
+        self.prominent = prominent
+        self.destructive = destructive
+        self.checked = checked
+        if let icon = icon?.copy() as? NSImage {
+            icon.size = NSSize(width: 16, height: 16)
+            image = icon
+        } else if let symbol {
+            image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
+        } else {
+            image = nil
         }
-        .buttonStyle(.plain)
+        super.init(frame: .zero)
+        var width: CGFloat = 20 + titleSize.width
+        if image != nil { width += 22 }
+        if let key { width += 6 + keySize(key).width + 8 }
+        setFrameSize(NSSize(width: ceil(width), height: 30))
     }
-}
 
-private struct Toggle: View {
-    let title: String
-    let key: String
-    let isOn: Bool
-    let action: () -> Void
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
 
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isOn ? Color.orange : Color.secondary)
-                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                KeyCap(key)
+    private var titleAttributes: [NSAttributedString.Key: Any] {
+        [.font: NSFont.systemFont(ofSize: 12, weight: .medium),
+         .foregroundColor: destructive ? NSColor.systemRed : NSColor.labelColor]
+    }
+    private var titleSize: NSSize { (title as NSString).size(withAttributes: titleAttributes) }
+    private let keyAttributes: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: 10, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
+    private func keySize(_ key: String) -> NSSize {
+        let size = (key as NSString).size(withAttributes: keyAttributes)
+        return NSSize(width: size.width + 8, height: size.height + 2)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let orange = NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8)
+        (selected ? orange.withAlphaComponent(0.3) : NSColor.white.withAlphaComponent(0.06)).setFill()
+        shape.fill()
+        (selected ? orange : (prominent ? orange.withAlphaComponent(0.5) : NSColor.white.withAlphaComponent(0.06))).setStroke()
+        shape.stroke()
+
+        var x: CGFloat = 10
+        if let image {
+            let side = image.size
+            let rect = NSRect(x: x, y: (bounds.height - side.height) / 2, width: side.width, height: side.height)
+            if image.isTemplate {
+                let tint = checked ? orange : NSColor.secondaryLabelColor
+                let tinted = NSImage(size: side, flipped: false) { r in
+                    image.draw(in: r); tint.set(); r.fill(using: .sourceAtop); return true }
+                tinted.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+            } else {
+                image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.06)))
+            x += 22
         }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct KeyCap: View {
-    let key: String
-    init(_ key: String) { self.key = key }
-
-    var body: some View {
-        Text(key)
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 4).padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.08)))
-    }
-}
-
-/// Lays chips out left to right, wrapping onto new lines.
-private struct FlowRow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 540
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0 && x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return CGSize(width: width, height: y + rowHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX && x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
+        let size = titleSize
+        (title as NSString).draw(at: NSPoint(x: x, y: (bounds.height - size.height) / 2), withAttributes: titleAttributes)
+        if let key {
+            let kSize = keySize(key)
+            let cap = NSRect(x: x + size.width + 6, y: (bounds.height - kSize.height) / 2, width: kSize.width, height: kSize.height)
+            NSColor.white.withAlphaComponent(0.08).setFill()
+            NSBezierPath(roundedRect: cap, xRadius: 3, yRadius: 3).fill()
+            (key as NSString).draw(at: NSPoint(x: cap.minX + 4, y: cap.minY + 1), withAttributes: keyAttributes)
         }
     }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHover?() }
+    override func mouseDown(with event: NSEvent) { onClick?() }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
