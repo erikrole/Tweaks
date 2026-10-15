@@ -404,7 +404,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nsrc=\"${BUILT_PRODUCTS_DIR}/TweaksMedia.bundle\"\ndest=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/TweaksMedia.bundle\"\nif [[ ! -d \"$src\" ]]; then\n  echo \"error: TweaksMedia.bundle was not built at $src\" >&2\n  exit 1\nfi\nmkdir -p \"$(dirname \"$dest\")\"\nrm -rf \"$dest\"\ncp -R \"$src\" \"$dest\"\nif [[ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" && -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" && \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]]; then\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"$dest\"\nfi\n";
+			shellScript = "set -euo pipefail\nsrc=\"${BUILT_PRODUCTS_DIR}/TweaksMedia.bundle\"\ndest=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/TweaksMedia.bundle\"\nif [[ ! -d \"$src\" ]]; then\n  echo \"error: TweaksMedia.bundle was not built at $src\" >&2\n  exit 1\nfi\nmkdir -p \"$(dirname \"$dest\")\"\nrm -rf \"$dest\"\ncp -RL \"$src\" \"$dest\"\nif [[ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" && -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" && \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]]; then\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"$dest\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
