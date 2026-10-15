@@ -18,6 +18,7 @@ targets:
     sources:
       - Tweaks
     dependencies:
+      - package: FinderUtilitiesKit
       - target: TweaksFinderSync
         embed: true
     settings:
@@ -108,6 +109,8 @@ targets:
       path: FinderSync/Info.plist
       properties:
         CFBundleDisplayName: Finder Utilities
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         NSExtension:
           NSExtensionPointIdentifier: com.apple.FinderSync

@@ -120,6 +120,22 @@ extension SettingsWindowController {
         wrappingLabel(text, size: 11, color: Paper.secondary)
     }
 
+    /// A vertical box whose rows are rebuilt when its model changes.
+    func boxed(_ box: NSStackView) {
+        guard let column else { return }
+        box.orientation = .vertical
+        box.alignment = .leading
+        box.spacing = 6
+        pin(box)
+        column.addArrangedSubview(box)
+    }
+
+    func smallLabel(_ text: String, color: NSColor = Paper.secondary) -> NSTextField {
+        let label = plainLabel(text, size: 11, weight: .regular, color: color)
+        measured.append((label, 0))
+        return label
+    }
+
     func button(_ title: String, _ action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.bezelStyle = .rounded

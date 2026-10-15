@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import FinderUtilitiesKit
 
 @main
 enum TweaksMain {
@@ -53,6 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleURLEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
         guard let text = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
               let url = URL(string: text) else { return }
+        if let files = ImageActionRequest.files(from: url) {
+            controller.imageActions.show(files)
+            return
+        }
         controller.keepAwake.handle(url)
     }
 
@@ -113,6 +118,12 @@ final class TweakController {
     private let quitter = LastWindowQuitter()
     private let shareSleep = ShareSleepManager()
     private let shareConnect = ShareAutoConnect()
+
+    let windowLayouts = WindowLayouts()
+    let volumeLimits = DeviceVolumeLimits()
+    let safeEject = SafeEject()
+    let imageActions = ImageActions()
+    let duplicates = DuplicateReview()
 
     let shortcuts = ShortcutStore()
     @ObservationIgnored private var hotKeys: [ShortcutAction: HotKey] = [:]
@@ -194,15 +205,29 @@ final class TweakController {
             break // Applied in didWake.
         case .muteIcon:
             on ? mute.start() : mute.stop()
-        case .lowercaseExtensions, .calendarInvites, .unzipDownloads:
+        case .lowercaseExtensions, .calendarInvites, .unzipDownloads, .duplicateDownloads:
             downloads.lowercaseExtensions = settings?.isOn(.lowercaseExtensions) ?? false
             downloads.openCalendarInvites = settings?.isOn(.calendarInvites) ?? false
             downloads.unzipArchives = settings?.isOn(.unzipDownloads) ?? false
-            let needed = downloads.lowercaseExtensions || downloads.openCalendarInvites || downloads.unzipArchives
+            downloads.onDuplicate = { [weak self] match in self?.duplicates.add(match) }
+            downloads.detectDuplicates = settings?.isOn(.duplicateDownloads) ?? false
+            if tweak == .duplicateDownloads {
+                if on { Notifier.requestPermission() } else { duplicates.clear() }
+            }
+            let needed = downloads.lowercaseExtensions || downloads.openCalendarInvites || downloads.unzipArchives || downloads.detectDuplicates
             if needed, !downloads.isRunning { downloads.start() }
             if !needed { downloads.stop() }
         case .dmgInstaller:
             on ? dmg.start() : dmg.stop()
+        case .windowLayouts:
+            on && hasAccessibility ? windowLayouts.start() : windowLayouts.stop()
+            register(.saveWindowLayout)
+            register(.restoreWindowLayout)
+        case .deviceVolumeLimits:
+            on ? volumeLimits.start() : volumeLimits.stop()
+        case .safeEjectHotKey:
+            if on { Notifier.requestPermission() }
+            register(.safeEject)
         case .blockMusicLaunch:
             on && hasAccessibility ? music.start() : music.stop()
         case .clearNotificationsHotKey:
@@ -245,7 +270,13 @@ final class TweakController {
     func register(_ action: ShortcutAction) {
         hotKeys[action]?.unregister()
         hotKeys[action] = nil
-        let tweak: Tweak = action == .clearNotifications ? .clearNotificationsHotKey : .keepAwakeHotKey
+        let tweak: Tweak
+        switch action {
+        case .clearNotifications: tweak = .clearNotificationsHotKey
+        case .saveWindowLayout, .restoreWindowLayout: tweak = .windowLayouts
+        case .safeEject: tweak = .safeEjectHotKey
+        default: tweak = .keepAwakeHotKey
+        }
         guard settings?.isOn(tweak) == true, let shortcut = shortcuts.shortcut(for: action) else { return }
         switch action {
         case .keepAwake:
@@ -260,6 +291,18 @@ final class TweakController {
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.keepAwake.showMenu() }
         case .screenOff:
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.keepAwake.sleepDisplayNow() }
+        case .saveWindowLayout:
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in
+                Task { await self?.windowLayouts.save() }
+            }
+        case .restoreWindowLayout:
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in
+                Task { await self?.windowLayouts.restore() }
+            }
+        case .safeEject:
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in
+                Task { await self?.safeEject.ejectIdleDrives(notify: true) }
+            }
         case .clearNotifications:
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.clearNotifications() }
         }

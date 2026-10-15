@@ -2,7 +2,7 @@ import AppKit
 import Observation
 
 /// The settings window. Built with AppKit so the idle process does not map SwiftUI.
-/// Five short pages instead of one long scroll. Nothing was added or removed.
+/// Five short pages instead of one long scroll.
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let settings: TweakSettings
@@ -35,6 +35,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var columnConstraints: [NSLayoutConstraint] = []
     private var shownShares: [String] = []
     private var shownApps: [String] = []
+    let volumeBox = NSStackView()
+    let duplicateBox = NSStackView()
+    let ejectButton = NSButton()
+    let ejectResults = NSTextField(labelWithString: "")
+    let layoutRow = NSStackView()
+    let layoutStatus = NSTextField(labelWithString: "")
+    var layoutButtons: [NSButton] = []
+    private var shownVolume = ""
+    private var shownDuplicates = ""
     private var pinnedToTop = false
     private var fitting = false
     private var tracking = false
@@ -116,7 +125,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         banner.orientation = .vertical
         banner.alignment = .leading
         banner.spacing = 6
-        let bannerText = wrappingLabel("Clearing notifications, dismissing Shortcut banners, the green button and blocking Music need permission to look at other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility. If the switch is already on and this is still here, quit Tweaks and open it again.", size: 12, color: Paper.secondary, reserve: 16)
+        let bannerText = wrappingLabel("Window layouts, clearing notifications, dismissing Shortcut banners, the green button and blocking Music need permission to look at other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility. If the switch is already on and this is still here, quit Tweaks and open it again.", size: 12, color: Paper.secondary, reserve: 16)
         let openAccess = button("Open Accessibility Settings", #selector(openAccessibility))
         let relaunch = button("Relaunch", #selector(relaunch))
         let bannerButtons = NSStackView(views: [openAccess, relaunch])
@@ -223,6 +232,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
         rebuildShares()
         rebuildApps()
+        rebuildVolumeLimits()
+        rebuildDuplicates()
+        let ejecting = tweaks.safeEject.busy
+        ejectButton.isEnabled = !ejecting
+        ejectButton.title = ejecting ? "Ejecting…" : "Eject Idle External Drives"
+        let ejectText = tweaks.safeEject.results.joined(separator: "\n")
+        if ejectResults.stringValue != ejectText { ejectResults.stringValue = ejectText }
+        ejectResults.isHidden = ejectText.isEmpty
+        let layoutsReady = settings.isOn(.windowLayouts) && tweaks.hasAccessibility && !tweaks.windowLayouts.busy
+        for button in layoutButtons { button.isEnabled = layoutsReady }
+        if layoutStatus.stringValue != tweaks.windowLayouts.status { layoutStatus.stringValue = tweaks.windowLayouts.status }
         let finderOn = FinderExtensionBridge.isEnabled()
         finderLabel.stringValue = finderOn == true ? "On in Finder" : (finderOn == false ? "Off in Finder" : "Finder extension")
         let loginOn = launchAtLogin.isEnabled
@@ -275,6 +295,81 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private var page: SettingsPage? { scroll.documentView as? SettingsPage }
+    private func rebuildVolumeLimits() {
+        let model = tweaks.volumeLimits
+        let signature = "\(model.devices.map { "\($0.id)|\($0.name)|\($0.supportsVolume)" })\(model.rules.sorted { $0.key < $1.key }.map { "\($0.key)|\($0.value.maximum)|\($0.value.muteOnSwitchAway)" })\(model.status)"
+        guard signature != shownVolume else { return }
+        shownVolume = signature
+        volumeBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let refresh = button("Refresh Devices", #selector(refreshDevices))
+        volumeBox.addArrangedSubview(labeledRowView(smallLabel("Output device limits"), trailing: refresh, matching: volumeBox))
+        for device in model.devices {
+            let toggle = NSSwitch()
+            toggle.identifier = NSUserInterfaceItemIdentifier(device.id)
+            toggle.state = model.rules[device.id] != nil ? .on : .off
+            toggle.isEnabled = device.supportsVolume || model.rules[device.id] != nil
+            toggle.target = self
+            toggle.action = #selector(volumeRuleToggled(_:))
+            let name = plainLabel(device.name, size: 13, weight: .regular, color: Paper.ink)
+            name.lineBreakMode = .byTruncatingTail
+            volumeBox.addArrangedSubview(labeledRowView(name, trailing: toggle, matching: volumeBox))
+            if let rule = model.rules[device.id] {
+                let slider = NSSlider(value: Double(rule.maximum), minValue: 0, maxValue: 1, target: self, action: #selector(volumeLimitChanged(_:)))
+                slider.identifier = NSUserInterfaceItemIdentifier(device.id)
+                slider.numberOfTickMarks = 21
+                slider.allowsTickMarkValuesOnly = true
+                slider.isContinuous = false
+                slider.isEnabled = device.supportsVolume
+                let percent = smallLabel("\(Int((rule.maximum * 100).rounded()))%")
+                percent.widthAnchor.constraint(equalToConstant: 40).isActive = true
+                volumeBox.addArrangedSubview(labeledRowView(slider, trailing: percent, matching: volumeBox))
+                let mute = NSButton(checkboxWithTitle: "Mute the next output when switching away from this device", target: self, action: #selector(volumeMuteToggled(_:)))
+                mute.identifier = NSUserInterfaceItemIdentifier(device.id)
+                mute.state = rule.muteOnSwitchAway ? .on : .off
+                mute.font = .systemFont(ofSize: 11)
+                volumeBox.addArrangedSubview(mute)
+            }
+            if !device.supportsVolume {
+                volumeBox.addArrangedSubview(smallLabel("Uses its own hardware volume control."))
+            }
+        }
+        for uid in model.rules.keys.filter({ uid in !model.devices.contains(where: { $0.id == uid }) }).sorted() {
+            let forget = NSButton(title: "Forget", target: self, action: #selector(forgetVolumeRule(_:)))
+            forget.identifier = NSUserInterfaceItemIdentifier(uid)
+            forget.bezelStyle = .inline
+            forget.font = .systemFont(ofSize: 11)
+            volumeBox.addArrangedSubview(labeledRowView(smallLabel("\(model.rules[uid]?.name ?? uid) · disconnected"), trailing: forget, matching: volumeBox))
+        }
+        volumeBox.addArrangedSubview(smallLabel(model.status))
+        fitStack()
+    }
+
+    private func rebuildDuplicates() {
+        let model = tweaks.duplicates
+        let signature = "\(model.matches.map(\.id))\(model.busy)\(model.status)"
+        guard signature != shownDuplicates else { return }
+        shownDuplicates = signature
+        duplicateBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        duplicateBox.addArrangedSubview(smallLabel(model.status))
+        for match in model.matches {
+            duplicateBox.addArrangedSubview(plainLabel("New: \(match.newFile.lastPathComponent)", size: 12, weight: .regular, color: Paper.ink))
+            let size = ByteCountFormatter.string(fromByteCount: match.bytes, countStyle: .file)
+            duplicateBox.addArrangedSubview(smallLabel("Matches: \(match.existingFile.lastPathComponent) · \(size)"))
+            let buttons = [button("Show Both", #selector(showDuplicate(_:))),
+                           button("Keep Both", #selector(keepDuplicate(_:))),
+                           button("Trash New Copy", #selector(trashDuplicate(_:)))]
+            for button in buttons {
+                button.identifier = NSUserInterfaceItemIdentifier(match.id)
+                button.isEnabled = !model.busy
+            }
+            let row = NSStackView(views: buttons)
+            row.orientation = .horizontal
+            row.spacing = 8
+            duplicateBox.addArrangedSubview(row)
+        }
+        duplicateBox.isHidden = false
+        fitStack()
+    }
 
     private func fitStack() {
         // Nothing to lay out while the window is closed or ordered out. A hidden document
@@ -335,6 +430,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.launchAtLogin.errorMessage
             _ = self.settings.autoShares
             _ = self.settings.quitApps
+            _ = self.tweaks.volumeLimits.devices
+            _ = self.tweaks.volumeLimits.rules
+            _ = self.tweaks.volumeLimits.status
+            _ = self.tweaks.duplicates.matches
+            _ = self.tweaks.duplicates.busy
+            _ = self.tweaks.duplicates.status
+            _ = self.tweaks.safeEject.busy
+            _ = self.tweaks.safeEject.results
+            _ = self.tweaks.windowLayouts.busy
+            _ = self.tweaks.windowLayouts.status
             for tweak in Tweak.allCases { _ = self.settings.isOn(tweak) }
         } onChange: { [weak self] in
             DispatchQueue.main.async { [weak self] in
@@ -370,6 +475,73 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc func clearNotifications() {
         tweaks.clearNotifications()
+    }
+
+    @objc func chooseImages() {
+        tweaks.imageActions.choose()
+    }
+
+    @objc func ejectIdleDrives() {
+        Task { await tweaks.safeEject.ejectIdleDrives() }
+    }
+
+    @objc func saveLayout() {
+        Task { await tweaks.windowLayouts.save() }
+    }
+
+    @objc func restoreLayout() {
+        Task { await tweaks.windowLayouts.restore() }
+    }
+
+    @objc func forgetLayout() {
+        tweaks.windowLayouts.forgetCurrent()
+    }
+
+    @objc private func refreshDevices() {
+        tweaks.volumeLimits.refreshDevices()
+    }
+
+    @objc private func volumeRuleToggled(_ sender: NSSwitch) {
+        guard let uid = sender.identifier?.rawValue,
+              let device = tweaks.volumeLimits.devices.first(where: { $0.id == uid }) else { return }
+        tweaks.volumeLimits.setRule(sender.state == .on ? .init(name: device.name, maximum: 0.4) : nil, for: uid)
+    }
+
+    @objc private func volumeLimitChanged(_ sender: NSSlider) {
+        guard let uid = sender.identifier?.rawValue, var rule = tweaks.volumeLimits.rules[uid] else { return }
+        rule.maximum = Float(sender.doubleValue)
+        tweaks.volumeLimits.setRule(rule, for: uid)
+    }
+
+    @objc private func volumeMuteToggled(_ sender: NSButton) {
+        guard let uid = sender.identifier?.rawValue, var rule = tweaks.volumeLimits.rules[uid] else { return }
+        rule.muteOnSwitchAway = sender.state == .on
+        tweaks.volumeLimits.setRule(rule, for: uid)
+    }
+
+    @objc private func forgetVolumeRule(_ sender: NSButton) {
+        guard let uid = sender.identifier?.rawValue else { return }
+        tweaks.volumeLimits.setRule(nil, for: uid)
+    }
+
+    private func duplicate(for sender: NSButton) -> DuplicateMatch? {
+        guard let id = sender.identifier?.rawValue else { return nil }
+        return tweaks.duplicates.matches.first { $0.id == id }
+    }
+
+    @objc private func showDuplicate(_ sender: NSButton) {
+        guard let match = duplicate(for: sender) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([match.newFile, match.existingFile])
+    }
+
+    @objc private func keepDuplicate(_ sender: NSButton) {
+        guard let match = duplicate(for: sender) else { return }
+        tweaks.duplicates.keep(match)
+    }
+
+    @objc private func trashDuplicate(_ sender: NSButton) {
+        guard let match = duplicate(for: sender) else { return }
+        Task { await tweaks.duplicates.trash(match) }
     }
 
     @objc private func openAccessibility() {

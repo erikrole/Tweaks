@@ -153,9 +153,7 @@ final class RenderKeepAwake {
     }
 
     private func check() {
-        let snap = sampler.sampleRenderers()
-        // aerender waiting on footage from the NAS can sit near 0% CPU; it still counts.
-        let busy = Self.busyRenderer(in: snap.usage) ?? (snap.paths.contains(where: RenderProcesses.isRenderer) ? "aerender" : nil)
+        let busy = Self.sampleBusyRenderer(using: &sampler)
         let now = Date()
         if let busy {
             lastBusy = now
@@ -165,6 +163,12 @@ final class RenderKeepAwake {
             self.lastBusy = nil
         }
         schedule(idle: busy == nil && self.lastBusy == nil)
+    }
+
+    nonisolated static func sampleBusyRenderer(using sampler: inout CPUSampler) -> String? {
+        let usage = sampler.sample()
+        // aerender waiting on footage from the NAS can sit near 0% CPU; it still counts.
+        return busyRenderer(in: usage) ?? (sampler.hasRenderProcess ? "aerender" : nil)
     }
 
     /// The first renderer using at least `busyCores`, from per-executable CPU in percent.
@@ -197,46 +201,83 @@ final class RenderKeepAwake {
     }
 }
 
-/// CPU per executable path since the previous sample, via libproc. Only sees your own
-/// processes, which is where render apps run.
+/// Samples only render-related executables. The same process enumeration also detects
+/// idle render engines, so each render poll needs one scan instead of two.
 struct CPUSampler {
-    private var previous: [pid_t: UInt64] = [:]
-    private var previousAt: UInt64 = 0
+    struct Reading {
+        let pid: pid_t
+        let path: String
+        let ticks: UInt64?
+        let startedAt: UInt64
+    }
 
-    /// Full path, then CPU, and only for render apps. Everything else is skipped so an
-    /// idle Mac isn't paying rusage for every process on a timer.
-    mutating func sampleRenderers() -> (paths: [String], usage: [String: Double]) {
-        var pids = [pid_t](repeating: 0, count: 8192)
-        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
-        let now = mach_absolute_time()
-        let elapsed = previousAt == 0 ? 0 : now - previousAt
-        var current: [pid_t: UInt64] = [:]
-        var paths: [String] = []
+    private let readProcesses: () -> [Reading]
+    private let clock: () -> UInt64
+    private var previous: [pid_t: Reading] = [:]
+    private var previousAt: UInt64 = 0
+    private(set) var hasRenderProcess = false
+
+    init(readProcesses: @escaping () -> [Reading] = Self.readRenderProcesses,
+         clock: @escaping () -> UInt64 = mach_absolute_time) {
+        self.readProcesses = readProcesses
+        self.clock = clock
+    }
+
+    mutating func sample() -> [String: Double] {
+        let now = clock()
+        let elapsed = previousAt == 0 || now < previousAt ? 0 : now - previousAt
+        var current: [pid_t: Reading] = [:]
         var usage: [String: Double] = [:]
-        var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-        for pid in pids.prefix(max(0, count)) where pid > 0 {
-            guard proc_pidpath(pid, &pathBuffer, UInt32(pathBuffer.count)) > 0 else { continue }
-            let path = String(cString: pathBuffer)
-            guard Self.shouldMeasure(path) else { continue }
-            paths.append(path)
-            var info = rusage_info_v4()
-            let status = withUnsafeMutablePointer(to: &info) {
-                $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(pid, RUSAGE_INFO_V4, $0) }
-            }
-            guard status == 0 else { continue }
+        hasRenderProcess = false
+        for reading in readProcesses() {
+            if RenderProcesses.isRenderer(reading.path) { hasRenderProcess = true }
+            guard let ticks = reading.ticks else { continue }
+            current[reading.pid] = reading
+            guard elapsed > 0, let before = previous[reading.pid],
+                  before.startedAt == reading.startedAt, before.path == reading.path,
+                  let previousTicks = before.ticks, ticks >= previousTicks else { continue }
             // rusage times share mach_absolute_time's units, so the ratio needs no conversion.
-            let ticks = info.ri_user_time + info.ri_system_time
-            current[pid] = ticks
-            guard elapsed > 0, let before = previous[pid], ticks >= before else { continue }
-            usage[path, default: 0] += Double(ticks - before) / Double(elapsed) * 100
+            usage[reading.path, default: 0] += Double(ticks - previousTicks) / Double(elapsed) * 100
         }
         previous = current
         previousAt = now
-        return (paths, usage)
+        return usage
     }
 
     static func shouldMeasure(_ path: String) -> Bool {
         RenderKeepAwake.renderers.contains { $0.matches(path) } || RenderProcesses.isRenderer(path)
+    }
+
+    private static func readRenderProcesses() -> [Reading] {
+        var pids = [pid_t](repeating: 0, count: 8192)
+        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        var readings: [Reading] = []
+        for pid in pids.prefix(max(0, count)) where pid > 0 {
+            let length = proc_pidpath(pid, &path, UInt32(path.count))
+            guard length > 0 else { continue }
+            // All supported renderer names contain one of these ASCII fragments.
+            // Check the reusable C buffer first: ordinary processes need neither a
+            // Swift path allocation nor four Unicode substring searches.
+            let possibleRenderer = path.withUnsafeBufferPointer {
+                strstr($0.baseAddress!, "/Adobe") != nil || strstr($0.baseAddress!, "/aerender") != nil
+            }
+            guard possibleRenderer else { continue }
+            let executable = path.withUnsafeBytes {
+                String(decoding: $0.prefix(Int(length)).prefix { $0 != 0 }, as: UTF8.self)
+            }
+            guard shouldMeasure(executable) else { continue }
+            var info = rusage_info_v4()
+            let status = withUnsafeMutablePointer(to: &info) {
+                $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(pid, RUSAGE_INFO_V4, $0) }
+            }
+            // Presence still counts when the CPU read fails: never treat a waiting or
+            // unreadable aerender as finished work merely because it used no CPU.
+            readings.append(Reading(pid: pid, path: executable,
+                                    ticks: status == 0 ? info.ri_user_time + info.ri_system_time : nil,
+                                    startedAt: info.ri_proc_start_abstime))
+        }
+        return readings
     }
 }
 

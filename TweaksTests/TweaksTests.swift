@@ -1,4 +1,5 @@
 import Carbon.HIToolbox
+import Darwin
 import XCTest
 @testable import Tweaks
 
@@ -43,6 +44,27 @@ final class DownloadsTests: XCTestCase {
         XCTAssertTrue(DownloadsWatcher.isFinishedDownload(URL(filePath: "/tmp/big.mov")))
     }
 
+    func testFilenameCompletionMatchesURLRules() {
+        for name in ["Clip.CRDOWNLOAD", "movie.mp4.partial", "done file.MOV", "plain", ".download",
+                     "末尾.mov.part", "encoded%20file.opdownload", "photo.JPG", "a..part", "file.tmp"] {
+            let url = URL(fileURLWithPath: "/tmp/" + name)
+            let partial: Set<String> = ["download", "crdownload", "part", "partial", "opdownload", "tmp"]
+            XCTAssertEqual(DownloadsWatcher.isFinishedDownload(named: name),
+                           !partial.contains(url.pathExtension.lowercased()), name)
+        }
+    }
+
+    func testDirectorySnapshotPreservesNamesAndReportsFailure() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "names-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let names = ["a.mov", "résumé.JPG", "末尾.mov.part", ".hidden", "with spaces.MOV"]
+        for name in names { try Data().write(to: folder.appending(path: name)) }
+        XCTAssertEqual(Set(try XCTUnwrap(DownloadDirectory.names(in: folder))), Set(names))
+        XCTAssertNil(DownloadDirectory.names(in: folder.appending(path: "missing")))
+        XCTAssertNil(DownloadDirectory.names(in: folder.appending(path: "a.mov")))
+    }
+
     func testCaseOnlyRenameOnRealDisk() throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -52,6 +74,133 @@ final class DownloadsTests: XCTestCase {
         let target = try XCTUnwrap(DownloadsWatcher.lowercasedExtension(of: source))
         XCTAssertTrue(DownloadsWatcher.moveCaseOnly(from: source, to: target))
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Clip.mov"])
+    }
+
+    func testRenamePreservesExistingDestination() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        // Different names exercise the same overwrite primitive on either filesystem case mode.
+        let source = folder.appending(path: "Source.MOV")
+        let destination = folder.appending(path: "Existing.mov")
+        try Data("new".utf8).write(to: source)
+        try Data("original".utf8).write(to: destination)
+        XCTAssertFalse(DownloadsWatcher.moveCaseOnly(from: source, to: destination))
+        XCTAssertEqual(try Data(contentsOf: source), Data("new".utf8))
+        XCTAssertEqual(try Data(contentsOf: destination), Data("original".utf8))
+    }
+
+    func testRenamePreservesExistingHardLink() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appending(path: "Source.MOV")
+        let destination = folder.appending(path: "Existing.mov")
+        try Data("original".utf8).write(to: source)
+        try FileManager.default.linkItem(at: source, to: destination)
+        XCTAssertFalse(DownloadsWatcher.moveCaseOnly(from: source, to: destination))
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)),
+                       ["Source.MOV", "Existing.mov"])
+        XCTAssertEqual(try Data(contentsOf: destination), Data("original".utf8))
+    }
+}
+
+@MainActor
+final class BackgroundPerformanceTests: XCTestCase {
+    func testProcessSampling() {
+        var sampler = CPUSampler()
+        benchmark("render_poll") { _ = RenderKeepAwake.sampleBusyRenderer(using: &sampler) }
+    }
+
+    func testThousandLinkCleanups() {
+        benchmark("1000_link_cleanups") {
+            for _ in 0..<1_000 {
+                XCTAssertEqual(LinkCleaner.clean("https://www.youtube.com/watch?v=abc&si=TRACK&t=42&utm_source=email"),
+                               "https://www.youtube.com/watch?v=abc&t=42")
+            }
+        }
+    }
+
+    func testTenThousandExistingDownloads() async throws {
+        let folder = try downloadFixture()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let watcher = DownloadsWatcher(folder: folder)
+        watcher.lowercaseExtensions = true
+        watcher.start()
+        await watcher.waitUntilReady()
+        defer { watcher.stop() }
+        await benchmarkAsync("10000_existing_downloads_scan") { await watcher.scan() }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path).count, 10_000)
+    }
+
+    func testTenThousandDownloadCompletionCheck() throws {
+        let folder = try downloadFixture()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        benchmark("10000_downloads_completion_check") {
+            XCTAssertFalse(JobWatcher.downloadsInProgress(in: folder))
+        }
+    }
+
+    private func downloadFixture() throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "benchmark-downloads-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        do {
+            for index in 0..<10_000 { try Data().write(to: folder.appending(path: "Clip-\(index).MOV")) }
+        } catch {
+            try? FileManager.default.removeItem(at: folder)
+            throw error
+        }
+        return folder
+    }
+
+    /// Warm each operation, then report wall latency and process CPU for the same work.
+    /// No timing assertions: background workload makes portable speed limits misleading.
+    private func benchmark(_ name: String, operation: () -> Void) {
+        for _ in 0..<5 { operation() }
+        var wall: [Double] = []
+        var cpu: [Double] = []
+        for _ in 0..<30 {
+            let cpuStart = processCPUTime()
+            let start = ContinuousClock.now
+            operation()
+            let elapsed = start.duration(to: .now).components
+            wall.append(Double(elapsed.seconds) * 1_000 + Double(elapsed.attoseconds) / 1e15)
+            cpu.append(processCPUTime() - cpuStart)
+        }
+        let sorted = wall.sorted()
+        let result: [String: Any] = ["name": name, "samples": wall.count,
+                                   "wall_median_ms": (sorted[14] + sorted[15]) / 2,
+                                   "wall_p95_ms": sorted[28],
+                                   "cpu_mean_ms": cpu.reduce(0, +) / Double(cpu.count)]
+        let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print("PERF_RESULT " + String(decoding: data, as: UTF8.self))
+    }
+
+    private func benchmarkAsync(_ name: String, operation: () async -> Void) async {
+        for _ in 0..<5 { await operation() }
+        var wall: [Double] = []
+        var cpu: [Double] = []
+        for _ in 0..<30 {
+            let cpuStart = processCPUTime()
+            let start = ContinuousClock.now
+            await operation()
+            let elapsed = start.duration(to: .now).components
+            wall.append(Double(elapsed.seconds) * 1_000 + Double(elapsed.attoseconds) / 1e15)
+            cpu.append(processCPUTime() - cpuStart)
+        }
+        let sorted = wall.sorted()
+        let result: [String: Any] = ["name": name, "samples": wall.count,
+                                   "wall_median_ms": (sorted[14] + sorted[15]) / 2,
+                                   "wall_p95_ms": sorted[28],
+                                   "cpu_mean_ms": cpu.reduce(0, +) / Double(cpu.count)]
+        let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print("PERF_RESULT " + String(decoding: data, as: UTF8.self))
+    }
+
+    private func processCPUTime() -> Double {
+        var time = timespec()
+        XCTAssertEqual(clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time), 0)
+        return Double(time.tv_sec) * 1_000 + Double(time.tv_nsec) / 1e6
     }
 }
 
@@ -112,7 +261,7 @@ final class SettingsTests: XCTestCase {
     func testDefaultsOnAndPersist() {
         let defaults = UserDefaults(suiteName: "TweaksTests-\(UUID().uuidString)")!
         let settings = TweakSettings(defaults: defaults)
-        XCTAssertTrue(Tweak.allCases.allSatisfy(settings.isOn))
+        XCTAssertTrue(Tweak.allCases.allSatisfy { settings.isOn($0) == $0.defaultEnabled })
         var changed: [Tweak] = []
         settings.onChange = { changed.append($0) }
         settings.set(.dmgInstaller, on: false)
@@ -124,7 +273,104 @@ final class SettingsTests: XCTestCase {
 
 @MainActor
 final class WatcherIntegrationTests: XCTestCase {
-    func testWatcherLowercasesNewDownloads() throws {
+    func testFailedDirectoryReadDoesNotForgetExistingFiles() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "read-failure-\(UUID().uuidString)")
+        let folder = root.appending(path: "Downloads")
+        let moved = root.appending(path: "TemporarilyMoved")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("existing".utf8).write(to: folder.appending(path: "Existing.JPG"))
+        let watcher = DownloadsWatcher(folder: folder)
+        watcher.lowercaseExtensions = true
+        watcher.start()
+        await watcher.waitUntilReady()
+        defer { watcher.stop() }
+        try FileManager.default.moveItem(at: folder, to: moved)
+        await watcher.scan()
+        try FileManager.default.moveItem(at: moved, to: folder)
+        let now = Date()
+        await watcher.scan(now: now)
+        await watcher.scan(now: now.addingTimeInterval(DownloadsWatcher.settleTime))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Existing.JPG"])
+    }
+
+    func testNameOnlyScanStillSkipsHiddenFilesAndDirectories() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "visibility-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let watcher = DownloadsWatcher(folder: folder)
+        watcher.lowercaseExtensions = true
+        watcher.start()
+        await watcher.waitUntilReady()
+        defer { watcher.stop() }
+        for name in ["Folder.JPG", "Example.APP"] {
+            try FileManager.default.createDirectory(at: folder.appending(path: name), withIntermediateDirectories: true)
+        }
+        for name in [".Dot.JPG", "Flagged.JPG", "Visible.JPG"] {
+            try Data("x".utf8).write(to: folder.appending(path: name))
+        }
+        var hidden = folder.appending(path: "Flagged.JPG")
+        var attributes = URLResourceValues()
+        attributes.isHidden = true
+        try hidden.setResourceValues(attributes)
+        let now = Date()
+        await watcher.scan(now: now)
+        await watcher.scan(now: now.addingTimeInterval(DownloadsWatcher.settleTime))
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)),
+                       ["Folder.JPG", "Example.APP", ".Dot.JPG", "Flagged.JPG", "Visible.jpg"])
+    }
+
+    func testGrowingFileRestartsItsSettleInterval() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "growth-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appending(path: "Clip.MOV")
+        let watcher = DownloadsWatcher(folder: folder)
+        watcher.lowercaseExtensions = true
+        watcher.start()
+        await watcher.waitUntilReady()
+        defer { watcher.stop() }
+        let now = Date()
+        try Data("x".utf8).write(to: source)
+        await watcher.scan(now: now)
+        try Data("still growing".utf8).write(to: source)
+        await watcher.scan(now: now.addingTimeInterval(3))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Clip.MOV"])
+        await watcher.scan(now: now.addingTimeInterval(4))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Clip.MOV"])
+        await watcher.scan(now: now.addingTimeInterval(5))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Clip.mov"])
+    }
+
+    func testRestartGivesReplacementDownloadAFreshSettleInterval() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "restart-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appending(path: "Photo.JPG")
+        let now = Date()
+        let watcher = DownloadsWatcher(folder: folder)
+        watcher.lowercaseExtensions = true
+        watcher.start()
+        await watcher.waitUntilReady()
+        defer { watcher.stop() }
+        try Data("old".utf8).write(to: source)
+        let modified = try XCTUnwrap(source.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+        await watcher.scan(now: now)
+        watcher.stop()
+        try FileManager.default.removeItem(at: source)
+        watcher.start()
+        await watcher.waitUntilReady()
+        try Data("new".utf8).write(to: source)
+        try FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: source.path)
+
+        await watcher.scan(now: now.addingTimeInterval(10))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Photo.JPG"])
+        await watcher.scan(now: now.addingTimeInterval(10 + DownloadsWatcher.settleTime))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["Photo.jpg"])
+        XCTAssertEqual(try Data(contentsOf: folder.appending(path: "Photo.jpg")), Data("new".utf8))
+    }
+
+    func testWatcherLowercasesNewDownloads() async throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: "watch-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -133,17 +379,87 @@ final class WatcherIntegrationTests: XCTestCase {
         let watcher = DownloadsWatcher(folder: folder)
         watcher.lowercaseExtensions = true
         watcher.start()
+        await watcher.waitUntilReady()
         defer { watcher.stop() }
         try Data("new".utf8).write(to: folder.appending(path: "Photo.JPG"))
 
         let deadline = Date().addingTimeInterval(6)
         while Date() < deadline {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            try await Task.sleep(for: .milliseconds(200))
             if FileManager.default.fileExists(atPath: folder.appending(path: "Photo.jpg").path),
                (try? FileManager.default.contentsOfDirectory(atPath: folder.path))?.contains("Photo.jpg") == true { break }
         }
         let names = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
         XCTAssertEqual(names, ["Existing.PNG", "Photo.jpg"], "new file renamed, existing file left alone")
+    }
+}
+
+final class CPUSamplerTests: XCTestCase {
+    private let ae = "/Applications/Adobe After Effects 2026/Adobe After Effects 2026.app/Contents/MacOS/After Effects"
+
+    func testCPUIsAggregatedAcrossRenderProcesses() {
+        var now: UInt64 = 100
+        var readings = [CPUSampler.Reading(pid: 1, path: ae, ticks: 100, startedAt: 1),
+                        CPUSampler.Reading(pid: 2, path: ae, ticks: 200, startedAt: 2)]
+        var sampler = CPUSampler(readProcesses: { readings }, clock: { now })
+        XCTAssertTrue(sampler.sample().isEmpty, "first sample establishes CPU counters")
+        now = 200
+        readings = [.init(pid: 1, path: ae, ticks: 150, startedAt: 1),
+                    .init(pid: 2, path: ae, ticks: 225, startedAt: 2)]
+        let usage = sampler.sample()
+        XCTAssertEqual(usage[ae], 75)
+        XCTAssertEqual(RenderKeepAwake.busyRenderer(in: usage), "After Effects")
+    }
+
+    func testIdleOrUnreadableRenderEngineStillHoldsAwake() {
+        for path in ["/Adobe/aerender", "/Adobe/aerendercore", "/Adobe After Effects Render Engine/App"] {
+            var readings = [CPUSampler.Reading(pid: 1, path: path, ticks: nil, startedAt: 0)]
+            var sampler = CPUSampler(readProcesses: { readings }, clock: { 100 })
+            XCTAssertEqual(RenderKeepAwake.sampleBusyRenderer(using: &sampler), "aerender", path)
+            readings = []
+            XCTAssertNil(RenderKeepAwake.sampleBusyRenderer(using: &sampler), "exited process clears presence")
+        }
+    }
+
+    func testPIDReuseAndCounterResetCannotInventCPUUsage() {
+        var now: UInt64 = 100
+        var reading = CPUSampler.Reading(pid: 1, path: ae, ticks: 100, startedAt: 1)
+        var sampler = CPUSampler(readProcesses: { [reading] }, clock: { now })
+        _ = sampler.sample()
+        now = 200
+        reading = .init(pid: 1, path: ae, ticks: 10_000, startedAt: 2)
+        XCTAssertTrue(sampler.sample().isEmpty, "new process reused the PID")
+        now = 300
+        reading = .init(pid: 1, path: ae, ticks: 1, startedAt: 2)
+        XCTAssertTrue(sampler.sample().isEmpty, "counter decreased")
+        reading = .init(pid: 1, path: ae, ticks: 100, startedAt: 2)
+        XCTAssertTrue(sampler.sample().isEmpty, "same timestamp gives no rate")
+    }
+
+    func testIdleForegroundAppIsNotAnIdleRenderEngine() {
+        var sampler = CPUSampler(readProcesses: { [.init(pid: 1, path: self.ae, ticks: 0, startedAt: 1)] },
+                                 clock: { 100 })
+        XCTAssertNil(RenderKeepAwake.sampleBusyRenderer(using: &sampler))
+        XCTAssertFalse(sampler.hasRenderProcess)
+    }
+
+    func testLiveEnumerationFindsAWaitingRenderer() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "renderer-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let executable = folder.appending(path: "aerender")
+        try FileManager.default.copyItem(at: URL(filePath: "/bin/sleep"), to: executable)
+        let child = Process()
+        child.executableURL = executable
+        child.arguments = ["30"]
+        try child.run()
+        defer { child.terminate(); child.waitUntilExit() }
+        var sampler = CPUSampler()
+        XCTAssertEqual(RenderKeepAwake.sampleBusyRenderer(using: &sampler), "aerender")
+        let usage = sampler.sample()
+        XCTAssertTrue(usage.keys.contains {
+            URL(filePath: $0).resolvingSymlinksInPath() == executable.resolvingSymlinksInPath()
+        }, "libproc may report /private/var where Foundation reports /var")
     }
 }
 
@@ -270,8 +586,8 @@ final class HardeningTests: XCTestCase {
         XCTAssertNotNil(DMGInstaller.problem(installing: identity("3.0", team: "EVIL"), over: identity("2.9", team: "T1")))
     }
 
-    func testAppIdentityReadsRealApp() {
-        let finder = AppIdentity.read(URL(filePath: "/Applications/Safari.app"))
+    func testAppIdentityReadsRealApp() async {
+        let finder = await AppIdentity.read(URL(filePath: "/Applications/Safari.app"))
         XCTAssertEqual(finder.bundleID, "com.apple.Safari")
         XCTAssertNotNil(finder.version)
     }

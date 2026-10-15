@@ -43,7 +43,9 @@ extension SettingsWindowController {
         column?.addArrangedSubview(note("Click a shortcut, then press the new keys. Delete clears it, Esc cancels. Hyper is ⌃⌥⇧⌘."))
 
         addSection("Keyboard and sound")
-        addToggles([.capsLockNoDelay, .wakeVolumeLimit, .muteIcon, .blockMusicLaunch])
+        addToggles([.capsLockNoDelay, .wakeVolumeLimit, .muteIcon, .blockMusicLaunch, .deviceVolumeLimits])
+        boxed(volumeBox)
+        tweaks.volumeLimits.refreshDevices()
 
         addSection("Launch")
         loginSwitch.target = self
@@ -61,9 +63,12 @@ extension SettingsWindowController {
 
     private func buildFiles() {
         addSection("Downloads and clipboard")
-        addToggles([.lowercaseExtensions, .calendarInvites, .dmgInstaller, .unzipDownloads, .cleanCopiedLinks])
+        addToggles([.lowercaseExtensions, .calendarInvites, .dmgInstaller, .unzipDownloads, .cleanCopiedLinks, .duplicateDownloads])
+        boxed(duplicateBox)
 
         addSection("Finder")
+        column?.addArrangedSubview(button("Quick Image Actions…", #selector(chooseImages)))
+        column?.addArrangedSubview(note("Convert or resize selected images and optionally remove metadata. Originals are kept. Also available from Finder's right-click menu."))
         column?.addArrangedSubview(note("Copy Path shortens NAS, Box and Google Drive roots. Copy Original Path and Inspect Media are on the same menu. Turn the extension on under Finder Extensions."))
         finderLabel.font = .systemFont(ofSize: 12)
         finderLabel.textColor = Paper.secondary
@@ -91,7 +96,22 @@ extension SettingsWindowController {
         sessionRow.addArrangedSubview(stop)
         pin(sessionRow)
         column?.addArrangedSubview(sessionRow)
-        addToggles([.ejectBeforeSleep, .awakeWhileRendering])
+        addToggles([.ejectBeforeSleep, .safeEjectHotKey])
+        ejectButton.title = "Eject Idle External Drives"
+        ejectButton.bezelStyle = .rounded
+        ejectButton.font = .systemFont(ofSize: 12)
+        ejectButton.target = self
+        ejectButton.action = #selector(ejectIdleDrives)
+        ejectButton.setContentHuggingPriority(.required, for: .horizontal)
+        column?.addArrangedSubview(ejectButton)
+        ejectResults.font = .systemFont(ofSize: 11)
+        ejectResults.textColor = Paper.secondary
+        ejectResults.lineBreakMode = .byWordWrapping
+        ejectResults.maximumNumberOfLines = 0
+        ejectResults.isSelectable = true
+        measured.append((ejectResults, 0))
+        column?.addArrangedSubview(ejectResults)
+        addToggles([.awakeWhileRendering])
         renderLabel.font = .systemFont(ofSize: 12)
         renderLabel.textColor = Paper.secondary
         renderLabel.lineBreakMode = .byWordWrapping
@@ -102,7 +122,20 @@ extension SettingsWindowController {
 
     private func buildWindows() {
         addSection("Windows and notifications")
-        addToggles([.clearNotificationsHotKey, .dismissShortcutNotifications, .greenButtonFills])
+        addToggles([.clearNotificationsHotKey, .dismissShortcutNotifications, .greenButtonFills, .windowLayouts])
+        layoutButtons = [button("Save This Layout", #selector(saveLayout)),
+                         button("Restore Layout", #selector(restoreLayout)),
+                         button("Forget Layout", #selector(forgetLayout))]
+        layoutRow.setViews(layoutButtons, in: .leading)
+        layoutRow.orientation = .horizontal
+        layoutRow.spacing = 8
+        column?.addArrangedSubview(layoutRow)
+        layoutStatus.font = .systemFont(ofSize: 11)
+        layoutStatus.textColor = Paper.secondary
+        layoutStatus.lineBreakMode = .byWordWrapping
+        layoutStatus.maximumNumberOfLines = 0
+        measured.append((layoutStatus, 0))
+        column?.addArrangedSubview(layoutStatus)
         column?.addArrangedSubview(button("Clear notifications now", #selector(clearNotifications)))
 
         addSection("Quit when the last window closes")

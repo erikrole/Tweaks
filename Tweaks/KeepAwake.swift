@@ -97,8 +97,8 @@ final class KeepAwake {
     private var jobTimerInterval: TimeInterval?
     private var downloadSource: DispatchSourceFileSystemObject?
     private var downloadDebounceWork: DispatchWorkItem?
-    /// Stays for the life of the process. Removing it from inside its own callback is unsafe, and it does not poll.
-    private var powerSource: CFRunLoopSource?
+    /// Removed in `deinit`. `stop()` can run from the IOPS callback, so the source stays in place until this object is released.
+    @ObservationIgnored nonisolated(unsafe) private var powerSource: CFRunLoopSource?
     private var launchObserver: NSObjectProtocol?
     private var terminateObserver: NSObjectProtocol?
     private var watcher = JobWatcher()
@@ -112,6 +112,13 @@ final class KeepAwake {
            let saved = try? JSONDecoder().decode([Choice].self, from: data) {
             recents = saved
         }
+    }
+
+    deinit {
+        guard let source = powerSource else { return }
+        CFRunLoopSourceInvalidate(source)
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        powerSource = nil
     }
 
     // MARK: - Control

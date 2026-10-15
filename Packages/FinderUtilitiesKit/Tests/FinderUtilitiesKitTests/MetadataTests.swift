@@ -99,6 +99,16 @@ private struct Counting: MetadataProvider {
         svc.prefetch([url])
         for _ in 0..<100 where svc.state(for: url) == .loading { try await Task.sleep(for: .milliseconds(20)) }
         #expect(svc.state(for: url) == .ready(m))
+        #expect(svc.menuState(for: url) == .ready(m))
+    }
+
+    @Test func coldNetworkMenuNeverWaitsForTheProvider() {
+        let svc = MetadataService(providers: [Hanging()], datalessCheck: { _ in false },
+                                  timeouts: .init(local: 0.2, network: 0.2))
+        let start = ContinuousClock.now
+        let state = svc.menuState(for: URL(fileURLWithPath: "/Volumes/benchmark/a.mov"))
+        #expect(state == .loading)
+        #expect(start.duration(to: .now) < .milliseconds(50))
     }
 
     @Test func formatterLines() {

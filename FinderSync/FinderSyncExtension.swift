@@ -36,16 +36,21 @@ final class FinderSyncExtension: FIFinderSync {
         original.target = self
         menu.addItem(original)
 
-        // Cache only. Waiting here used to sleep the Finder Sync thread (up to a second on a
-        // network file) so the first menu could show numbers. The read still runs in the background;
-        // this menu says "Loading…" until the cache has them.
+        // Never wait for metadata while Finder is constructing a menu. The same cached
+        // result serves the top-level line and submenu; cold reads show Loading….
         var state: MetadataState?
         if selection.count == 1, let url = selection.first, !url.hasDirectoryPath {
-            metadata.prefetch([url])
-            state = metadata.state(for: url)
+            state = metadata.menuState(for: url)
+            log.info("inspect \(VolumeInfo.classify(path: url.path).key, privacy: .public): \(String(describing: state), privacy: .public)")
         }
         for line in quickInfo(state) { menu.addItem(line) }
         menu.addItem(inspectItem(state))
+        if let request = ImageActionRequest.url(for: selection) {
+            let images = NSMenuItem(title: "Quick Image Actions…", action: #selector(openImageActions(_:)), keyEquivalent: "")
+            images.target = self
+            images.representedObject = request
+            menu.addItem(images)
+        }
         return menu
     }
 
@@ -87,6 +92,11 @@ final class FinderSyncExtension: FIFinderSync {
 
     @objc private func copyOriginalPath(_ sender: Any?) {
         write(selection.map { $0.path(percentEncoded: false) }.joined(separator: "\n"))
+    }
+
+    @objc private func openImageActions(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(request)
     }
 
     private func write(_ text: String) {

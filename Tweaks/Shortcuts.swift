@@ -56,6 +56,9 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
     case keepAwakePanel
     case screenOff
     case clearNotifications
+    case saveWindowLayout
+    case restoreWindowLayout
+    case safeEject
 
     var id: String { rawValue }
 
@@ -65,6 +68,9 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
         case .keepAwakePanel: "Open the Keep Awake panel"
         case .screenOff: "Screen off, Mac awake"
         case .clearNotifications: "Clear all notifications"
+        case .saveWindowLayout: "Save this display setup's windows"
+        case .restoreWindowLayout: "Restore this display setup's windows"
+        case .safeEject: "Eject idle external drives"
         }
     }
 
@@ -72,7 +78,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .keepAwake: Shortcut(keyCode: UInt32(kVK_ANSI_Slash), modifiers: Shortcut.hyperModifiers, key: "/")
         case .clearNotifications: Shortcut(keyCode: UInt32(kVK_ANSI_N), modifiers: Shortcut.hyperModifiers, key: "N")
-        case .keepAwakePanel, .screenOff: nil
+        case .keepAwakePanel, .screenOff, .saveWindowLayout, .restoreWindowLayout, .safeEject: nil
         }
     }
 }

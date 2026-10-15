@@ -100,7 +100,7 @@ enum OutputAudio {
     /// Per-channel scalar. The macOS 27 SDK no longer has
     /// `kAudioHardwareServiceDeviceProperty_VirtualMainVolume`; the main element is the
     /// device volume, and channels 1 and 2 cover devices that only expose a pair.
-    private static func volumeAddress(element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
+    static func volumeAddress(element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVolumeScalar,
             mScope: kAudioDevicePropertyScopeOutput,
@@ -130,18 +130,20 @@ enum OutputAudio {
         )
     }
 
-    static func volume() -> Float? {
-        guard let device = defaultDevice() else { return nil }
+    static func volume(device: AudioDeviceID? = nil) -> Float? {
+        guard let device = device ?? defaultDevice() else { return nil }
         if let value = readScalar(device, element: kAudioObjectPropertyElementMain) { return value }
         return readScalar(device, element: 1)
     }
 
-    static func setVolume(_ volume: Float) {
-        guard let device = defaultDevice() else { return }
+    @discardableResult
+    static func setVolume(_ volume: Float, device: AudioDeviceID? = nil) -> Bool {
+        guard let device = device ?? defaultDevice(), volume.isFinite else { return false }
         let value = Float32(min(max(volume, 0), 1))
-        if writeScalar(device, element: kAudioObjectPropertyElementMain, value) { return }
-        _ = writeScalar(device, element: 1, value)
-        _ = writeScalar(device, element: 2, value)
+        if writeScalar(device, element: kAudioObjectPropertyElementMain, value) { return true }
+        let left = writeScalar(device, element: 1, value)
+        let right = writeScalar(device, element: 2, value)
+        return left || right
     }
 
     static func isMuted() -> Bool {
@@ -153,8 +155,8 @@ enum OutputAudio {
         return value != 0
     }
 
-    static func setMuted(_ muted: Bool) {
-        guard let device = defaultDevice() else { return }
+    static func setMuted(_ muted: Bool, device: AudioDeviceID? = nil) {
+        guard let device = device ?? defaultDevice() else { return }
         var address = muteAddress()
         var value = UInt32(muted ? 1 : 0)
         AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<UInt32>.size), &value)
@@ -275,7 +277,7 @@ final class MusicLaunchBlocker {
     private var launchObserver: NSObjectProtocol?
     private var lastPlayKey: Date?
 
-    static let musicBundleID = "com.apple.Music"
+    nonisolated static let musicBundleID = "com.apple.Music"
     /// How soon after the key a launch counts as caused by it.
     static let window: TimeInterval = 3
 
