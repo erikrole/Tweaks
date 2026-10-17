@@ -18,7 +18,7 @@ enum SettingsTab: Int, CaseIterable {
 extension SettingsWindowController {
     func installPages() -> [SettingsPage] {
         SettingsTab.allCases.map { tab in
-            let page = SettingsPage(frame: .zero)
+            let page = SettingsPage(frame: NSRect(x: 0, y: 0, width: 500, height: 1))
             column = page.column
             switch tab {
             case .general: buildGeneral()

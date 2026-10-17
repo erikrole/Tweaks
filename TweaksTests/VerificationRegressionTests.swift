@@ -66,4 +66,46 @@ final class VerificationRegressionTests: XCTestCase {
             window.close()
         }
     }
+
+    func testSettingsPagesHaveUsableGeometryBeforeAndAfterDisplay() {
+        withDefaults { defaults in
+            let settings = TweakSettings(defaults: defaults)
+            settings.setAutoShares(["smb://example.invalid/a-long-share-name"])
+            let controller = TweakController(defaults: defaults)
+            controller.settings = settings
+            let settingsWindow = SettingsWindowController(settings: settings, tweaks: controller,
+                                                          launchAtLogin: LaunchAtLoginController())
+            defer { settingsWindow.close() }
+            let root = settingsWindow.window!.contentView!
+            @MainActor func descendants(_ view: NSView) -> [NSView] {
+                [view] + view.subviews.flatMap(descendants)
+            }
+            let scroll = descendants(root).compactMap { $0 as? NSScrollView }.first!
+            let tabs = descendants(root).compactMap { $0 as? NSSegmentedControl }.first!
+            @MainActor func checkGeometry() {
+                root.layoutSubtreeIfNeeded()
+                let page = scroll.documentView as! SettingsPage
+                page.layoutSubtreeIfNeeded()
+                XCTAssertGreaterThan(page.frame.width, 400)
+                XCTAssertGreaterThan(page.frame.height, 1)
+                XCTAssertEqual(page.column.frame.width, page.frame.width, accuracy: 0.5)
+                XCTAssertGreaterThan(page.column.frame.height, 1)
+                XCTAssertGreaterThanOrEqual(page.frame.height + 0.5, page.column.fittingSize.height)
+                XCTAssertFalse(page.column.hasAmbiguousLayout)
+                for view in descendants(page) where !view.isHiddenOrHasHiddenAncestor {
+                    XCTAssertTrue(view.frame.width.isFinite && view.frame.height.isFinite)
+                    XCTAssertGreaterThanOrEqual(view.frame.width, 0)
+                    XCTAssertGreaterThanOrEqual(view.frame.height, 0)
+                }
+            }
+            checkGeometry()
+            settingsWindow.showWindow(nil)
+            for tab in SettingsTab.allCases {
+                tabs.selectedSegment = tab.rawValue
+                tabs.sendAction(tabs.action, to: tabs.target)
+                settingsWindow.sync()
+                checkGeometry()
+            }
+        }
+    }
 }

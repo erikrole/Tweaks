@@ -17,7 +17,16 @@ final class SettingsPage: NSView {
         column.detachesHiddenViews = true
         self.column = column
         super.init(frame: frameRect)
+        // Let the stack's contents determine its height. A manually sized stack
+        // otherwise contributes required width/height constraints from its initial
+        // zero frame, before the first fitting pass can measure the document.
+        column.translatesAutoresizingMaskIntoConstraints = false
         addSubview(column)
+        NSLayoutConstraint.activate([
+            column.leadingAnchor.constraint(equalTo: leadingAnchor),
+            column.trailingAnchor.constraint(equalTo: trailingAnchor),
+            column.topAnchor.constraint(equalTo: topAnchor),
+        ])
     }
 
     @available(*, unavailable)

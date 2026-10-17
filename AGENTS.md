@@ -79,6 +79,9 @@ access to their normal caches/test services; a sandbox denial is not a test resu
 - Keep generated benchmarks, DerivedData, xcresults, private data, and credentials
   out of commits. `.build/validation/` is ignored. Share aggregate measurements in
   docs with their configuration and limitations.
+- Settings document columns use Auto Layout for their contents and a manually sized
+  outer scroll document. Measure before showing; keep all five page geometry checks
+  and installed runtime logs free of constraint/negative-geometry faults.
 - Live NAS, Accessibility, power, and real Finder behavior require separate live
   evidence; passing isolated tests does not establish those behaviors.
 

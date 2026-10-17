@@ -73,6 +73,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = build()
         window.center()
         sync()
+        fitStack(preparingToShow: true)
         track()
     }
 
@@ -95,6 +96,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     override func showWindow(_ sender: Any?) {
+        fitStack(preparingToShow: true)
         super.showWindow(sender)
         fitStack()
         DispatchQueue.main.async { [weak self] in
@@ -175,7 +177,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         column = nil
         scroll.documentView = pages.first
 
-        let root = NSView()
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 600))
         chrome.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(chrome)
@@ -371,10 +373,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         fitStack()
     }
 
-    private func fitStack() {
+    private func fitStack(preparingToShow: Bool = false) {
         // Nothing to lay out while the window is closed or ordered out. A hidden document
         // that keeps invalidating itself is what held a display link with no window on screen.
-        guard !closed, !fitting, window?.isVisible == true, let page else { return }
+        guard !closed, !fitting, preparingToShow || window?.isVisible == true, let page else { return }
         fitting = true
         defer { fitting = false }
         // contentView bounds, not contentSize: contentSize shrinks when a scroller appears,
@@ -390,16 +392,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             if label.preferredMaxLayoutWidth != limit { label.preferredMaxLayoutWidth = limit }
         }
         if page.frame.width != width { page.frame.size.width = width }
-        if page.column.frame.width != width { page.column.frame.size.width = width }
         chrome.layoutSubtreeIfNeeded()
-        page.column.layoutSubtreeIfNeeded()
+        page.layoutSubtreeIfNeeded()
         let height = max(page.column.fittingSize.height, 1)
         let next = NSRect(x: 0, y: 0, width: width, height: height)
-        let columnFrame = NSRect(x: 0, y: 0, width: width, height: height)
-        if page.frame != next || page.column.frame != columnFrame {
+        if page.frame != next {
             let origin = scroll.contentView.bounds.origin
             page.frame = next
-            page.column.frame = columnFrame
+            page.layoutSubtreeIfNeeded()
             if pinnedToTop {
                 scroll.contentView.scroll(to: origin)
                 scroll.reflectScrolledClipView(scroll.contentView)
