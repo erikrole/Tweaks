@@ -2,6 +2,14 @@
 
 ## Current state
 
+Version 0.1.1 repairs all ten confirmed defects from the
+[2026-10-17 audit](docs/verification-2026-10-17.md), with permanent regressions for
+settings construction, preference migration, physical-key conflicts, per-keyboard
+restoration, Downloads scoping/deferral, recoverable app replacement, channel-only
+volume controls and share recovery through cancellation/late unmounts. Activity
+estimates and delayed clipboard cleanup now have accurate wording. See the
+[repair report](docs/repair-2026-10-17.md) for checks and installation evidence.
+
 The 2026-10-12 validation pass adds repeatable Release benchmarks and regression
 coverage for Downloads collisions and watcher restarts. Finder menu metadata no
 longer blocks the menu, DMG identity inspection runs off the main actor, and the

@@ -74,9 +74,9 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .clearNotificationsHotKey: "Closes every notification on screen. Set the keys under Shortcuts."
         case .dismissShortcutNotifications: "Closes the banner Shortcuts shows while a shortcut runs."
         case .greenButtonFills: "Click the green button to fill the screen without full-screen mode; click again to restore. Hold ⌥ for normal full screen."
-        case .ejectBeforeSleep: "No more \u{201C}Disk Not Ejected Properly\u{201D} after closing the lid. You're told after waking if a drive refused."
+        case .ejectBeforeSleep: "Tries to eject idle external drives before sleep. Busy drives stay connected; you are told after waking if a drive refused."
         case .awakeWhileRendering: "Keeps the Mac awake while After Effects, aerender, Media Encoder or Premiere is busy (half a core or more), until two minutes after it stops. The display can still sleep."
-        case .cleanCopiedLinks: "Removes tracking (utm_, fbclid, YouTube si=…) from links as you copy them."
+        case .cleanCopiedLinks: "Removes tracking (utm_, fbclid, YouTube si=…) from plain copied links within a few seconds. Wait briefly before pasting."
         case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
         case .quitOnLastWindow: "For the apps listed below."
         case .unmountSharesBeforeSleep: "Unmounts NAS shares as the Mac sleeps so waking on another network doesn't stall, then reconnects them once the server is reachable."
@@ -107,20 +107,26 @@ final class TweakSettings {
     /// Called with the tweak whose switch changed.
     var onChange: ((Tweak) -> Void)?
 
-    init(defaults: UserDefaults = .standard) {
+    static let shareURLsKey = "autoConnectShareURLs"
+
+    init(defaults: UserDefaults = .standard,
+         mountedShares: () -> [String] = { NetworkShares.mounted().map(\.serverURL.absoluteString) }) {
         self.defaults = defaults
+        // Older releases stored both the switch and the URLs under one key. An
+        // array meant the default (enabled); a Boolean is explicit user intent.
+        let legacyShares = defaults.stringArray(forKey: Tweak.autoConnectShares.rawValue)
+        let shareURLs = defaults.stringArray(forKey: Self.shareURLsKey) ?? legacyShares ?? mountedShares()
+        autoShares = shareURLs
+        defaults.set(shareURLs, forKey: Self.shareURLsKey)
+        if legacyShares != nil {
+            defaults.set(true, forKey: Tweak.autoConnectShares.rawValue)
+        }
         var enabled: Set<Tweak> = []
         for tweak in Tweak.allCases where defaults.object(forKey: tweak.rawValue) as? Bool ?? tweak.defaultEnabled {
             enabled.insert(tweak)
         }
         self.enabled = enabled
         quitApps = defaults.stringArray(forKey: "quitOnLastWindowApps") ?? Self.defaultQuitApps
-        if let saved = defaults.stringArray(forKey: "autoConnectShares") {
-            autoShares = saved
-        } else {
-            autoShares = NetworkShares.mounted().map(\.serverURL.absoluteString)
-            defaults.set(autoShares, forKey: "autoConnectShares")
-        }
     }
 
     func isOn(_ tweak: Tweak) -> Bool { enabled.contains(tweak) }
@@ -135,7 +141,7 @@ final class TweakSettings {
 
     func setAutoShares(_ urls: [String]) {
         autoShares = urls
-        defaults.set(urls, forKey: "autoConnectShares")
+        defaults.set(urls, forKey: Self.shareURLsKey)
         onChange?(.autoConnectShares)
     }
 

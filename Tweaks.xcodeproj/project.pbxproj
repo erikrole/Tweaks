@@ -26,6 +26,7 @@
 		6B9C065ED6B68745B8A6B145 /* JobWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477EBDD93C6EC737F0A3019F /* JobWatcher.swift */; };
 		6C17064C17028AEF286FE9F5 /* FinderSyncExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */; };
 		72B7F68BE99F37AFC4052D1E /* SafeEject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */; };
+		78342B62466CCD9792D1DB96 /* RepairTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C3459226D31B8F11A25AABD /* RepairTests.swift */; };
 		785E6FFDD4DC1C0476E3BE62 /* ScopeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F635E28C8BA73956FF610E36 /* ScopeController.swift */; };
 		82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273D3495028E3E79230CC808 /* TweaksTests.swift */; };
 		86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */; };
@@ -43,6 +44,7 @@
 		D5EA9215B2EFC0C482808342 /* WindowLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5360C1DD194AFD5689306C /* WindowLayouts.swift */; };
 		D6B10D91F33018DFAAD1E245 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228920353BABF64F9F93E79F /* SettingsView.swift */; };
 		DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90BB2070E38C524774DE6DD /* Safety.swift */; };
+		F9F33C1B8282D9205B0CD7ED /* VerificationRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 268232AC161D601D3A5978C8 /* VerificationRegressionTests.swift */; };
 		FDA03C8814D4B70296AA203D /* TweaksFinderSync.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CECC2981FAADF646C3BF34B1 /* TweaksFinderSync.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -90,8 +92,10 @@
 		099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemTweaks.swift; sourceTree = "<group>"; };
 		09A1FB2997040A869AD5920F /* Tweaks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tweaks.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGInstaller.swift; sourceTree = "<group>"; };
+		1C3459226D31B8F11A25AABD /* RepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepairTests.swift; sourceTree = "<group>"; };
 		1E63D0ABF59F7E003D8EC656 /* SettingsPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPages.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		268232AC161D601D3A5978C8 /* VerificationRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationRegressionTests.swift; sourceTree = "<group>"; };
 		273D3495028E3E79230CC808 /* TweaksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweaksTests.swift; sourceTree = "<group>"; };
 		296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTweakTests.swift; sourceTree = "<group>"; };
 		2C8BB31EEA0B2B6E8F4E7F61 /* KeepAwakePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwakePanel.swift; sourceTree = "<group>"; };
@@ -155,7 +159,9 @@
 				F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */,
 				7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */,
 				296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */,
+				1C3459226D31B8F11A25AABD /* RepairTests.swift */,
 				273D3495028E3E79230CC808 /* TweaksTests.swift */,
+				268232AC161D601D3A5978C8 /* VerificationRegressionTests.swift */,
 			);
 			path = TweaksTests;
 			sourceTree = "<group>";
@@ -426,7 +432,9 @@
 				415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */,
 				2FD8EC43873788B91DC2D2E2 /* FileWorkProfileTests.swift in Sources */,
 				86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */,
+				78342B62466CCD9792D1DB96 /* RepairTests.swift in Sources */,
 				82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */,
+				F9F33C1B8282D9205B0CD7ED /* VerificationRegressionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -522,7 +530,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -531,7 +539,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks;
 				PRODUCT_NAME = Tweaks;
 				SDKROOT = macosx;
@@ -599,6 +607,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
+				TWEAKS_SOURCE_REVISION = "local-development";
 			};
 			name = Debug;
 		};
@@ -699,6 +708,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
+				TWEAKS_SOURCE_REVISION = "local-development";
 			};
 			name = Release;
 		};
@@ -709,7 +719,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -719,7 +729,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.FinderSync;
 				PRODUCT_NAME = TweaksFinderSync;
 				SDKROOT = macosx;
@@ -754,7 +764,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -763,7 +773,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks;
 				PRODUCT_NAME = Tweaks;
 				SDKROOT = macosx;
@@ -777,7 +787,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -787,7 +797,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.FinderSync;
 				PRODUCT_NAME = TweaksFinderSync;
 				SDKROOT = macosx;

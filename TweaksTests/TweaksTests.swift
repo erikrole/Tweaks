@@ -770,11 +770,11 @@ final class ShortcutTests: XCTestCase {
 
         let defaults = UserDefaults(suiteName: "CapsLock-\(UUID().uuidString)")!
         var written: [Int] = []
-        CapsLockTweak.apply(defaults: defaults, reader: { 100_000_000 }, writer: { written.append($0) })
-        CapsLockTweak.apply(defaults: defaults, reader: { 0 }, writer: { written.append($0) })
-        CapsLockTweak.restore(defaults: defaults, writer: { written.append($0) })
+        CapsLockTweak.apply(current: ["keyboard": 100_000_000], boot: "test", defaults: defaults, write: { _, value in written.append(value); return true })
+        CapsLockTweak.apply(current: ["keyboard": 0], boot: "test", defaults: defaults, write: { _, value in written.append(value); return true })
+        CapsLockTweak.restore(ids: ["keyboard"], boot: "test", defaults: defaults, write: { _, value in written.append(value); return true })
         XCTAssertEqual(written, [0, 0, 100_000_000])
-        XCTAssertEqual(defaults.integer(forKey: CapsLockDelay.savedKey), 100_000_000)
+        XCTAssertTrue(CapsLockTweak.originals(boot: "test", defaults: defaults).isEmpty)
     }
 
     func testGreenButtonRemembersTheFrameItFilledFrom() {

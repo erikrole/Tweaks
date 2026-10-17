@@ -138,27 +138,35 @@ final class HotKey {
     private static var released: [UInt32: () -> Void] = [:]
     private static var nextID: UInt32 = 1
     private let id: UInt32
+    private(set) var registrationStatus: OSStatus = noErr
+
+    static func failureMessage(status: OSStatus) -> String? {
+        status == noErr ? nil : "Shortcut unavailable (macOS error \(status)). Choose different keys; another app or macOS may be using these."
+    }
 
     init(keyCode: UInt32, modifiers: UInt32 = HotKey.hyper,
          onPress: @escaping () -> Void, onRelease: (() -> Void)? = nil) {
         id = Self.nextID
         Self.nextID += 1
-        Self.pressed[id] = onPress
-        Self.released[id] = onRelease
-        Self.installHandlerOnce()
+        registrationStatus = Self.installHandlerOnce()
+        guard registrationStatus == noErr else { return }
         let hotKeyID = EventHotKeyID(signature: OSType(0x5457_4B53), id: id) // "TWKS"
-        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &reference)
+        registrationStatus = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &reference)
+        if registrationStatus == noErr {
+            Self.pressed[id] = onPress
+            Self.released[id] = onRelease
+        }
     }
 
     /// One Carbon handler for every hot key, dispatching by id, so each event runs
     /// exactly one action.
-    private static func installHandlerOnce() {
-        guard handler == nil else { return }
+    private static func installHandlerOnce() -> OSStatus {
+        guard handler == nil else { return noErr }
         var eventTypes = [
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
         ]
-        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+        return InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
             var hotKeyID = EventHotKeyID()
             GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                               nil, MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
@@ -332,7 +340,6 @@ final class GreenButtonFill {
         }
         guard type == .leftMouseDown else { return false }
         swallowNextMouseUp = false
-        guard !optionDown else { return false }
         // Every click on the Mac passes through here, so rule most out without asking
         // any app anything: the green button sits in a window's top-left corner.
         guard Self.isNearWindowCorner(location) else { return false }
@@ -343,13 +350,28 @@ final class GreenButtonFill {
         var hit: AXUIElement?
         guard AXUIElementCopyElementAtPosition(systemWide, Float(location.x), Float(location.y), &hit) == .success,
               let button = hit,
-              (AX.attribute(button, kAXSubroleAttribute) as String?) == (kAXFullScreenButtonSubrole as String),
+              let subrole: String = AX.attribute(button, kAXSubroleAttribute),
+              [kAXFullScreenButtonSubrole as String, kAXZoomButtonSubrole as String].contains(subrole),
               let window: AXUIElement = AX.attribute(button, kAXWindowAttribute)
         else { return false }
 
-        toggleFill(window)
+        if optionDown {
+            // Passing Option through invokes native Zoom, not full screen.
+            guard Self.toggleFullScreen(window) else { return false }
+        } else {
+            toggleFill(window)
+        }
         swallowNextMouseUp = true
         return true
+    }
+
+    static func toggleFullScreen(_ window: AXUIElement) -> Bool {
+        AXUIElementSetMessagingTimeout(window, 0.2)
+        let attribute = "AXFullScreen" as CFString
+        var settable = DarwinBoolean(false)
+        guard AXUIElementIsAttributeSettable(window, attribute, &settable) == .success,
+              settable.boolValue, let current: Bool = AX.attribute(window, "AXFullScreen") else { return false }
+        return AXUIElementSetAttributeValue(window, attribute, (!current ? kCFBooleanTrue : kCFBooleanFalse)) == .success
     }
 
     /// True when the point is in the title-bar corner of an on-screen app window,

@@ -8,6 +8,7 @@ settings:
     SWIFT_VERSION: 6.0
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     DEVELOPMENT_TEAM: ""
+    TWEAKS_SOURCE_REVISION: local-development
 packages:
   FinderUtilitiesKit:
     path: Packages/FinderUtilitiesKit
@@ -25,8 +26,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks
         PRODUCT_NAME: Tweaks
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.1"
+        CURRENT_PROJECT_VERSION: "2"
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Tweaks/Info.plist
@@ -119,8 +120,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks.FinderSync
         PRODUCT_NAME: TweaksFinderSync
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.1"
+        CURRENT_PROJECT_VERSION: "2"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: FinderSync/FinderSync.entitlements
         ENABLE_HARDENED_RUNTIME: YES

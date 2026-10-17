@@ -81,12 +81,14 @@ final class DownloadsWatcher {
     /// Extracts next to the archive like Archive Utility (a single item comes out as is,
     /// several land in a folder named after the zip), then trashes the zip.
     static func unzip(_ archive: URL, expectedVersion: FileVersion? = nil,
+                      archiveUtilityRunning: () -> Bool = {
+                          NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.archiveutility" }
+                      },
                       shouldContinue: @escaping @Sendable () -> Bool = { true },
                       onDeferred: @escaping @Sendable () -> Void = {}) async {
         // Workspace interaction stays on the main actor; all archive I/O stays off it.
-        guard shouldContinue(),
-              !NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == "com.apple.archiveutility" })
-        else { return }
+        guard shouldContinue() else { return }
+        guard !archiveUtilityRunning() else { onDeferred(); return }
         try? await FileWork.run {
             extractArchive(archive, expectedVersion: expectedVersion, shouldContinue: shouldContinue, onDeferred: onDeferred)
         }

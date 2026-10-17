@@ -21,18 +21,27 @@ enum JobCondition: String, Codable, CaseIterable, Sendable {
     var title: String {
         switch self {
         case .render: "Render finishes"
-        case .downloads: "Downloads finish"
-        case .upload: "Upload finishes"
-        case .nasCopy: "NAS copy finishes"
+        case .downloads: "Downloads folder settles"
+        case .upload: "Upload traffic slows"
+        case .nasCopy: "NAS files close"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .render: "Stops after three minutes without a busy supported renderer. A paused render can look finished."
+        case .downloads: "Stops after one minute without partial-download names in Downloads. Downloads saved elsewhere are not detected."
+        case .upload: "Stops after two minutes below 100 KB/s across physical network interfaces. Slow or paused uploads can still be active; choose a duration for those."
+        case .nasCopy: "Stops after one minute without open files on mounted network shares. A paused or disconnected copy can look finished."
         }
     }
 
     var untilPhrase: String {
         switch self {
         case .render: "the render finishes"
-        case .downloads: "downloads finish"
-        case .upload: "the upload finishes"
-        case .nasCopy: "the NAS copy finishes"
+        case .downloads: "partial downloads disappear"
+        case .upload: "upload traffic stays below 100 KB/s"
+        case .nasCopy: "open NAS files close"
         }
     }
 
@@ -57,9 +66,9 @@ enum JobCondition: String, Codable, CaseIterable, Sendable {
     var finishedMessage: String {
         switch self {
         case .render: "the render finished."
-        case .downloads: "downloads finished."
-        case .upload: "the upload finished."
-        case .nasCopy: "the NAS copy finished."
+        case .downloads: "no partial downloads were found for a minute."
+        case .upload: "upload traffic stayed below 100 KB/s for two minutes."
+        case .nasCopy: "no open NAS files were found for a minute."
         }
     }
 

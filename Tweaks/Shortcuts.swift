@@ -9,6 +9,10 @@ struct Shortcut: Codable, Equatable, Sendable {
     /// The key as typed, e.g. "/" or "N".
     let key: String
 
+    func usesSameKeys(as other: Shortcut) -> Bool {
+        keyCode == other.keyCode && modifiers == other.modifiers
+    }
+
     static let hyperModifiers = UInt32(controlKey | optionKey | shiftKey | cmdKey)
 
     /// "Hyper /" when all four modifiers are held, else "⌃⌥⌘N" style.
@@ -93,12 +97,25 @@ final class ShortcutStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        for action in ShortcutAction.allCases {
+        // Explicit assignments win over defaults. Resolve legacy duplicates in a
+        // stable order so every displayed assignment can actually be registered.
+        let actions = ShortcutAction.allCases.sorted {
+            let lhs = defaults.data(forKey: Self.key($0)) != nil
+            let rhs = defaults.data(forKey: Self.key($1)) != nil
+            return lhs != rhs ? lhs : $0.rawValue < $1.rawValue
+        }
+        for action in actions {
             if let data = defaults.data(forKey: Self.key(action)) {
                 // An empty record means "no shortcut", chosen on purpose.
                 shortcuts[action] = try? JSONDecoder().decode(Shortcut.self, from: data)
             } else {
                 shortcuts[action] = action.defaultShortcut
+            }
+            if let shortcut = shortcuts[action], shortcuts.contains(where: {
+                $0.key != action && $0.value.usesSameKeys(as: shortcut)
+            }) {
+                shortcuts[action] = nil
+                save(action)
             }
         }
     }
@@ -108,7 +125,7 @@ final class ShortcutStore {
     /// Sets a shortcut, taking it away from any other action that had the same keys.
     func set(_ shortcut: Shortcut?, for action: ShortcutAction) {
         if let shortcut {
-            for (other, existing) in shortcuts where other != action && existing == shortcut {
+            for (other, existing) in shortcuts where other != action && existing.usesSameKeys(as: shortcut) {
                 shortcuts[other] = nil
                 save(other)
                 onChange?(other)
@@ -180,10 +197,14 @@ final class ShortcutRecorder: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    func display(_ shortcut: Shortcut?) {
+    func display(_ shortcut: Shortcut?, error: String? = nil) {
         self.shortcut = shortcut
+        button.toolTip = error
+        button.contentTintColor = error == nil ? nil : .systemOrange
+        button.setAccessibilityHelp(error)
         guard !recording else { return }
         refreshTitle()
+        if error != nil { button.title = "⚠ " + button.title }
     }
 
     private func refreshTitle() {

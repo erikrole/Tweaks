@@ -6,14 +6,15 @@ menu bar icon; open it again from Finder, Spotlight or Raycast to see its settin
 where every tweak has its own switch.
 
 **Keyboard and sound**
-- Caps Lock with no delay: a normal tap toggles it instantly (`hidutil`
-  `CapsLockDelayOverride`, reapplied on wake and every fifteen minutes). Turning it
-  off puts the previous delay back, or macOS's usual quarter-second hold if Tweaks
-  never saw another value.
+- Caps Lock with no delay: a normal tap toggles it instantly (the HID
+  `CapsLockDelayOverride` property, reapplied on wake and every fifteen minutes). Turning it
+  off restores each keyboard's previous delay from this boot, or macOS's usual
+  quarter-second hold if Tweaks never saw another value.
 - Volume capped at 40% after waking.
 - Optional volume limits for individual output devices, with an option to mute the
   next output when switching away from a selected device. Limits never raise the
-  volume; devices with their own hardware control are identified in settings. The
+  volume, including quieter individual channels; master and channel-only software
+  controls are supported. Devices with their own hardware control are identified in settings. The
   separate 40% wake cap also applies if it remains enabled.
 - A speaker icon in the menu bar only while sound is muted; click it to unmute.
 - The play/pause key no longer opens Music; opening Music yourself still works.
@@ -24,7 +25,8 @@ where every tweak has its own switch.
   the Trash.
 - When a disk image you downloaded mounts with a single app inside, Tweaks offers to
   copy it to Applications (the old copy goes to the Trash), eject the image, trash the
-  `.dmg` and open the app.
+  `.dmg` and open the app. If the old app cannot go to Trash, its recovery path is
+  shown. If eject fails, the downloaded image is kept.
 - Optional duplicate-download review compares new files with existing files in
   Downloads. Exact matches stay intact, with **Show Both**, **Keep Both**, and
   **Trash New Copy** actions. The trash action checks both files again. Duplicate
@@ -36,11 +38,13 @@ where every tweak has its own switch.
 - New `.zip` downloads are extracted next to the archive (one item comes out as is,
   several go in a folder named after the zip), then the zip goes to the Trash.
 - Tracking parameters (`utm_…`, `fbclid`, YouTube and Spotify `si=`, X `s=`/`t=`, …)
-  are stripped from links as you copy them. Only a clipboard holding a single http(s)
+  are stripped from copied links within a few seconds; a fast paste can happen
+  before cleaning. Only a clipboard holding a single http(s)
   link is touched, and password-manager items never are.
 
 **Sleep**
-- External drives are ejected as the Mac sleeps; if one refuses, you're told after wake.
+- Tweaks tries to eject idle external drives as the Mac sleeps; busy drives remain
+  connected. If one refuses, you are told after wake.
 - **Eject Idle External Drives** is also available on demand, with an optional
   configurable shortcut. It checks mounted sibling volumes on each physical drive,
   reports blocking processes, and uses normal eject without force. Running render
@@ -50,23 +54,29 @@ where every tweak has its own switch.
 
 **Network**
 - Network shares are unmounted as the Mac sleeps and remounted after wake once the
-  server answers, so waking on another network doesn't stall.
+  server answers. Unresolved restores persist across further sleeps and app restarts;
+  network changes trigger retries, with a one-minute retry after the initial attempts.
 - Work shares (the NAS share to start) are mounted whenever their server is reachable,
-  on the office network or over VPN, with the keychain password.
+  on the office network or over VPN, with the keychain password. The server list
+  and enable switch are stored separately; old preferences migrate automatically.
 
 **Keep Awake** (replaces caffeinate)
 - Shortcuts are changeable in the Tweaks window (Keep Awake, the Keep Awake panel,
-  Screen off, Clear notifications). Turning Keep Awake off releases the sleep
+  Screen off, Clear notifications). A key combination belongs to one action,
+  regardless of its display label; macOS registration failures are shown next to
+  the shortcut. Turning Keep Awake off releases the sleep
   assertion, so the Mac can sleep again. By default, tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
   the last five minutes, to add an hour.
 - Hold Hyper+/ (or click the menu bar cup) for the Keep Awake panel, centered on the
-  screen you're on: Recent choices; 1–12 hours (number keys); until it's done (render
-  finishes, downloads finish, upload finishes, NAS copy finishes); until a time; until
+  screen you're on: Recent choices; 1–12 hours (number keys); until activity settles
+  (render, Downloads, upload traffic, or open NAS files); until a time; until
   an app quits; indefinitely (I); screen off with the Mac awake (Z); display on (D); only while plugged in (P); stop (S).
   Arrow keys move, Return starts, Esc closes.
-- "Until it's done" waits for the job to look finished for a quiet period (3 min for
-  renders, 2 for uploads, 1 for downloads and NAS copies) so a pause between files
-  doesn't end it early.
+- Activity checks are estimates, explained in the panel: three minutes without a
+  busy supported renderer; one minute without partial-download names in Downloads;
+  two minutes below 100 KB/s outgoing traffic on physical interfaces; or one minute
+  without open files on mounted network shares. Slow or paused jobs can look idle.
+  Choose a duration or Indefinitely when those heuristics do not fit the job.
 - A pill appears near the bottom of the screen when it starts or stops, and five
   minutes before a timed session ends. The menu bar cup shows time left (optional).
 - Only while plugged in pauses the hold on battery and resumes it on power; any
@@ -129,6 +139,10 @@ shares unmounted for sleep are still remounted if that switch is turned off befo
 they come back.
 
 ## Build and run
+
+The [0.1.1 repair report](docs/repair-2026-10-17.md) records fixes and verification
+for every confirmed defect in the [2026-10-17 audit](docs/verification-2026-10-17.md).
+Hardware, network and physical-input acceptance remain separate from fixture tests.
 
 Requirements: macOS 14 or later, Xcode, and XcodeGen.
 

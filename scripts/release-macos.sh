@@ -71,6 +71,11 @@ ZIP_PATH="$OUTPUT_DIR/Tweaks-${VERSION}-arm64.zip"
 SHA_PATH="$ZIP_PATH.sha256"
 rm -f "$ZIP_PATH" "$SHA_PATH"
 
+SOURCE_REVISION="$(git rev-parse HEAD)"
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    SOURCE_REVISION="${SOURCE_REVISION}-dirty"
+fi
+
 xcodebuild archive \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
@@ -80,6 +85,7 @@ xcodebuild archive \
     DEVELOPMENT_TEAM="$TEAM_ID" \
     CODE_SIGN_IDENTITY="$DEVELOPER_IDENTITY" \
     CODE_SIGN_STYLE=Manual \
+    TWEAKS_SOURCE_REVISION="$SOURCE_REVISION" \
     ENABLE_HARDENED_RUNTIME=YES \
     ARCHS=arm64
 

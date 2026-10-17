@@ -47,13 +47,24 @@ access to their normal caches/test services; a sandbox denial is not a test resu
 - Finder's synchronous menu path must not wait on metadata or perform file I/O.
   `MetadataService.menuState(for:)` starts background work and returns cached state.
 - Bundle/signature reads stay off the main actor through async `AppIdentity.read`.
+  App replacement retains a recovery backup until Trash succeeds. A failed image
+  eject must retain the downloaded image. Use disposable bundles for these tests.
 - New automatic features are opt-in (`Tweak.defaultEnabled`); new global shortcuts
   default to unassigned. Do not enable them in a user's preferences while testing.
 - Window layout AX calls run on a dedicated serial queue, with bounded messaging
   timeouts and cancellation. Match the exact display arrangement and a unique
   app/window fingerprint; persist no raw window titles or document paths.
+- Share enablement uses `autoConnectShares`; configured URLs use
+  `autoConnectShareURLs`. Preserve legacy migration and disabled intent. Pending
+  sleep restores persist separately; cancellation must never discard them. Keep
+  unmounts in flight gated until their callbacks finish, including after wake.
+- Caps Lock originals are per HID service and boot session. Consume an original
+  only after a successful restore. Tests inject writes; do not change real HID
+  settings in ordinary tests.
 - Audio limits use device UIDs and property listeners. Bound adjustment attempts
   and suppress repeated above-limit readbacks: hardware may round scalar writes.
+  Compare the entire channel snapshot for suppression, and never raise a quieter
+  channel while capping another.
 - Image requests from Finder only open a review panel in the host. Export uses
   ImageIO off-main, a private staging directory, and atomic no-overwrite publishing.
   Keep originals intact, reject multi-frame input, and test metadata/orientation.

@@ -71,3 +71,7 @@ Release with both files attached.
 
 Do not commit certificates, private keys, provisioning assets, or notarization
 credentials.
+
+Release builds embed `TweaksSourceRevision` in the app's Info.plist. The release
+script uses the current Git commit and appends `-dirty` for tracked local changes.
+Use a clean source commit for the installed release so its provenance is explicit.

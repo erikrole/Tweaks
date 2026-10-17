@@ -1,6 +1,7 @@
 import AppKit
 import CoreAudio
 import Foundation
+import IOKit.hidsystem
 
 // MARK: - Caps Lock
 
@@ -18,15 +19,23 @@ enum CapsLockDelay {
     static func parse(hidutilOutput: String) -> Int? {
         let trimmed = hidutilOutput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != "(null)" else { return nil }
-        guard let data = trimmed.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return nil }
-        let value = json["CapsLockDelayOverride"]
-        if value is NSNull { return nil }
-        if let number = value as? Int { return number }
-        if let number = value as? Double { return Int(number) }
-        if let number = value as? NSNumber { return number.intValue }
-        return nil
+        if let data = trimmed.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let value = json["CapsLockDelayOverride"] as? Int, value >= 0 { return value }
+        let values = Set(table(hidutilOutput: trimmed).values)
+        // A single scalar must never flatten different device settings.
+        return values.count == 1 ? values.first : nil
+    }
+
+    static func table(hidutilOutput: String) -> [String: Int] {
+        var values: [String: Int] = [:]
+        for line in hidutilOutput.split(whereSeparator: \.isNewline) {
+            let fields = line.split(whereSeparator: \.isWhitespace)
+            guard fields.count == 3, UInt64(fields[0], radix: 16) != nil,
+                  fields[1] == "CapsLockDelayOverride", let value = Int(fields[2]), value >= 0 else { continue }
+            values[String(fields[0])] = value
+        }
+        return values
     }
 
     /// A delay worth putting back. The tweak's own 0 is not an original setting.
@@ -45,40 +54,83 @@ enum CapsLockTweak {
     /// How often to put the override back. Keyboards forget it on reconnect; wake covers the common case.
     static let reapplyInterval: TimeInterval = 15 * 60
 
-    static func apply(defaults: UserDefaults = .standard, reader: () -> Int? = readCurrent, writer: (Int) -> Void = write) {
-        if defaults.object(forKey: CapsLockDelay.savedKey) == nil,
-           let original = CapsLockDelay.original(from: reader()) {
-            defaults.set(original, forKey: CapsLockDelay.savedKey)
+    // Native HID services let us restore each device independently. Registry IDs
+    // are scoped to a boot session, so a reused ID never inherits another device's value.
+    static let deviceOriginalsKey = "capsLockDeviceOriginals"
+    static let bootKey = "capsLockOriginalsBoot"
+
+    static func apply(defaults: UserDefaults = .standard) {
+        withServices { services in
+            let current = Dictionary(uniqueKeysWithValues: services.map { service in
+                (registryID(service), (IOHIDServiceClientCopyProperty(service, "CapsLockDelayOverride" as CFString) as? NSNumber)?.intValue)
+            })
+            apply(current: current, boot: bootSession(), defaults: defaults) { id, value in
+                guard let service = services.first(where: { registryID($0) == id }) else { return false }
+                return IOHIDServiceClientSetProperty(service, "CapsLockDelayOverride" as CFString, NSNumber(value: value))
+            }
         }
-        writer(CapsLockDelay.disabled)
     }
 
-    static func restore(defaults: UserDefaults = .standard, writer: (Int) -> Void = write) {
-        let saved = defaults.object(forKey: CapsLockDelay.savedKey) as? Int
-        writer(CapsLockDelay.restoreNanoseconds(saved: saved))
+    static func restore(defaults: UserDefaults = .standard) {
+        withServices { services in
+            restore(ids: services.map(registryID), boot: bootSession(), defaults: defaults) { id, value in
+                guard let service = services.first(where: { registryID($0) == id }) else { return false }
+                return IOHIDServiceClientSetProperty(service, "CapsLockDelayOverride" as CFString, NSNumber(value: value))
+            }
+        }
     }
 
-    private static func readCurrent() -> Int? {
-        let process = Process()
-        process.executableURL = URL(filePath: "/usr/bin/hidutil")
-        process.arguments = ["property", "--get", "CapsLockDelayOverride"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return nil }
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return CapsLockDelay.parse(hidutilOutput: String(decoding: data, as: UTF8.self))
+    static func apply(current: [String: Int?], boot: String, defaults: UserDefaults,
+                      write: (String, Int) -> Bool) {
+        saveOriginals(current, boot: boot, defaults: defaults)
+        for id in current.keys { _ = write(id, CapsLockDelay.disabled) }
     }
 
-    private static func write(_ nanoseconds: Int) {
-        let process = Process()
-        process.executableURL = URL(filePath: "/usr/bin/hidutil")
-        process.arguments = ["property", "--set", "{\"CapsLockDelayOverride\":\(nanoseconds)}"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try? process.run()
+    static func restore(ids: [String], boot: String, defaults: UserDefaults,
+                        write: (String, Int) -> Bool) {
+        var saved = originals(boot: boot, defaults: defaults)
+        for id in ids {
+            guard let value = saved[id] else { continue }
+            if write(id, value) { saved[id] = nil }
+        }
+        // A later enable captures the then-current setting; failed/disconnected
+        // devices keep their original until a successful restore.
+        defaults.set(saved, forKey: deviceOriginalsKey)
     }
+
+    static func saveOriginals(_ current: [String: Int?], boot: String, defaults: UserDefaults) {
+        var saved = originals(boot: boot, defaults: defaults)
+        for (id, value) in current where saved[id] == nil {
+            let legacy = defaults.object(forKey: CapsLockDelay.savedKey) as? Int
+            saved[id] = CapsLockDelay.original(from: value) ?? CapsLockDelay.restoreNanoseconds(saved: legacy)
+        }
+        defaults.set(saved, forKey: deviceOriginalsKey)
+        defaults.set(boot, forKey: bootKey)
+    }
+
+    static func originals(boot: String, defaults: UserDefaults) -> [String: Int] {
+        guard boot != "unknown", defaults.string(forKey: bootKey) == boot else { return [:] }
+        return defaults.dictionary(forKey: deviceOriginalsKey) as? [String: Int] ?? [:]
+    }
+
+    private static func bootSession() -> String {
+        var size = 0
+        guard sysctlbyname("kern.bootsessionuuid", nil, &size, nil, 0) == 0 else { return "unknown" }
+        var bytes = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("kern.bootsessionuuid", &bytes, &size, nil, 0) == 0 else { return "unknown" }
+        return String(cString: bytes)
+    }
+
+    private static func registryID(_ service: IOHIDServiceClient) -> String {
+        String((IOHIDServiceClientGetRegistryID(service) as? NSNumber)?.uint64Value ?? 0, radix: 16)
+    }
+
+    private static func withServices(_ body: ([IOHIDServiceClient]) -> Void) {
+        let client = IOHIDEventSystemClientCreateSimpleClient(kCFAllocatorDefault)
+        let services = IOHIDEventSystemClientCopyServices(client) as? [IOHIDServiceClient] ?? []
+        body(services.filter { IOHIDServiceClientConformsTo($0, 1, 6) != 0 })
+    }
+
 }
 
 // MARK: - Audio
@@ -97,9 +149,7 @@ enum OutputAudio {
         return status == noErr && device != 0 ? device : nil
     }
 
-    /// Per-channel scalar. The macOS 27 SDK no longer has
-    /// `kAudioHardwareServiceDeviceProperty_VirtualMainVolume`; the main element is the
-    /// device volume, and channels 1 and 2 cover devices that only expose a pair.
+    /// Master or individual output-channel scalar.
     static func volumeAddress(element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVolumeScalar,
@@ -131,19 +181,51 @@ enum OutputAudio {
     }
 
     static func volume(device: AudioDeviceID? = nil) -> Float? {
+        volumes(device: device)?.values.max()
+    }
+
+    static func volumes(device: AudioDeviceID? = nil) -> [UInt32: Float]? {
         guard let device = device ?? defaultDevice() else { return nil }
-        if let value = readScalar(device, element: kAudioObjectPropertyElementMain) { return value }
-        return readScalar(device, element: 1)
+        return AudioVolumeChannels.snapshot(elements: volumeElements(device), read: { readScalar(device, element: $0) })
+    }
+
+    static func volumeElements(_ device: AudioDeviceID) -> [AudioObjectPropertyElement] {
+        AudioVolumeChannels.elements(channelCount: outputChannelCount(device)) { element in
+            var address = volumeAddress(element: element)
+            var settable = DarwinBoolean(false)
+            return AudioObjectHasProperty(device, &address)
+                && AudioObjectIsPropertySettable(device, &address, &settable) == noErr && settable.boolValue
+        }
+    }
+
+    private static func outputChannelCount(_ device: AudioDeviceID) -> UInt32 {
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyStreamConfiguration,
+                                                mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(device, &address, 0, nil, &size) == noErr,
+              size >= MemoryLayout<AudioBufferList>.size else { return 0 }
+        let memory = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { memory.deallocate() }
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, memory) == noErr else { return 0 }
+        return UnsafeMutableAudioBufferListPointer(memory.assumingMemoryBound(to: AudioBufferList.self))
+            .reduce(0) { $0 + $1.mNumberChannels }
+    }
+
+    /// Clamp every writable element without raising a quieter channel.
+    static func capVolume(_ maximum: Float, device: AudioDeviceID? = nil) -> Bool {
+        guard let device = device ?? defaultDevice() else { return false }
+        return AudioVolumeChannels.cap(maximum, elements: volumeElements(device),
+                                       read: { readScalar(device, element: $0) },
+                                       write: { writeScalar(device, element: $0, $1) })
     }
 
     @discardableResult
     static func setVolume(_ volume: Float, device: AudioDeviceID? = nil) -> Bool {
         guard let device = device ?? defaultDevice(), volume.isFinite else { return false }
         let value = Float32(min(max(volume, 0), 1))
-        if writeScalar(device, element: kAudioObjectPropertyElementMain, value) { return true }
-        let left = writeScalar(device, element: 1, value)
-        let right = writeScalar(device, element: 2, value)
-        return left || right
+        let elements = volumeElements(device)
+        let results = elements.map { writeScalar(device, element: $0, value) }
+        return !results.isEmpty && results.allSatisfy { $0 }
     }
 
     static func isMuted() -> Bool {
@@ -173,7 +255,7 @@ enum WakeVolume {
 
     static func apply() {
         guard let current = OutputAudio.volume(), let target = target(current: current) else { return }
-        OutputAudio.setVolume(target)
+        _ = OutputAudio.capVolume(target)
     }
 }
 

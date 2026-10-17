@@ -34,6 +34,7 @@ final class DMGInstaller {
         let incoming = await AppIdentity.read(app)
         let exists = (try? await FileWork.run { FileManager.default.fileExists(atPath: destination.path) }) == true
         let installed = exists ? await AppIdentity.read(destination) : nil
+        guard observer != nil else { return }
 
         // Refuse what would be a downgrade or a different developer's app with the same name.
         if let problem = Self.problem(installing: incoming, over: installed) {
@@ -55,6 +56,7 @@ final class DMGInstaller {
         // Copy next to the destination first; the installed app is only replaced once the
         // new copy is complete and passes Gatekeeper, so there's never a moment without it.
         let staging = URL(filePath: "/Applications").appending(path: ".\(app.lastPathComponent).tweaks-staging-\(UUID().uuidString)")
+        var recoveryNote: String?
         do {
             try await Self.copy(app, to: staging)
             guard await Self.passesGatekeeper(staging) else {
@@ -68,9 +70,7 @@ final class DMGInstaller {
                     Self.tell("Didn't update \(name)", "\(name) is still open. Quit it (saving your work) and open the disk image again.")
                     return
                 }
-                try await FileWork.run {
-                    _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging, backupItemName: nil, options: [])
-                }
+                recoveryNote = try await FileWork.run { try Self.replaceApp(at: destination, with: staging) }
             } else {
                 try await FileWork.run { try FileManager.default.moveItem(at: staging, to: destination) }
             }
@@ -80,9 +80,33 @@ final class DMGInstaller {
             return
         }
 
-        await Self.detach(volume)
-        try? await FileWork.run { try FileManager.default.trashItem(at: image, resultingItemURL: nil) }
+        let cleanupNote = await Self.finishImage(image, detach: { await Self.detach(volume) }, trash: { image in
+            try await FileWork.run { try FileManager.default.trashItem(at: image, resultingItemURL: nil) }
+        })
+        let notes = [recoveryNote, cleanupNote].compactMap { $0 }
+        if !notes.isEmpty { Self.tell("Installed \(name)", notes.joined(separator: "\n\n")) }
         _ = try? await NSWorkspace.shared.openApplication(at: destination, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// Retain an on-volume backup through the atomic replacement. If Trash fails,
+    /// keep the backup and tell the user exactly where it can be recovered.
+    nonisolated static func replaceApp(at destination: URL, with staging: URL,
+                                       trash: (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }) throws -> String? {
+        let backupName = "\(destination.deletingPathExtension().lastPathComponent) previous \(UUID().uuidString).app"
+        let backup = destination.deletingLastPathComponent().appending(path: backupName)
+        _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging, backupItemName: backupName,
+                                                 options: [.withoutDeletingBackupItem])
+        do { try trash(backup); return nil }
+        catch { return "The previous app is preserved at \(backup.path). It could not be moved to the Trash: \(error.localizedDescription)" }
+    }
+
+    static func finishImage(_ image: URL, detach: () async -> Bool,
+                            trash: (URL) async throws -> Void) async -> String? {
+        guard await detach() else {
+            return "The disk image could not be ejected. Its downloaded file was kept. Eject it in Finder when it is no longer in use."
+        }
+        do { try await trash(image); return nil }
+        catch { return "The disk image was ejected, but \(image.lastPathComponent) could not be moved to the Trash: \(error.localizedDescription)" }
     }
 
     /// Why an install should be refused, or nil if it's fine.
@@ -140,10 +164,28 @@ final class DMGInstaller {
                   let path = image["image-path"] as? String, path.lowercased().hasSuffix(".dmg")
             else { continue }
             // Only images you downloaded, not ones mounted by installers or Time Machine.
-            let downloads = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads").path
-            return path.hasPrefix(downloads) ? URL(filePath: path) : nil
+            let downloads = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
+            let candidate = URL(filePath: path)
+            return isInside(candidate, directory: downloads) ? candidate : nil
         }
         return nil
+    }
+
+    nonisolated static func isInside(_ file: URL, directory: URL) -> Bool {
+        func canonicalComponents(_ url: URL) -> [String] {
+            // Foundation may leave a symlink unresolved when the final leaf does
+            // not exist. Resolve the closest existing ancestor as well.
+            var ancestor = url.standardizedFileURL
+            var suffix: [String] = []
+            while ancestor.path != "/", !FileManager.default.fileExists(atPath: ancestor.path) {
+                suffix.insert(ancestor.lastPathComponent, at: 0)
+                ancestor.deleteLastPathComponent()
+            }
+            return ancestor.resolvingSymlinksInPath().standardizedFileURL.pathComponents + suffix
+        }
+        let root = canonicalComponents(directory)
+        let parts = canonicalComponents(file)
+        return parts.count > root.count && parts.starts(with: root)
     }
 
     /// The one app at the top of the volume; nil if there are none or several.
@@ -160,8 +202,8 @@ final class DMGInstaller {
         }
     }
 
-    private static func detach(_ volume: URL) async {
-        _ = await run("/usr/bin/hdiutil", ["detach", volume.path, "-quiet"])
+    private static func detach(_ volume: URL) async -> Bool {
+        await run("/usr/bin/hdiutil", ["detach", volume.path, "-quiet"]) != nil
     }
 
     private static func remove(_ url: URL) async {

@@ -214,7 +214,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
         accessRow.isHidden = tweaks.hasAccessibility
         for (action, recorder) in recorders {
-            recorder.display(tweaks.shortcuts.shortcut(for: action))
+            recorder.display(tweaks.shortcuts.shortcut(for: action), error: tweaks.shortcutErrors[action])
         }
         let countdownOn = tweaks.keepAwake.showsCountdown
         if countdownSwitch.state != (countdownOn ? .on : .off) { countdownSwitch.state = countdownOn ? .on : .off }
@@ -272,7 +272,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             remove.bezelStyle = .inline
             remove.font = .systemFont(ofSize: 11)
             remove.contentTintColor = Paper.secondary
-            sharesBox.addArrangedSubview(labeledRowView(label, trailing: remove, matching: sharesBox))
+            addRow(label, trailing: remove, to: sharesBox)
         }
     }
 
@@ -290,7 +290,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             remove.bezelStyle = .inline
             remove.font = .systemFont(ofSize: 11)
             remove.contentTintColor = Paper.secondary
-            appsBox.addArrangedSubview(labeledRowView(label, trailing: remove, matching: appsBox))
+            addRow(label, trailing: remove, to: appsBox)
         }
     }
 
@@ -302,7 +302,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         shownVolume = signature
         volumeBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let refresh = button("Refresh Devices", #selector(refreshDevices))
-        volumeBox.addArrangedSubview(labeledRowView(smallLabel("Output device limits"), trailing: refresh, matching: volumeBox))
+        addRow(smallLabel("Output device limits"), trailing: refresh, to: volumeBox)
         for device in model.devices {
             let toggle = NSSwitch()
             toggle.identifier = NSUserInterfaceItemIdentifier(device.id)
@@ -312,7 +312,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             toggle.action = #selector(volumeRuleToggled(_:))
             let name = plainLabel(device.name, size: 13, weight: .regular, color: Paper.ink)
             name.lineBreakMode = .byTruncatingTail
-            volumeBox.addArrangedSubview(labeledRowView(name, trailing: toggle, matching: volumeBox))
+            addRow(name, trailing: toggle, to: volumeBox)
             if let rule = model.rules[device.id] {
                 let slider = NSSlider(value: Double(rule.maximum), minValue: 0, maxValue: 1, target: self, action: #selector(volumeLimitChanged(_:)))
                 slider.identifier = NSUserInterfaceItemIdentifier(device.id)
@@ -322,7 +322,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 slider.isEnabled = device.supportsVolume
                 let percent = smallLabel("\(Int((rule.maximum * 100).rounded()))%")
                 percent.widthAnchor.constraint(equalToConstant: 40).isActive = true
-                volumeBox.addArrangedSubview(labeledRowView(slider, trailing: percent, matching: volumeBox))
+                addRow(slider, trailing: percent, to: volumeBox)
                 let mute = NSButton(checkboxWithTitle: "Mute the next output when switching away from this device", target: self, action: #selector(volumeMuteToggled(_:)))
                 mute.identifier = NSUserInterfaceItemIdentifier(device.id)
                 mute.state = rule.muteOnSwitchAway ? .on : .off
@@ -338,7 +338,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             forget.identifier = NSUserInterfaceItemIdentifier(uid)
             forget.bezelStyle = .inline
             forget.font = .systemFont(ofSize: 11)
-            volumeBox.addArrangedSubview(labeledRowView(smallLabel("\(model.rules[uid]?.name ?? uid) · disconnected"), trailing: forget, matching: volumeBox))
+            addRow(smallLabel("\(model.rules[uid]?.name ?? uid) · disconnected"), trailing: forget, to: volumeBox)
         }
         volumeBox.addArrangedSubview(smallLabel(model.status))
         fitStack()
@@ -422,6 +422,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         withObservationTracking { [weak self] in
             guard let self else { return }
             _ = self.tweaks.hasAccessibility
+            _ = self.tweaks.shortcutErrors
+            _ = self.tweaks.shortcuts.shortcuts
             _ = self.tweaks.keepAwake.session
             _ = self.tweaks.keepAwake.statusLine
             _ = self.tweaks.keepAwake.showsCountdown

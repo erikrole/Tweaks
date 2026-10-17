@@ -143,8 +143,13 @@ final class OnceFlag: @unchecked Sendable {
 final class ShareSleepManager {
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
-    private var toRemount: [URL] = []
-    private var remountTask: Task<Void, Never>?
+    private let recovery: ShareRemountQueue
+
+    init(defaults: UserDefaults = .standard) {
+        recovery = ShareRemountQueue(defaults: defaults)
+    }
+
+    func recoverPending() { recovery.resume() }
 
     func start() {
         guard sleepObserver == nil else { return }
@@ -165,15 +170,13 @@ final class ShareSleepManager {
         wakeObserver = nil
         // Anything already unmounted still has to come back. A remount that is
         // already running is that restore; don't cancel it.
-        let pending = toRemount
-        toRemount = []
-        if !pending.isEmpty { beginRemount(pending) }
+        recovery.resume()
     }
 
     private var skipped: [String] = []
 
     private func willSleep() {
-        remountTask?.cancel()
+        recovery.suspend()
         skipped = []
         // Leave shares alone while a render runs or a file on them is open: a render
         // reading footage or writing frames there would fail on the next file.
@@ -186,9 +189,12 @@ final class ShareSleepManager {
                 unmounting.append(share)
             }
         }
-        toRemount = unmounting.map(\.serverURL)
+        recovery.enqueue(unmounting.map(\.serverURL))
         for share in unmounting {
-            FileManager.default.unmountVolume(at: share.mountPoint, options: [.withoutUI]) { _ in }
+            recovery.beginUnmount(share.serverURL)
+            FileManager.default.unmountVolume(at: share.mountPoint, options: [.withoutUI]) { [weak self] _ in
+                Task { @MainActor in self?.recovery.endUnmount(share.serverURL) }
+            }
         }
     }
 
@@ -198,32 +204,125 @@ final class ShareSleepManager {
                           body: "A file on it was open or a render was running.")
             skipped = []
         }
-        let urls = toRemount
-        toRemount = []
-        beginRemount(urls)
+        recovery.resume()
+    }
+}
+
+/// Unresolved restores belong to the queue, never to a cancellable retry task.
+/// Back off after the initial attempts, but keep trying while the server is away.
+@MainActor
+final class ShareRemountQueue {
+    private(set) var pending: Set<URL>
+    private let defaults: UserDefaults
+    private let mounted: @MainActor () -> [URL]
+    private let reachable: @MainActor (URL) async -> Bool
+    private let mount: @MainActor (URL) async -> Bool
+    private let wait: @MainActor (TimeInterval) async throws -> Void
+    private let watchConnectivity: Bool
+    private var task: Task<Void, Never>?
+    private var monitor: NWPathMonitor?
+    private var generation = 0
+    private var sleeping = true
+    private var unmounting: [URL: Int] = [:]
+    static let key = "sharesPendingSleepRestore"
+
+    init(defaults: UserDefaults = .standard,
+         mounted: @escaping @MainActor () -> [URL] = { NetworkShares.mounted().map(\.serverURL) },
+         reachable: @escaping @MainActor (URL) async -> Bool = { await NetworkShares.isReachable($0) },
+         mount: @escaping @MainActor (URL) async -> Bool = { await ShareMounter.shared.mount($0) },
+         wait: @escaping @MainActor (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
+         watchConnectivity: Bool = true) {
+        self.defaults = defaults
+        self.mounted = mounted
+        self.reachable = reachable
+        self.mount = mount
+        self.wait = wait
+        self.watchConnectivity = watchConnectivity
+        pending = Set((defaults.stringArray(forKey: Self.key) ?? []).compactMap(URL.init(string:)))
     }
 
-    private func beginRemount(_ urls: [URL]) {
-        guard !urls.isEmpty else { return }
-        remountTask?.cancel()
-        remountTask = Task {
-            // Give Wi-Fi or VPN time to come back before trying.
-            var remaining = urls
-            for attempt in 0..<12 {
-                if Task.isCancelled { return }
-                try? await Task.sleep(for: .seconds(attempt == 0 ? 8 : 15))
-                if Task.isCancelled { return }
-                let mounted = NetworkShares.mounted().map(\.serverURL)
-                var still: [URL] = []
-                for url in ShareAutoConnect.sharesToMount(wanted: remaining, mounted: mounted) {
-                    if Task.isCancelled { return }
-                    if await NetworkShares.isReachable(url), await ShareMounter.shared.mount(url) { continue }
-                    still.append(url)
+    func enqueue(_ urls: [URL]) {
+        pending.formUnion(urls)
+        save()
+        if !sleeping { resume() }
+    }
+
+    func beginUnmount(_ url: URL) {
+        unmounting[url, default: 0] += 1
+    }
+
+    func endUnmount(_ url: URL) {
+        if let count = unmounting[url], count > 1 { unmounting[url] = count - 1 }
+        else { unmounting[url] = nil }
+        if !sleeping { retryNow() }
+    }
+
+    func suspend() {
+        sleeping = true
+        generation += 1
+        task?.cancel()
+        task = nil
+        monitor?.cancel()
+        monitor = nil
+    }
+
+    func resume() {
+        sleeping = false
+        guard !pending.isEmpty, task == nil else { return }
+        if watchConnectivity, monitor == nil {
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { [weak self] path in
+                guard path.status == .satisfied else { return }
+                Task { @MainActor in self?.retryNow() }
+            }
+            monitor.start(queue: DispatchQueue(label: "Tweaks.share-restore"))
+            self.monitor = monitor
+        }
+        beginRetry(initialDelay: 8)
+    }
+
+    func retryNow() {
+        guard !sleeping, !pending.isEmpty else { return }
+        generation += 1
+        task?.cancel()
+        beginRetry(initialDelay: 0)
+    }
+
+    private func beginRetry(initialDelay: TimeInterval) {
+        let token = generation
+        task = Task { [weak self] in
+            guard let self else { return }
+            var attempt = 0
+            while !self.pending.isEmpty {
+                do { try await self.wait(attempt == 0 ? initialDelay : (attempt < 12 ? 15 : 60)) }
+                catch { return }
+                guard !Task.isCancelled, self.generation == token else { return }
+                let missing = Set(ShareAutoConnect.sharesToMount(wanted: Array(self.pending), mounted: self.mounted()))
+                // A slow unmount may finish after wake. Its still-mounted path
+                // must not be mistaken for a successful restoration.
+                self.pending.formIntersection(missing.union(self.unmounting.keys))
+                self.save()
+                for url in missing {
+                    guard self.unmounting[url] == nil else { continue }
+                    guard !Task.isCancelled, self.generation == token else { return }
+                    guard await self.reachable(url) else { continue }
+                    guard !Task.isCancelled, self.generation == token else { return }
+                    let restored = await self.mount(url)
+                    guard !Task.isCancelled, self.generation == token else { return }
+                    if restored { self.pending.remove(url); self.save() }
                 }
-                remaining = still
-                if remaining.isEmpty { return }
+                attempt += 1
+            }
+            if self.generation == token {
+                self.task = nil
+                self.monitor?.cancel()
+                self.monitor = nil
             }
         }
+    }
+
+    private func save() {
+        defaults.set(pending.map(\.absoluteString).sorted(), forKey: Self.key)
     }
 }
 

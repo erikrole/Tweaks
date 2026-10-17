@@ -71,9 +71,9 @@ extension SettingsWindowController {
         return labeledRowView(label, trailing: trailing)
     }
 
-    /// Title on the left, control on the right, across the column. `matching` is for rows
-    /// added later inside an already-pinned box (the share list, the app list).
-    func labeledRowView(_ leading: NSView, trailing: NSView, matching box: NSView? = nil) -> NSView {
+    /// Title on the left, control on the right, across the column. Dynamic boxed
+    /// rows use `addRow` to attach before constraining their width.
+    func labeledRowView(_ leading: NSView, trailing: NSView, pinToColumn: Bool = true) -> NSView {
         let row = NSStackView(views: [leading, trailing])
         row.orientation = .horizontal
         row.alignment = .centerY
@@ -83,14 +83,17 @@ extension SettingsWindowController {
         leading.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         trailing.setContentHuggingPriority(.required, for: .horizontal)
         trailing.setContentCompressionResistancePriority(.required, for: .horizontal)
-        if let box {
-            let width = row.widthAnchor.constraint(equalTo: box.widthAnchor)
-            width.priority = NSLayoutConstraint.Priority(999)
-            width.isActive = true
-        } else {
-            pin(row)
-        }
+        if pinToColumn { pin(row) }
         return row
+    }
+
+    /// Attach before activating a constraint that refers to the parent.
+    func addRow(_ leading: NSView, trailing: NSView, to box: NSStackView) {
+        let row = labeledRowView(leading, trailing: trailing, pinToColumn: false)
+        box.addArrangedSubview(row)
+        let width = row.widthAnchor.constraint(equalTo: box.widthAnchor)
+        width.priority = NSLayoutConstraint.Priority(999)
+        width.isActive = true
     }
 
     /// Column width, updated once the scroll view knows how wide it is.

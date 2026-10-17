@@ -23,9 +23,11 @@ enum TweaksMain {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
-    private let settings = TweakSettings()
-    private let launchAtLogin = LaunchAtLoginController()
-    private let controller = TweakController()
+    // The XCTest host returns before touching any user preference model, including
+    // migrations performed by initializers.
+    private lazy var settings = TweakSettings()
+    private lazy var launchAtLogin = LaunchAtLoginController()
+    private lazy var controller = TweakController()
     private var settingsWindow: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -116,23 +118,32 @@ final class TweakController {
     let renderAwake = RenderKeepAwake()
     private let linkCleaner = LinkCleaner()
     private let quitter = LastWindowQuitter()
-    private let shareSleep = ShareSleepManager()
+    private let shareSleep: ShareSleepManager
     private let shareConnect = ShareAutoConnect()
 
-    let windowLayouts = WindowLayouts()
-    let volumeLimits = DeviceVolumeLimits()
+    let windowLayouts: WindowLayouts
+    let volumeLimits: DeviceVolumeLimits
     let safeEject = SafeEject()
     let imageActions = ImageActions()
     let duplicates = DuplicateReview()
 
-    let shortcuts = ShortcutStore()
+    let shortcuts: ShortcutStore
     @ObservationIgnored private var hotKeys: [ShortcutAction: HotKey] = [:]
+    private(set) var shortcutErrors: [ShortcutAction: String] = [:]
     @ObservationIgnored private var awakeTapOrHold: TapOrHold?
     let keepAwake = KeepAwake()
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
 
+    init(defaults: UserDefaults = .standard) {
+        shareSleep = ShareSleepManager(defaults: defaults)
+        windowLayouts = WindowLayouts(defaults: defaults)
+        volumeLimits = DeviceVolumeLimits(defaults: defaults)
+        shortcuts = ShortcutStore(defaults: defaults)
+    }
+
     func start() {
+        shareSleep.recoverPending()
         shortcuts.onChange = { [weak self] action in self?.register(action) }
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -270,6 +281,7 @@ final class TweakController {
     func register(_ action: ShortcutAction) {
         hotKeys[action]?.unregister()
         hotKeys[action] = nil
+        shortcutErrors[action] = nil
         let tweak: Tweak
         switch action {
         case .clearNotifications: tweak = .clearNotificationsHotKey
@@ -305,6 +317,9 @@ final class TweakController {
             }
         case .clearNotifications:
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.clearNotifications() }
+        }
+        if let hotKey = hotKeys[action] {
+            shortcutErrors[action] = HotKey.failureMessage(status: hotKey.registrationStatus)
         }
     }
 

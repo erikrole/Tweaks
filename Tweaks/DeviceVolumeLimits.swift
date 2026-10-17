@@ -2,6 +2,38 @@ import AppKit
 import CoreAudio
 import Observation
 
+/// Shared by discovery, listeners and writes, including devices with no master scalar.
+enum AudioVolumeChannels {
+    static func elements(channelCount: UInt32, writable: (UInt32) -> Bool) -> [UInt32] {
+        if writable(0) { return [0] }
+        guard channelCount > 0 else { return [] }
+        return (1...channelCount).filter(writable)
+    }
+
+    static func maximum(elements: [UInt32], read: (UInt32) -> Float?) -> Float? {
+        snapshot(elements: elements, read: read)?.values.max()
+    }
+
+    static func snapshot(elements: [UInt32], read: (UInt32) -> Float?) -> [UInt32: Float]? {
+        var values: [UInt32: Float] = [:]
+        for element in elements {
+            guard let value = read(element), value.isFinite else { return nil }
+            values[element] = value
+        }
+        return values.isEmpty ? nil : values
+    }
+
+    static func cap(_ limit: Float, elements: [UInt32], read: (UInt32) -> Float?, write: (UInt32, Float) -> Bool) -> Bool {
+        guard limit.isFinite, !elements.isEmpty else { return false }
+        var success = true
+        for element in elements {
+            guard let value = read(element), value.isFinite else { success = false; continue }
+            if let target = DeviceVolumeRule.target(current: value, maximum: limit), !write(element, target) { success = false }
+        }
+        return success
+    }
+}
+
 struct AudioOutputDevice: Identifiable, Equatable, Sendable {
     let device: AudioDeviceID
     let id: String
@@ -50,6 +82,26 @@ struct VolumeLimitEnforcer {
     }
 }
 
+/// Suppression must compare every channel: a second channel can rise above the
+/// cap without changing the maximum of a hardware-rounded first channel.
+struct ChannelVolumeLimitEnforcer {
+    private var scalar = VolumeLimitEnforcer()
+    private var lastReadback: [UInt32: Float]?
+
+    mutating func reset() { scalar.reset(); lastReadback = nil }
+
+    mutating func enforce(maximum: Float, read: () -> [UInt32: Float]?, write: (Float) -> Bool) -> VolumeLimitEnforcer.Result? {
+        guard let values = read(), let current = values.values.max() else { return .unverified }
+        if values != lastReadback { scalar.reset() }
+        var evaluated: [UInt32: Float]? = values
+        defer { lastReadback = evaluated }
+        return scalar.enforce(current: current, maximum: maximum, write: write, read: {
+            evaluated = read()
+            return evaluated?.values.max()
+        })
+    }
+}
+
 @MainActor
 @Observable
 final class DeviceVolumeLimits {
@@ -61,7 +113,8 @@ final class DeviceVolumeLimits {
     private var active = false
     private var current: AudioOutputDevice?
     private var listenedDevice: AudioDeviceID?
-    private var enforcer = VolumeLimitEnforcer()
+    private var listenedElements: [UInt32] = []
+    private var enforcer = ChannelVolumeLimitEnforcer()
     @ObservationIgnored private lazy var defaultListener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
         Task { @MainActor in self?.deviceChanged() }
     }
@@ -108,10 +161,13 @@ final class DeviceVolumeLimits {
 
     private func detach() {
         if let listenedDevice {
-            var address = OutputAudio.volumeAddress()
-            AudioObjectRemovePropertyListenerBlock(listenedDevice, &address, queue, volumeListener)
+            for element in listenedElements {
+                var address = OutputAudio.volumeAddress(element: element)
+                AudioObjectRemovePropertyListenerBlock(listenedDevice, &address, queue, volumeListener)
+            }
         }
         listenedDevice = nil
+        listenedElements = []
     }
 
     private func deviceChanged() {
@@ -126,8 +182,11 @@ final class DeviceVolumeLimits {
             OutputAudio.setMuted(true, device: id)
         }
         if next.supportsVolume {
-            var address = OutputAudio.volumeAddress()
-            AudioObjectAddPropertyListenerBlock(id, &address, queue, volumeListener)
+            listenedElements = OutputAudio.volumeElements(id)
+            for element in listenedElements {
+                var address = OutputAudio.volumeAddress(element: element)
+                AudioObjectAddPropertyListenerBlock(id, &address, queue, volumeListener)
+            }
             listenedDevice = id
         }
         enforce()
@@ -136,13 +195,13 @@ final class DeviceVolumeLimits {
     private func enforce() {
         guard active, let current, OutputAudio.defaultDevice() == current.device,
               let rule = rules[current.id] else { return }
-        guard current.supportsVolume, let volume = OutputAudio.volume(device: current.device) else {
+        guard current.supportsVolume else {
             status = "\(current.name) uses its own hardware volume control."
             return
         }
-        guard let result = enforcer.enforce(current: volume, maximum: rule.maximum,
-                                            write: { OutputAudio.setVolume($0, device: current.device) },
-                                            read: { OutputAudio.volume(device: current.device) }) else { return }
+        guard let result = enforcer.enforce(maximum: rule.maximum,
+                                           read: { OutputAudio.volumes(device: current.device) },
+                                           write: { OutputAudio.capVolume($0, device: current.device) }) else { return }
         switch result {
         case .applied(let value): status = "Set \(current.name) to \(Int(value * 100))%, within its limit."
         case .rounded(let value): status = "\(current.name) reported \(Int(value * 100))%, above its limit. Use its hardware control."
@@ -171,10 +230,7 @@ enum AudioDeviceAccess {
 
     static func describe(_ device: AudioDeviceID) -> AudioOutputDevice? {
         guard let uid = string(device, selector: kAudioDevicePropertyDeviceUID) else { return nil }
-        var address = OutputAudio.volumeAddress()
-        var settable = DarwinBoolean(false)
-        let supported = AudioObjectHasProperty(device, &address)
-            && AudioObjectIsPropertySettable(device, &address, &settable) == noErr && settable.boolValue
+        let supported = !OutputAudio.volumeElements(device).isEmpty
         return AudioOutputDevice(device: device, id: uid, name: string(device, selector: kAudioObjectPropertyName) ?? uid, supportsVolume: supported)
     }
 

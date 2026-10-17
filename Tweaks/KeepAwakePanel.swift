@@ -67,6 +67,7 @@ struct PanelItem: Identifiable {
     var symbol: String?
     var icon: NSImage?
     var prominent = false
+    var detail: String?
     let run: @MainActor (KeepAwake) -> Void
 }
 
@@ -108,8 +109,8 @@ final class PanelModel {
                       key: duration.key, prominent: duration.hours == 12) { $0.start(Choice.hours(duration.hours)) }
         }))
 
-        sections.append(PanelSection(id: "done", title: "Until it's done", items: JobCondition.allCases.map { job in
-            PanelItem(id: "done-\(job.rawValue)", title: job.title, symbol: job.symbol) { $0.start(Choice.done(job)) }
+        sections.append(PanelSection(id: "done", title: "Until activity settles", items: JobCondition.allCases.map { job in
+            PanelItem(id: "done-\(job.rawValue)", title: job.title, symbol: job.symbol, detail: job.detail) { $0.start(Choice.done(job)) }
         }))
 
         let times = KeepAwake.suggestedEndTimes(from: Date()).prefix(4)
@@ -297,6 +298,8 @@ final class KeepAwakePanelRoot: NSView {
                                     destructive: item.id == "stop")
                 chip.onClick = { [weak self] in self?.model.run(item) }
                 chip.onHover = { [weak self] in self?.model.selection = item.id }
+                chip.toolTip = item.detail
+                chip.setAccessibilityHelp(item.detail)
                 let size = chip.frame.size
                 if x > inset, x + size.width > maxX { x = inset; y += rowHeight + 6; rowHeight = 0 }
                 chip.setFrameOrigin(NSPoint(x: x, y: y))
@@ -306,6 +309,15 @@ final class KeepAwakePanelRoot: NSView {
             }
             y += rowHeight + 14
         }
+
+        // Always reserve two lines so keyboard selection does not resize the panel.
+        let detailText = model.sections.flatMap(\.items).first { $0.id == model.selection }?.detail
+        let detail = NSTextField(wrappingLabelWithString: detailText ?? "Activity checks are estimates. For slow or paused jobs, choose a duration or Indefinitely.")
+        detail.font = .systemFont(ofSize: 11)
+        detail.textColor = .secondaryLabelColor
+        detail.frame = NSRect(x: inset, y: y, width: Self.width - inset * 2, height: 42)
+        addSubview(detail)
+        y += 48
 
         // Divider + options
         let rule = NSBox(frame: NSRect(x: inset, y: y, width: Self.width - inset * 2, height: 1))
