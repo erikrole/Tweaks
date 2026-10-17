@@ -81,7 +81,13 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   docs with their configuration and limitations.
 - Settings document columns use Auto Layout for their contents and a manually sized
   outer scroll document. Measure before showing; keep all five page geometry checks
-  and installed runtime logs free of constraint/negative-geometry faults.
+  green and check installed runtime logs for app constraint/geometry faults.
+  Symbolize unfamiliar AppKit warnings before assigning them to app layout; the
+  macOS window-sharing indicator can emit negative-size warnings during capture.
+- After tests and installation, verify Accessibility against the actual signed
+  app. An allowed TCC record for a development identity does not establish trust
+  for a Developer ID build with the same bundle ID. Preserve the permission scope;
+  any required local authentication must be completed by the user.
 - Live NAS, Accessibility, power, and real Finder behavior require separate live
   evidence; passing isolated tests does not establish those behaviors.
 

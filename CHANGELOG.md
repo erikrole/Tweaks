@@ -10,4 +10,5 @@
 - Make Option-green explicitly enter/exit supported macOS full screen and retry ZIPs while Archive Utility is busy.
 - Explain Keep Awake activity estimates, clipboard timing and busy-drive sleep-eject limits.
 
-Build 3 adds the installed-layout repair. See [verification and acceptance boundaries](docs/repair-2026-10-17.md).
+Build 3 adds the installed-layout repair and is signed, notarized and installed locally.
+See [verification and acceptance boundaries](docs/repair-2026-10-17.md).

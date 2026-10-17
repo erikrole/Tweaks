@@ -142,6 +142,8 @@ they come back.
 
 The [0.1.1 repair report](docs/repair-2026-10-17.md) records fixes and verification
 for every confirmed defect in the [2026-10-17 audit](docs/verification-2026-10-17.md).
+Build 3 (source `8ff89bc`) is signed, notarized and installed locally; final Debug
+and Release checks each passed 121 tests with three expected skips and no failures.
 Hardware, network and physical-input acceptance remain separate from fixture tests.
 
 Requirements: macOS 14 or later, Xcode, and XcodeGen.

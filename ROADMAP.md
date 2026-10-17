@@ -9,6 +9,11 @@ restoration, Downloads scoping/deferral, recoverable app replacement, channel-on
 volume controls and share recovery through cancellation/late unmounts. Activity
 estimates and delayed clipboard cleanup now have accurate wording. See the
 [repair report](docs/repair-2026-10-17.md) for checks and installation evidence.
+Build 3 (source `8ff89bc`) is notarized and installed locally. All five settings
+pages, Caps Lock HID restoration, preserved preferences and refreshed Accessibility
+trust were checked in the installed app. Debug and Release each pass 121 tests
+with three expected skips; final Finder-to-host delivery and physical-device
+acceptance remain open below.
 
 The 2026-10-12 validation pass adds repeatable Release benchmarks and regression
 coverage for Downloads collisions and watcher restarts. Finder menu metadata no
@@ -50,11 +55,12 @@ installation boundary.
   Loading-to-cached-result behavior.
 - Validate actual NAS disconnect/reconnect and sleep/wake cycles. The existing
   reachability/already-mounted no-op test passed during the performance follow-up.
-- After installing the updated signed build, profile idle CPU, wakeups, memory,
+- With the updated signed build installed, profile idle CPU, wakeups, memory,
   and live Downloads bursts over a longer period. Controlled Release before/after
   file-work profiles and a short sample of the previously installed app are now
   available; they do not establish battery savings or long-running memory behavior.
-- Validate Accessibility shortcuts, wake/sleep behavior, and DMG installation in
-  the signed installed app. Unit-test success is not an installation/release gate.
+- Validate actual Accessibility shortcut delivery, wake/sleep behavior, and DMG
+  installation in the signed installed app. Accessibility trust is confirmed;
+  it does not by itself establish physical-input acceptance.
 - Continue the existing Finder plan's host-app Inspector and share robustness work
   after these measurements; this pass does not change entitlements or distribution.
