@@ -391,7 +391,10 @@ final class KeepAwake {
         guard downloadSource == nil else { return }
         let folder = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
         let fd = open(folder.path, O_EVTONLY)
-        guard fd >= 0 else { return }
+        guard fd >= 0 else {
+            DownloadsAccessAlert.showOnce()
+            return
+        }
         let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
         source.setEventHandler { [weak self] in
             MainActor.assumeIsolated { self?.scheduleDownloadCheck() }

@@ -32,6 +32,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard InstanceGuard.mayRun else {
+            NSApp.terminate(nil)
+            return
+        }
         installURLHandler()
         controller.settings = settings
         settings.onChange = { [weak self] tweak in
@@ -336,5 +340,22 @@ final class TweakController {
             WakeVolume.apply()
         }
         if settings?.isOn(.capsLockNoDelay) == true { CapsLockTweak.apply() }
+    }
+}
+
+
+/// Keeps a second copy from watching the same folders or claiming login-item and
+/// privacy grants under a different signature (a build-folder copy next to the installed app).
+enum InstanceGuard {
+    static var mayRun: Bool {
+        let me = ProcessInfo.processInfo.processIdentifier
+        let id = Bundle.main.bundleIdentifier ?? "com.erole.Tweaks"
+        if NSRunningApplication.runningApplications(withBundleIdentifier: id).contains(where: { $0.processIdentifier != me }) {
+            return false
+        }
+        let installed = URL(filePath: "/Applications/Tweaks.app").resolvingSymlinksInPath()
+        let current = Bundle.main.bundleURL.resolvingSymlinksInPath()
+        if current != installed, FileManager.default.fileExists(atPath: installed.path) { return false }
+        return true
     }
 }

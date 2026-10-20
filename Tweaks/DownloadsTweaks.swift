@@ -46,6 +46,7 @@ final class DownloadsWatcher {
         worker.start { [weak self, weak worker] in
             guard let self, let worker, self.session === worker else { return }
             self.session = nil
+            DownloadsAccessAlert.showOnce()
         }
     }
 
@@ -413,6 +414,27 @@ enum DownloadDirectory {
             // Unrepresentable names are left untouched; never replace invalid bytes
             // with another valid filename and accidentally operate on that file.
             if let name, name != ".", name != ".." { names.append(name) }
+        }
+    }
+}
+
+
+/// Explains a refused Downloads folder instead of failing silently. Shown once per launch.
+@MainActor
+enum DownloadsAccessAlert {
+    private static var shown = false
+
+    static func showOnce() {
+        guard !shown, ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        shown = true
+        let alert = NSAlert()
+        alert.messageText = "Tweaks can\u{2019}t read your Downloads folder"
+        alert.informativeText = "Download tweaks are paused. Allow Tweaks under Privacy & Security \u{25B8} Files & Folders, then toggle a Downloads tweak to resume."
+        alert.addButton(withTitle: "Open Privacy Settings")
+        alert.addButton(withTitle: "Not Now")
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
+            NSWorkspace.shared.open(url)
         }
     }
 }
