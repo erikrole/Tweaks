@@ -10,7 +10,7 @@ enum Paper {
     static let line = NSColor(srgbRed: 0.74, green: 0.68, blue: 0.60, alpha: 1)
 }
 
-/// A small slip of paper near the bottom of the screen you're on. It never takes focus
+/// A small dark pill near the bottom of the screen you're on. It never takes focus
 /// or catches clicks, and it is thrown away when its time is up so it doesn't sit in memory.
 @MainActor
 enum HUD {
@@ -60,10 +60,12 @@ enum HUD {
 
     private static func makePanel() -> NSPanel {
         let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.isOpaque = true
-        panel.backgroundColor = Paper.background
+        // Clear for the rounded pill, and no shadow: a clear panel with a shadow keeps the
+        // window server redrawing it.
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.appearance = NSAppearance(named: .aqua)
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.level = .statusBar
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -82,19 +84,19 @@ private final class HUDSlip: NSView {
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 8
-        row.edgeInsets = NSEdgeInsets(top: 7, left: 11, bottom: 7, right: 11)
+        row.edgeInsets = NSEdgeInsets(top: 8, left: 14, bottom: 8, right: 16)
         row.translatesAutoresizingMaskIntoConstraints = false
 
         if let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
             let icon = NSImageView(image: image)
-            icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
-            icon.contentTintColor = Paper.ink
+            icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+            icon.contentTintColor = HUDSlip.orange
             icon.setContentHuggingPriority(.required, for: .horizontal)
             row.addArrangedSubview(icon)
         }
         label.stringValue = text
-        label.font = .systemFont(ofSize: 13)
-        label.textColor = Paper.ink
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.textColor = .white
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -109,14 +111,17 @@ private final class HUDSlip: NSView {
         ])
     }
 
-    /// Flat paper and a hairline. Drawn, not a layer-backed rounded card.
+    static let orange = NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
+
+    /// A dark capsule with a hairline, matching the Keep Awake panel. Drawn, not layer-backed.
     override func draw(_ dirtyRect: NSRect) {
-        Paper.background.setFill()
-        bounds.fill()
-        Paper.line.setStroke()
-        let border = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
-        border.lineWidth = 1
-        border.stroke()
+        let radius = bounds.height / 2
+        let pill = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
+        NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 0.96).setFill()
+        pill.fill()
+        NSColor.white.withAlphaComponent(0.12).setStroke()
+        pill.lineWidth = 1
+        pill.stroke()
     }
 
     @available(*, unavailable)

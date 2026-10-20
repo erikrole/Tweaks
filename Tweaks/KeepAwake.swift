@@ -183,7 +183,7 @@ final class KeepAwake {
         session = nil
         stopSessionTimers()
         hideStatusItem()
-        if let reason { HUD.show("Mac can sleep again · \(reason)", symbol: "moon.zzz") }
+        if let reason { HUD.show(reason == "Stopped." ? "Keep Awake off" : reason, symbol: "moon.zzz") }
     }
 
     func extend(by seconds: TimeInterval) {
@@ -508,7 +508,7 @@ final class KeepAwake {
     var statusLine: String {
         guard let session else { return "Not keeping awake" }
         if session.until == .indefinitely {
-            let mode = session.dimsWhenIdle ? "Away · awake and unlocked, screen dims" : (session.keepsDisplayOn ? "Screen stays on" : "Awake until you stop it")
+            let mode = session.dimsWhenIdle ? "Away" : (session.keepsDisplayOn ? "Screen stays on" : "Awake")
             return session.pausedOnBattery ? "\(mode) · paused on battery" : mode
         }
         let base: String = switch session.until {
