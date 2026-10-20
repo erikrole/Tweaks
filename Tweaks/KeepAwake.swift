@@ -16,11 +16,10 @@ private func keepAwakePowerChanged(_ context: UnsafeMutableRawPointer?) {
     }
 }
 
-/// A smarter caffeinate. Tap Hyper+/ (⌃⌥⇧⌘/) for 12 hours (tap again to stop, or to add
-/// an hour once it's about to end); hold it for the Keep Awake panel. Sessions can run
-/// for a while, until a time, until an app quits, until a job finishes (render, downloads,
-/// upload, NAS copy), or until you stop them. A cup in the menu bar shows time left. It
-/// also answers tweaks://awake links for scripts.
+/// A smarter caffeinate with two modes. Tap Hyper+/ (⌃⌥⇧⌘/) to keep the screen on; hold it
+/// for Away (awake, never locks, the screen dims when idle). Tap or hold again to stop. The
+/// menu bar icon shows the mode and opens the panel. Timed and job-based sessions remain
+/// for tweaks://awake links and the render tweak.
 @MainActor
 @Observable
 final class KeepAwake {
@@ -146,17 +145,14 @@ final class KeepAwake {
         remember(choice)
     }
 
-    /// Hyper+/ tap: start 12 hours; if on, stop; in the last five minutes, add an hour.
+    /// Hyper+/ tap: Screen stays on; tap again to stop.
     func toggleDefault() {
-        guard let session else {
-            startAway()
-            return
-        }
-        if session.warned, case .date = session.until {
-            extend(by: 3600)
-        } else {
-            stop(reason: "Stopped.")
-        }
+        if session == nil { startScreenOn() } else { stop(reason: "Stopped.") }
+    }
+
+    /// Hyper+/ hold: Away (or switch to it); hold again while Away to stop.
+    func holdDefault() {
+        if session?.dimsWhenIdle == true { stop(reason: "Stopped.") } else { startAway() }
     }
 
     /// Away: the Mac stays awake and never locks, so you (and agents) can always get in.
@@ -521,7 +517,9 @@ final class KeepAwake {
     }
 
     private var symbol: String {
-        session?.keepsDisplayOn == true ? "cup.and.heat.waves.fill" : "cup.and.saucer.fill"
+        guard let session else { return "cup.and.saucer.fill" }
+        if session.dimsWhenIdle { return "moon.fill" }
+        return session.keepsDisplayOn ? "sun.max.fill" : "cup.and.saucer.fill"
     }
 
     /// "3h 12m", "45m", or a short word for open-ended sessions.

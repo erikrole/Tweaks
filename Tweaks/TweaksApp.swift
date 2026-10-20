@@ -298,7 +298,7 @@ final class TweakController {
         case .keepAwake:
             let tapOrHold = TapOrHold(
                 onTap: { [weak self] in self?.keepAwake.toggleDefault() },
-                onHold: { [weak self] in self?.keepAwake.showMenu() }
+                onHold: { [weak self] in self?.keepAwake.holdDefault() }
             )
             awakeTapOrHold = tapOrHold
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers,

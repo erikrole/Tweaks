@@ -62,15 +62,16 @@ where every tweak has its own switch.
 
 **Keep Awake** (replaces caffeinate)
 - Two modes, both running until you stop them:
-  - **Away** (A, the default): the Mac stays awake and never reaches the lock
+  - **Away** (A): the Mac stays awake and never reaches the lock
     screen, so you and remote agents can always get in. The display never sleeps;
-    instead the built-in screen dims to 0 after two idle minutes and comes back on
-    any key or mouse input. **Dim now** (Z) starts Away already dimmed. The Mac
+    instead the built-in screen fades to 0 (external displays fade to black) after
+    two idle minutes and comes back on any key or mouse input. **Dim now** (Z) starts Away already dimmed. The Mac
     stays unlocked while Away runs.
   - **Screen stays on** (O): no dimming, no sleep, for renders or anything you
     want to watch.
-- Tap Hyper+/ (⌃⌥⇧⌘/) to start Away; tap again to stop. Hold it, or click the menu
-  bar cup, for the panel: Away, Dim now, Screen stays on, Stop (S). Arrow keys move,
+- Tap Hyper+/ (⌃⌥⇧⌘/) for Screen stays on; hold it for Away. Tap or hold again to
+  stop. The menu bar shows a sun or a moon for the running mode; click it for the
+  panel: two mode cards, ⌥-click Away (or Z) to dim now, Stop (S). Arrow keys move,
   Return starts, Esc closes. Shortcuts are changeable in the Tweaks window.
 - Renders keep the Mac awake on their own with the "Awake while rendering" tweak.
 - A pill appears when a session starts or stops. Any session stops at 15% battery

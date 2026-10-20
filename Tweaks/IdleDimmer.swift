@@ -3,7 +3,7 @@ import Darwin
 import IOKit.pwr_mgt
 
 /// Away mode's screen: the display never sleeps (so macOS never locks), but the built-in
-/// panel dims to 0 after a short idle and comes back on any key or mouse input, including
+/// panel fades to 0 (external displays fade to black) after a short idle and comes back on any key or mouse input, including
 /// input from remote or agent control. Nothing covers the screen, so screenshots still
 /// show the real desktop. The Mac stays unlocked while this runs.
 @MainActor
@@ -119,35 +119,78 @@ final class IdleDimmer {
         return unsafeBitCast(pointer, to: type)
     }
 
-    private static var builtInDisplays: [CGDirectDisplayID] {
+    private static var onlineDisplays: [CGDirectDisplayID] {
         var count: UInt32 = 0
         guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else { return [] }
         var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
         guard CGGetOnlineDisplayList(count, &ids, &count) == .success else { return [] }
-        return ids.prefix(Int(count)).filter { CGDisplayIsBuiltin($0) != 0 }
+        return Array(ids.prefix(Int(count)))
     }
+
+    private static var builtInDisplays: [CGDirectDisplayID] {
+        onlineDisplays.filter { CGDisplayIsBuiltin($0) != 0 }
+    }
+
+    private var fadeTimer: Timer?
+    /// The fade down takes this long; waking is instant.
+    static let fadeDuration: TimeInterval = 0.8
+    private static let fadeSteps = 16
 
     private func dim() {
         guard let get = Self.symbol("DisplayServicesGetBrightness", as: GetBrightness.self),
               let set = Self.symbol("DisplayServicesSetBrightness", as: SetBrightness.self) else { return }
-        for id in Self.builtInDisplays {
-            if savedBrightness[id] == nil {
-                var level: Float = 0
-                if get(id, &level) == 0, level > 0.01 { savedBrightness[id] = level }
-            }
-            _ = set(id, 0)
+        let builtIn = Self.builtInDisplays
+        if isDimmed {
+            // Auto-brightness can raise it again; put it back.
+            if fadeTimer == nil { builtIn.forEach { _ = set($0, 0) } }
+            return
         }
-        if !isDimmed { dimmedAt = Date() }
-        isDimmed = true
+        for id in builtIn where savedBrightness[id] == nil {
+            var level: Float = 0
+            if get(id, &level) == 0, level > 0.01 { savedBrightness[id] = level }
+        }
         if let level = savedBrightness.values.first {
             UserDefaults.standard.set(level, forKey: Self.restoreKey)
+        }
+        dimmedAt = Date()
+        isDimmed = true
+        fadeStep = 0
+        let timer = Timer(timeInterval: Self.fadeDuration / Double(Self.fadeSteps), repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.advanceFade() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        fadeTimer = timer
+    }
+
+    private var fadeStep = 0
+
+    private func advanceFade() {
+        guard isDimmed, let set = Self.symbol("DisplayServicesSetBrightness", as: SetBrightness.self) else {
+            fadeTimer?.invalidate()
+            fadeTimer = nil
+            return
+        }
+        fadeStep += 1
+        let remaining = Float(max(0, Self.fadeSteps - fadeStep)) / Float(Self.fadeSteps)
+        for (id, level) in savedBrightness { _ = set(id, level * remaining) }
+        // External displays can't take a brightness; fading their gamma blacks them
+        // without touching what screenshots capture. macOS resets it if Tweaks quits.
+        for id in Self.onlineDisplays where CGDisplayIsBuiltin(id) == 0 {
+            CGSetDisplayTransferByFormula(id, 0, remaining, 1, 0, remaining, 1, 0, remaining, 1)
+        }
+        if fadeStep >= Self.fadeSteps {
+            fadeTimer?.invalidate()
+            fadeTimer = nil
         }
     }
 
     private func undim() {
+        fadeTimer?.invalidate()
+        fadeTimer = nil
         if let set = Self.symbol("DisplayServicesSetBrightness", as: SetBrightness.self) {
             for (id, level) in savedBrightness { _ = set(id, level) }
         }
+        if isDimmed { CGDisplayRestoreColorSyncSettings() }
         savedBrightness = [:]
         isDimmed = false
         UserDefaults.standard.removeObject(forKey: Self.restoreKey)

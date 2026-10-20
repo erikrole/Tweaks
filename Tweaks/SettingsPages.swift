@@ -80,9 +80,6 @@ extension SettingsWindowController {
     private func buildSleep() {
         addSection("Sleep")
         addToggles([.keepAwakeHotKey])
-        countdownSwitch.target = self
-        countdownSwitch.action = #selector(countdownChanged(_:))
-        column?.addArrangedSubview(labeledRow("Show time left next to the cup", trailing: countdownSwitch))
         sessionLabel.font = .systemFont(ofSize: 12)
         sessionLabel.textColor = Paper.secondary
         sessionLabel.lineBreakMode = .byTruncatingTail

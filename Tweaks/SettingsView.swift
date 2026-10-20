@@ -19,7 +19,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var toggles: [Tweak: NSSwitch] = [:]
     var accessNotes: [Tweak: NSTextField] = [:]
     var recorders: [ShortcutAction: ShortcutRecorder] = [:]
-    let countdownSwitch = NSSwitch()
     let sessionLabel = NSTextField(labelWithString: "")
     let sessionRow = NSStackView()
     let renderLabel = NSTextField(labelWithString: "")
@@ -218,8 +217,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         for (action, recorder) in recorders {
             recorder.display(tweaks.shortcuts.shortcut(for: action), error: tweaks.shortcutErrors[action])
         }
-        let countdownOn = tweaks.keepAwake.showsCountdown
-        if countdownSwitch.state != (countdownOn ? .on : .off) { countdownSwitch.state = countdownOn ? .on : .off }
         if tweaks.keepAwake.session != nil {
             sessionLabel.stringValue = tweaks.keepAwake.statusLine
             sessionRow.isHidden = false
@@ -426,7 +423,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.tweaks.shortcuts.shortcuts
             _ = self.tweaks.keepAwake.session
             _ = self.tweaks.keepAwake.statusLine
-            _ = self.tweaks.keepAwake.showsCountdown
             _ = self.tweaks.renderAwake.holdingFor
             _ = self.launchAtLogin.isEnabled
             _ = self.launchAtLogin.errorMessage
@@ -460,10 +456,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     @objc func tweakToggled(_ sender: NSSwitch) {
         guard let id = sender.identifier?.rawValue, let tweak = Tweak(rawValue: id) else { return }
         settings.set(tweak, on: sender.state == .on)
-    }
-
-    @objc func countdownChanged(_ sender: NSSwitch) {
-        tweaks.keepAwake.showsCountdown = sender.state == .on
     }
 
     @objc func loginChanged(_ sender: NSSwitch) {

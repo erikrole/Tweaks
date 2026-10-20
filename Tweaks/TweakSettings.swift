@@ -80,7 +80,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .unzipDownloads: "Extracts new .zip downloads next to the archive, then moves the zip to the Trash."
         case .quitOnLastWindow: "For the apps listed below."
         case .unmountSharesBeforeSleep: "Unmounts NAS shares as the Mac sleeps so waking on another network doesn't stall, then reconnects them once the server is reachable."
-        case .keepAwakeHotKey: "Tap the Keep Awake shortcut for 12 hours (tap again to stop); hold it for the panel: durations, until a time, until activity settles or an app quits, or indefinitely. Activity checks are estimates explained in the panel. Stops itself at 15% battery."
+        case .keepAwakeHotKey: "Tap the Keep Awake shortcut to keep the screen on; hold it for Away (awake and unlocked, the screen dims when idle). Tap or hold again to stop. Click the menu bar icon for the panel. Stops itself at 15% battery."
         case .windowLayouts: "Save a layout for each monitor arrangement. Matching open windows return when that setup reconnects; closed and ambiguous windows stay untouched."
         case .deviceVolumeLimits: "Apply your chosen limits when changing output devices or raising the volume. Devices with hardware-only volume controls are left alone."
         case .safeEjectHotKey: "Set a shortcut to eject idle external drives. Drives in use stay connected, and the apps using them are listed below."

@@ -68,7 +68,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .keepAwake: "Keep Awake (tap 12 h, hold for options)"
+        case .keepAwake: "Keep Awake (tap: screen on, hold: Away)"
         case .keepAwakePanel: "Open the Keep Awake panel"
         case .screenOff: "Dim screen, stay awake and unlocked"
         case .clearNotifications: "Clear all notifications"
