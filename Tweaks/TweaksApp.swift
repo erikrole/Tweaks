@@ -355,7 +355,7 @@ enum InstanceGuard {
         }
         let installed = URL(filePath: "/Applications/Tweaks.app").resolvingSymlinksInPath()
         let current = Bundle.main.bundleURL.resolvingSymlinksInPath()
-        if current != installed, FileManager.default.fileExists(atPath: installed.path) { return false }
+        if current.path != installed.path, FileManager.default.fileExists(atPath: installed.path) { return false }
         return true
     }
 }
