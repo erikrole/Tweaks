@@ -31,6 +31,7 @@
 		82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273D3495028E3E79230CC808 /* TweaksTests.swift */; };
 		86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */; };
 		88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */; };
+		8D570C7F33B8D028C3F2381E /* IdleDimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B070E7081A928251873A8A6 /* IdleDimmer.swift */; };
 		8F4700A6A72F6F69C334405D /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */; };
 		93A10AD82DC5655B6CE0961D /* DuplicateDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */; };
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
@@ -92,6 +93,7 @@
 		099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemTweaks.swift; sourceTree = "<group>"; };
 		09A1FB2997040A869AD5920F /* Tweaks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tweaks.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGInstaller.swift; sourceTree = "<group>"; };
+		1B070E7081A928251873A8A6 /* IdleDimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleDimmer.swift; sourceTree = "<group>"; };
 		1C3459226D31B8F11A25AABD /* RepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepairTests.swift; sourceTree = "<group>"; };
 		1E63D0ABF59F7E003D8EC656 /* SettingsPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPages.swift; sourceTree = "<group>"; };
 		228920353BABF64F9F93E79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -229,6 +231,7 @@
 				9816CFB9221F42C12C38D8B0 /* FileWork.swift */,
 				431F8A37902B9DA23BA134A7 /* FinderExtensionBridge.swift */,
 				B7E4A379C97DAD8B47F5D295 /* HUD.swift */,
+				1B070E7081A928251873A8A6 /* IdleDimmer.swift */,
 				65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */,
 				93A9176A0B9E8E86B927F279 /* Info.plist */,
 				477EBDD93C6EC737F0A3019F /* JobWatcher.swift */,
@@ -450,6 +453,7 @@
 				B1366F2517E4005E0FAA3E65 /* FileWork.swift in Sources */,
 				2B46143EF563B4CD459CE5B5 /* FinderExtensionBridge.swift in Sources */,
 				2B96BEAE3509ECC74E0076F5 /* HUD.swift in Sources */,
+				8D570C7F33B8D028C3F2381E /* IdleDimmer.swift in Sources */,
 				591127B1B673B1D25A23A9DB /* ImageActions.swift in Sources */,
 				6B9C065ED6B68745B8A6B145 /* JobWatcher.swift in Sources */,
 				2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */,

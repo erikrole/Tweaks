@@ -70,7 +70,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .keepAwake: "Keep Awake (tap 12 h, hold for options)"
         case .keepAwakePanel: "Open the Keep Awake panel"
-        case .screenOff: "Screen off, Mac awake"
+        case .screenOff: "Dim screen, stay awake and unlocked"
         case .clearNotifications: "Clear all notifications"
         case .saveWindowLayout: "Save this display setup's windows"
         case .restoreWindowLayout: "Restore this display setup's windows"

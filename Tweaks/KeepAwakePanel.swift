@@ -88,63 +88,27 @@ final class PanelModel {
 
     init(keepAwake: KeepAwake) {
         self.keepAwake = keepAwake
-        selection = "hours-12"
+        selection = "away"
         sections = buildSections()
     }
 
     private var allItems: [PanelItem] { sections.flatMap(\.items) }
 
     private func buildSections() -> [PanelSection] {
-        var sections: [PanelSection] = []
-        let recent = keepAwake.recents.compactMap { choice -> PanelItem? in
-            if case let .app(bundleID, _) = choice, NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty {
-                return nil // the app isn't open, so "until it quits" can't apply
-            }
-            return PanelItem(id: "recent-\(choice.title)", title: choice.title, symbol: "clock.arrow.circlepath") { $0.start(choice) }
-        }
-        if !recent.isEmpty { sections.append(PanelSection(id: "recent", title: "Recent", items: recent)) }
-
-        sections.append(PanelSection(id: "for", title: "For", items: KeepAwakePanelController.durations.map { duration in
-            PanelItem(id: "hours-\(Int(duration.hours))", title: duration.hours == 1 ? "1 hour" : "\(Int(duration.hours)) hours",
-                      key: duration.key, prominent: duration.hours == 12) { $0.start(Choice.hours(duration.hours)) }
-        }))
-
-        sections.append(PanelSection(id: "done", title: "Until activity settles", items: JobCondition.allCases.map { job in
-            PanelItem(id: "done-\(job.rawValue)", title: job.title, symbol: job.symbol, detail: job.detail) { $0.start(Choice.done(job)) }
-        }))
-
-        let times = KeepAwake.suggestedEndTimes(from: Date()).prefix(4)
-        if !times.isEmpty {
-            sections.append(PanelSection(id: "until", title: "Until", items: times.map { time in
-                PanelItem(id: "time-\(time.timeIntervalSince1970)", title: time.formatted(date: .omitted, time: .shortened)) {
-                    $0.start(.date(time))
-                }
-            }))
-        }
-
-        let apps = KeepAwake.candidateApps().prefix(5)
-        if !apps.isEmpty {
-            sections.append(PanelSection(id: "apps", title: "Until an app quits", items: apps.map { app in
-                let name = app.localizedName ?? "App"
-                return PanelItem(id: "app-\(app.processIdentifier)", title: name, icon: app.icon) { keepAwake in
-                    if let bundleID = app.bundleIdentifier {
-                        keepAwake.start(Choice.app(bundleID: bundleID, name: name))
-                    } else {
-                        keepAwake.start(.appQuits(pid: app.processIdentifier, name: name))
-                    }
-                }
-            }))
-        }
-
-        var tail = [
-            PanelItem(id: "indefinitely", title: "Indefinitely", key: "I") { $0.start(Choice.indefinitely) },
-            PanelItem(id: "screen-off", title: "Screen off, Mac awake", key: "Z", symbol: "moon.fill") { $0.sleepDisplayNow() },
+        let session = keepAwake.session
+        var items = [
+            PanelItem(id: "away", title: "Away · dim, never lock", key: "A", symbol: "moon.circle",
+                      prominent: session?.dimsWhenIdle != true,
+                      detail: "Stays awake and never locks, so you and agents can always get in. The screen dims after 2 idle minutes and wakes on any input. Stays unlocked while you're away.") { $0.startAway() },
+            PanelItem(id: "dim-now", title: "Dim now", key: "Z", symbol: "moon.fill",
+                      detail: "Away mode, with the screen dimmed right now.") { $0.sleepDisplayNow() },
+            PanelItem(id: "screen-on", title: "Screen stays on", key: "O", symbol: "sun.max",
+                      detail: "Screen never dims or sleeps. For renders or anything you want to watch.") { $0.startScreenOn() },
         ]
-        if keepAwake.session != nil {
-            tail.append(PanelItem(id: "stop", title: "Stop", key: "S", symbol: "stop.circle") { $0.stop(reason: "Stopped.") })
+        if session != nil {
+            items.append(PanelItem(id: "stop", title: "Stop", key: "S", symbol: "stop.circle") { $0.stop(reason: "Stopped.") })
         }
-        sections.append(PanelSection(id: "more", title: "More", items: tail))
-        return sections
+        return [PanelSection(id: "mode", title: "Keep the Mac awake", items: items)]
     }
 
     func run(_ item: PanelItem) {
@@ -171,11 +135,7 @@ final class PanelModel {
             run(item)
             return true
         }
-        switch key {
-        case "d": keepAwake.setKeepsDisplayOn(!displayOn); return true
-        case "p": keepAwake.setOnlyOnPower(!onlyOnPower); return true
-        default: return false
-        }
+        return false
     }
 
     private func move(by step: Int) {
@@ -278,7 +238,7 @@ final class KeepAwakePanelRoot: NSView {
         let title = label("Keep Awake", size: 15, weight: .semibold, color: .labelColor)
         title.setFrameOrigin(NSPoint(x: inset + 34, y: y))
         addSubview(title)
-        let subtitle = label(active ? model.keepAwake.statusLine : "Return keeps it awake for 12 hours",
+        let subtitle = label(active ? model.keepAwake.statusLine : "Return: Away. Awake and unlocked; the screen dims when idle",
                              size: 12, color: .secondaryLabelColor)
         subtitle.setFrameOrigin(NSPoint(x: inset + 34, y: y + 18))
         addSubview(subtitle)
@@ -312,40 +272,16 @@ final class KeepAwakePanelRoot: NSView {
 
         // Always reserve two lines so keyboard selection does not resize the panel.
         let detailText = model.sections.flatMap(\.items).first { $0.id == model.selection }?.detail
-        let detail = NSTextField(wrappingLabelWithString: detailText ?? "Activity checks are estimates. For slow or paused jobs, choose a duration or Indefinitely.")
+        let detail = NSTextField(wrappingLabelWithString: detailText ?? "Both modes run until you stop them. Renders also keep the Mac awake on their own.")
         detail.font = .systemFont(ofSize: 11)
         detail.textColor = .secondaryLabelColor
         detail.frame = NSRect(x: inset, y: y, width: Self.width - inset * 2, height: 42)
         addSubview(detail)
         y += 48
 
-        // Divider + options
-        let rule = NSBox(frame: NSRect(x: inset, y: y, width: Self.width - inset * 2, height: 1))
-        rule.boxType = .custom
-        rule.borderWidth = 0
-        rule.fillColor = NSColor.white.withAlphaComponent(0.08)
-        addSubview(rule)
-        y += 14
-        var x = inset
-        var height: CGFloat = 0
-        for (text, key, on, action) in [
-            (model.displayOn ? "Display stays on" : "Display can sleep", "D", model.displayOn, { [weak self] in
-                guard let self else { return }
-                self.model.keepAwake.setKeepsDisplayOn(!self.model.displayOn) } as () -> Void),
-            ("Only while plugged in", "P", model.onlyOnPower, { [weak self] in
-                guard let self else { return }
-                self.model.keepAwake.setOnlyOnPower(!self.model.onlyOnPower) } as () -> Void),
-        ] {
-            let chip = ChipView(title: text, key: key, symbol: on ? "checkmark.circle.fill" : "circle", icon: nil,
-                                selected: false, prominent: false, destructive: false, checked: on)
-            chip.onClick = action
-            chip.setFrameOrigin(NSPoint(x: x, y: y))
-            addSubview(chip)
-            x += chip.frame.width + 6
-            height = max(height, chip.frame.height)
-        }
-        let hint = label("←→↑↓ move · ⏎ start · esc close", size: 10, color: .tertiaryLabelColor)
-        hint.setFrameOrigin(NSPoint(x: maxX - hint.frame.width, y: y + (height - hint.frame.height) / 2))
+        let height: CGFloat = 16
+        let hint = label("←→ move · ⏎ start · esc close", size: 10, color: .tertiaryLabelColor)
+        hint.setFrameOrigin(NSPoint(x: inset, y: y))
         addSubview(hint)
         y += height + inset
 

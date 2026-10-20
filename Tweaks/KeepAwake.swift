@@ -35,6 +35,8 @@ final class KeepAwake {
         var until: Until
         var keepsDisplayOn: Bool
         var onlyOnPower: Bool
+        /// Away mode: the display never sleeps (so no lock) but dims when idle.
+        var dimsWhenIdle = false
         let startedAt: Date
         var warned = false
         var pausedOnBattery = false
@@ -102,6 +104,7 @@ final class KeepAwake {
     private var launchObserver: NSObjectProtocol?
     private var terminateObserver: NSObjectProtocol?
     private var watcher = JobWatcher()
+    @ObservationIgnored private let dimmer = IdleDimmer()
 
     init() {
         let defaults = UserDefaults.standard
@@ -123,12 +126,14 @@ final class KeepAwake {
 
     // MARK: - Control
 
-    func start(_ until: Until, keepsDisplayOn: Bool? = nil, onlyOnPower: Bool? = nil, announce: Bool = true) {
-        let display = keepsDisplayOn ?? keepsDisplayOnByDefault
+    func start(_ until: Until, keepsDisplayOn: Bool? = nil, onlyOnPower: Bool? = nil, dimsWhenIdle: Bool = false,
+               announce: Bool = true) {
+        let display = dimsWhenIdle || (keepsDisplayOn ?? keepsDisplayOnByDefault)
         let power = onlyOnPower ?? onlyOnPowerByDefault
-        session = Session(until: until, keepsDisplayOn: display, onlyOnPower: power, startedAt: Date())
+        session = Session(until: until, keepsDisplayOn: display, onlyOnPower: power, dimsWhenIdle: dimsWhenIdle, startedAt: Date())
         if case .done = until { watcher = JobWatcher() }
         applyAssertion()
+        if dimsWhenIdle { dimmer.start() } else { dimmer.stop() }
         showStatusItem()
         if announce { HUD.show(statusLine, symbol: symbol) }
         startWatching()
@@ -144,7 +149,7 @@ final class KeepAwake {
     /// Hyper+/ tap: start 12 hours; if on, stop; in the last five minutes, add an hour.
     func toggleDefault() {
         guard let session else {
-            start(.date(Date().addingTimeInterval(Self.defaultDuration)))
+            startAway()
             return
         }
         if session.warned, case .date = session.until {
@@ -154,21 +159,25 @@ final class KeepAwake {
         }
     }
 
-    /// Turns the screen off right away while the Mac stays awake (starting 12 hours if
-    /// nothing is running). Better than dimming to zero: the panel actually powers down.
+    /// Away: the Mac stays awake and never locks, so you (and agents) can always get in.
+    /// The built-in screen dims after a couple of idle minutes and wakes on any input.
+    func startAway(dimNow: Bool = false) {
+        start(.indefinitely, dimsWhenIdle: true, announce: !dimNow)
+        dimmer.start(dimNow: dimNow)
+    }
+
+    /// Screen stays on, for renders and anything you want to watch.
+    func startScreenOn() {
+        start(.indefinitely, keepsDisplayOn: true)
+    }
+
+    /// Dims the screen now and keeps the Mac awake and unlocked (Away mode).
     func sleepDisplayNow() {
-        if session == nil { start(.date(Date().addingTimeInterval(Self.defaultDuration)), keepsDisplayOn: false, announce: false) }
-        if session?.keepsDisplayOn == true { setKeepsDisplayOn(false) }
-        // Give the panel or pill a moment to disappear first.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            let process = Process()
-            process.executableURL = URL(filePath: "/usr/bin/pmset")
-            process.arguments = ["displaysleepnow"]
-            try? process.run()
-        }
+        if session?.dimsWhenIdle == true { dimmer.start(dimNow: true) } else { startAway(dimNow: true) }
     }
 
     func stop(reason: String? = nil) {
+        dimmer.stop()
         guard session != nil else { return }
         releaseAssertion()
         session = nil
@@ -498,6 +507,10 @@ final class KeepAwake {
 
     var statusLine: String {
         guard let session else { return "Not keeping awake" }
+        if session.until == .indefinitely {
+            let mode = session.dimsWhenIdle ? "Away · awake and unlocked, screen dims" : (session.keepsDisplayOn ? "Screen stays on" : "Awake until you stop it")
+            return session.pausedOnBattery ? "\(mode) · paused on battery" : mode
+        }
         let base: String = switch session.until {
         case .indefinitely: "Awake until you stop it"
         case let .date(end): "Awake until \(end.formatted(date: .omitted, time: .shortened))"
@@ -603,6 +616,9 @@ final class KeepAwake {
         case "/menu": showMenu()
         case "/toggle": toggleDefault()
         case "/screenoff": sleepDisplayNow()
+        case "/dark": sleepDisplayNow()
+        case "/away": startAway()
+        case "/screenon": startScreenOn()
         default:
             if let until = Self.until(minutes: value("minutes"), hours: value("hours"), time: value("until"), now: Date()) {
                 start(until, keepsDisplayOn: display, onlyOnPower: power)

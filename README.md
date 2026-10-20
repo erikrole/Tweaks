@@ -61,31 +61,23 @@ where every tweak has its own switch.
   and enable switch are stored separately; old preferences migrate automatically.
 
 **Keep Awake** (replaces caffeinate)
-- Shortcuts are changeable in the Tweaks window (Keep Awake, the Keep Awake panel,
-  Screen off, Clear notifications). A key combination belongs to one action,
-  regardless of its display label; macOS registration failures are shown next to
-  the shortcut. Turning Keep Awake off releases the sleep
-  assertion, so the Mac can sleep again. By default, tap Hyper+/ (⌃⌥⇧⌘/) to keep the Mac awake for 12 hours; tap again to stop, or, in
-  the last five minutes, to add an hour.
-- Hold Hyper+/ (or click the menu bar cup) for the Keep Awake panel, centered on the
-  screen you're on: Recent choices; 1–12 hours (number keys); until activity settles
-  (render, Downloads, upload traffic, or open NAS files); until a time; until
-  an app quits; indefinitely (I); screen off with the Mac awake (Z); display on (D); only while plugged in (P); stop (S).
-  Arrow keys move, Return starts, Esc closes.
-- Activity checks are estimates, explained in the panel: three minutes without a
-  busy supported renderer; one minute without partial-download names in Downloads;
-  two minutes below 100 KB/s outgoing traffic on physical interfaces; or one minute
-  without open files on mounted network shares. Slow or paused jobs can look idle.
-  Choose a duration or Indefinitely when those heuristics do not fit the job.
-- A pill appears near the bottom of the screen when it starts or stops, and five
-  minutes before a timed session ends. The menu bar cup shows time left (optional).
-- Only while plugged in pauses the hold on battery and resumes it on power; any
-  session stops at 15% battery when unplugged.
-- Links for scripts: `tweaks://awake?minutes=60`,
-  `tweaks://awake?hours=2`, `tweaks://awake?until=18:30`,
-  `tweaks://awake?app=com.adobe.ame.application.26`,
-  `tweaks://awake?done=render|downloads|upload|copy`, add `&display=1` or `&power=1`,
-  and `tweaks://awake/stop`, `/toggle`, `/menu` or `/screenoff`.
+- Two modes, both running until you stop them:
+  - **Away** (A, the default): the Mac stays awake and never reaches the lock
+    screen, so you and remote agents can always get in. The display never sleeps;
+    instead the built-in screen dims to 0 after two idle minutes and comes back on
+    any key or mouse input. **Dim now** (Z) starts Away already dimmed. The Mac
+    stays unlocked while Away runs.
+  - **Screen stays on** (O): no dimming, no sleep, for renders or anything you
+    want to watch.
+- Tap Hyper+/ (⌃⌥⇧⌘/) to start Away; tap again to stop. Hold it, or click the menu
+  bar cup, for the panel: Away, Dim now, Screen stays on, Stop (S). Arrow keys move,
+  Return starts, Esc closes. Shortcuts are changeable in the Tweaks window.
+- Renders keep the Mac awake on their own with the "Awake while rendering" tweak.
+- A pill appears when a session starts or stops. Any session stops at 15% battery
+  when unplugged.
+- Links for scripts: `tweaks://awake/away`, `/screenon`, `/screenoff` (Dim now),
+  `/stop`, `/toggle`, `/menu`. The older timed links (`?minutes=`, `?hours=`,
+  `?until=`, `?app=`, `?done=render|downloads|upload|copy`) still work.
 
 **Finder** (formerly Finder Utilities)
 - Copy Path with NAS, Box and Google Drive roots shortened
