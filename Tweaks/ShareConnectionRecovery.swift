@@ -434,6 +434,9 @@ actor ShareMounter {
             if let snapshot = mounted(), ShareAutoConnect.sharesToMount(wanted: [url], mounted: snapshot.map(\.serverURL)).isEmpty {
                 cooldown[url] = nil
                 log("Share connected; mount table verified")
+                if let share = snapshot.first(where: { ShareAutoConnect.sharesToMount(wanted: [url], mounted: [$0.serverURL]).isEmpty }) {
+                    ShareChannels.report(share.mountPoint)
+                }
                 return true
             }
             if result != .cancelled { cooldown[url] = clock() + 300 }
@@ -492,5 +495,67 @@ final class ShareConnectivityWatcher {
         store = nil; path?.cancel(); path = nil
         if let wake { NSWorkspace.shared.notificationCenter.removeObserver(wake) }; wake = nil
         if let sleep { NSWorkspace.shared.notificationCenter.removeObserver(sleep) }; sleep = nil
+    }
+}
+
+/// Which network the share's data actually uses. SMB multichannel binds a channel per
+/// client interface, so on a dock the session should be active on wired Ethernet even
+/// while a VPN owns the default route. Logged after each connect; a HUD flags a share
+/// that lands on the VPN or Wi-Fi only while Ethernet is connected.
+enum ShareChannels {
+    struct Channel: Equatable, Sendable {
+        var interface: String
+        var kind: String
+        var speed: String
+    }
+
+    /// Active channels from `smbutil multichannel -m` output.
+    static func active(_ text: String) -> [Channel] {
+        text.components(separatedBy: "\n").compactMap { line in
+            guard line.contains("session active") else { return nil }
+            let fields = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard fields.count > 4, let open = fields.firstIndex(where: { $0.hasPrefix("(") }) else { return nil }
+            let kind = fields[open].trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+            let interface = fields[open - 1]
+            let speed = fields.suffix(2).joined(separator: " ")
+            return Channel(interface: interface, kind: kind, speed: speed)
+        }
+    }
+
+    /// True when the client lists a connected wired NIC.
+    static func wiredAvailable(_ text: String) -> Bool {
+        text.contains("type: wired") && text.components(separatedBy: "Client NIC:").contains {
+            $0.contains("type: wired") && $0.contains("state connected")
+        }
+    }
+
+    private static let queue = DispatchQueue(label: "Tweaks.share-channels", qos: .utility)
+
+    static func report(_ mountPoint: URL) {
+        queue.asyncAfter(deadline: .now() + 3) { // channels finish setting up after the mount
+            let process = Process()
+            process.executableURL = URL(filePath: "/usr/bin/smbutil")
+            process.arguments = ["multichannel", "-m", mountPoint.path(percentEncoded: false)]
+            let pipe = Pipe()
+            process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
+            let done = DispatchSemaphore(value: 0)
+            process.terminationHandler = { _ in done.signal() }
+            guard (try? process.run()) != nil else { return }
+            guard done.wait(timeout: .now() + 5) == .success else {
+                process.terminate(); ShareRecoveryLog.write("Share channel check timed out"); return
+            }
+            let text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let channels = active(text)
+            let summary = channels.map { "\($0.interface) (\($0.kind)) \($0.speed)" }.joined(separator: ", ")
+            ShareRecoveryLog.write("Share channel: \(summary.isEmpty ? "none active" : summary)")
+            if wiredAvailable(text), !channels.contains(where: { $0.kind == "Ethernet" }) {
+                ShareRecoveryLog.write("Share is not using wired Ethernet although it is connected")
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        HUD.show("NAS isn't using Ethernet · check the dock", symbol: "cable.connector", duration: 4)
+                    }
+                }
+            }
+        }
     }
 }

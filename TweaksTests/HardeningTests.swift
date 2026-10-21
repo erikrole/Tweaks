@@ -122,3 +122,30 @@ final class OpenFilesBoundTests: XCTestCase {
         XCTAssertFalse(OpenFiles.bounded(fallback: true, timeout: 2) { false })
     }
 }
+
+final class ShareChannelTests: XCTestCase {
+    /// Trimmed from `smbutil multichannel` on 2026-10-21 (CalDigit TS5 Plus, VPN up).
+    private let sample = """
+    M     249  utun0  (tunnel  )   29             8 (RSS_0)  [session inactive     ]   10.131.62.40              445    990.0 Mb
+    ALT   250  en8    (Ethernet)   28             9 (RSS_0)  [session active       ]   10.131.62.33              445    10.0 Gb
+    ALT   252  en0    (wifi    )   16             9 (RSS_2)  [attempting to connect]   10.131.62.33              445    240.3 Mb
+    Client NIC:
+    \tname: en8, idx: 28, type: wired, speed 10.0 Gb, state connected
+    Client NIC:
+    \tname: utun0, idx: 29, type: tunnel, speed 990.0 Mb, state connected
+    """
+
+    func testActiveChannelIsWiredEthernet() {
+        XCTAssertEqual(ShareChannels.active(sample), [.init(interface: "en8", kind: "Ethernet", speed: "10.0 Gb")])
+        XCTAssertTrue(ShareChannels.wiredAvailable(sample))
+    }
+
+    func testTunnelOnlySessionIsNotEthernet() {
+        let tunnelOnly = sample.replacingOccurrences(of: "[session inactive     ]", with: "[session active       ]")
+            .replacingOccurrences(of: "(Ethernet)   28             9 (RSS_0)  [session active       ]",
+                                  with: "(Ethernet)   28             9 (RSS_0)  [session inactive     ]")
+        let channels = ShareChannels.active(tunnelOnly)
+        XCTAssertEqual(channels.map(\.interface), ["utun0"])
+        XCTAssertFalse(channels.contains { $0.kind == "Ethernet" })
+    }
+}
