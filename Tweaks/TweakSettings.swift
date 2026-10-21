@@ -20,6 +20,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     case quitOnLastWindow
     case unmountSharesBeforeSleep
     case autoConnectShares
+    case preferEthernetForVPN
     case keepAwakeHotKey
     case windowLayouts
     case deviceVolumeLimits
@@ -30,7 +31,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
 
     var defaultEnabled: Bool {
         switch self {
-        case .windowLayouts, .deviceVolumeLimits, .safeEjectHotKey, .duplicateDownloads: false
+        case .windowLayouts, .deviceVolumeLimits, .safeEjectHotKey, .duplicateDownloads, .preferEthernetForVPN: false
         default: true
         }
     }
@@ -54,6 +55,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .quitOnLastWindow: "Quit apps when their last window closes"
         case .unmountSharesBeforeSleep: "Disconnect network shares before sleep"
         case .autoConnectShares: "Keep work shares connected"
+        case .preferEthernetForVPN: "Move GlobalProtect to Ethernet"
         case .keepAwakeHotKey: "Keep Awake shortcuts"
         case .windowLayouts: "Restore saved window layouts"
         case .deviceVolumeLimits: "Limit volume for each output device"
@@ -85,7 +87,8 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .deviceVolumeLimits: "Apply your chosen limits when changing output devices or raising the volume. Devices with hardware-only volume controls are left alone."
         case .safeEjectHotKey: "Set a shortcut to eject idle external drives. Drives in use stay connected, and the apps using them are listed below."
         case .duplicateDownloads: "Compare new downloads with existing files in Downloads. Duplicate copies are kept for review instead of being unzipped or imported. Empty files and links are skipped."
-        case .autoConnectShares: "Mounts the shares listed below whenever their server is reachable (office network or VPN), using the password saved in your keychain."
+        case .autoConnectShares: "Reconnects the shares below after dock or VPN changes using your keychain. Recovers verified stuck connection attempts when no network shares are mounted. VPN sign-in may still be needed."
+        case .preferEthernetForVPN: "Moves a Wi-Fi-bound GlobalProtect connection to usable Ethernet on USB or Thunderbolt docks. Wi-Fi briefly reconnects and stays available afterward. VPN sign-in rules still apply."
         }
     }
 

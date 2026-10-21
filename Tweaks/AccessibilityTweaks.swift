@@ -23,7 +23,7 @@ enum AX {
         let path = Bundle.main.bundleURL.path
         let process = Process()
         process.executableURL = URL(filePath: "/bin/sh")
-        process.arguments = ["-c", "sleep 0.5; /usr/bin/open \"$0\"", path]
+        process.arguments = ["-c", "attempt=0; while kill -0 \"$1\" 2>/dev/null; do attempt=$((attempt + 1)); [ \"$attempt\" -lt 200 ] || exit 1; sleep 0.1; done; /usr/bin/open \"$0\"", path, String(getpid())]
         try? process.run()
         AppDelegate.reallyQuit = true
         NSApp.terminate(nil)

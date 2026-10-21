@@ -2,6 +2,25 @@
 
 ## Current state
 
+Version 0.1.3 adds bounded work-share mounts and conservative recovery for the
+verified macOS SMB account-lookup hang. Dock, VPN route/DNS and wake events trigger
+retries; the normal share path is reused when an empty macOS mount reservation
+remains. Active network shares are never force-unmounted for recovery. Debug validation passes 144 discovered tests (two skips, zero failures), the
+Finder package passes 19 tests, and Release benchmarks pass. Build 5 is signed,
+notarized and installed with existing preferences, Accessibility trust and active
+NAS access preserved; see [share recovery](docs/share-recovery-2026-10-20.md).
+
+Version 0.1.2 adds an opt-in Network setting to move a Wi-Fi-bound GlobalProtect
+VPN to ready wired Ethernet on USB or Thunderbolt docks. Wi-Fi is restored after
+the handoff. Dock detection uses active Ethernet interfaces rather than vendor
+names or a fixed port number; the Satechi and CalDigit TS5 Plus follow the same
+path. See [implementation and verification](docs/ethernet-handoff-2026-10-20.md).
+Build 4 was signed, notarized, and installed locally with existing preferences and
+Accessibility trust preserved. Debug app tests (130 discovered, three skips),
+19 Finder package tests, and required benchmarks pass. A live Satechi Ethernet
+network-service transition moved GlobalProtect automatically and restored Wi-Fi.
+The CalDigit at work requires its own physical acceptance check.
+
 Version 0.1.1 repairs all ten confirmed defects from the
 [2026-10-17 audit](docs/verification-2026-10-17.md), with permanent regressions for
 settings construction, preference migration, physical-key conflicts, per-keyboard
@@ -9,7 +28,7 @@ restoration, Downloads scoping/deferral, recoverable app replacement, channel-on
 volume controls and share recovery through cancellation/late unmounts. Activity
 estimates and delayed clipboard cleanup now have accurate wording. See the
 [repair report](docs/repair-2026-10-17.md) for checks and installation evidence.
-Build 3 (source `8ff89bc`) is notarized and installed locally. All five settings
+Build 3 (source `8ff89bc`) was notarized and installed locally. All five settings
 pages, Caps Lock HID restoration, preserved preferences and refreshed Accessibility
 trust were checked in the installed app. Debug and Release each pass 121 tests
 with three expected skips; final Finder-to-host delivery and physical-device

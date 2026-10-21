@@ -92,12 +92,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// ⌘Q (or Quit from the Dock) while the window is open just closes it; Tweaks keeps
     /// working. The Quit Tweaks button in the window really quits.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if Self.reallyQuit { return .terminateNow }
-        if let window = settingsWindow?.window, window.isVisible {
+        if !Self.reallyQuit, let window = settingsWindow?.window, window.isVisible {
             window.close()
             return .terminateCancel
         }
-        return .terminateNow
+        // Logout, restart and shutdown must never be held up: Wi-Fi restore is attempted once
+        // and the saved state finishes the job at the next launch.
+        let systemQuit = Self.isSystemQuit()
+        var replied = false
+        let reply: @MainActor (Bool) -> Void = { restored in
+            guard !replied else { return }
+            replied = true
+            if !restored && !systemQuit {
+                Self.reallyQuit = false
+                self.controller.apply(.preferEthernetForVPN)
+                HUD.show("Restoring Wi-Fi; Tweaks will keep running", symbol: "wifi.exclamationmark", duration: 4)
+            }
+            sender.reply(toApplicationShouldTerminate: restored || systemQuit)
+        }
+        controller.ethernetHandoff.prepareForTermination { restored in reply(restored) }
+        // A handoff in progress can keep the network queue busy; don't wait on it forever.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.quitDeadline) {
+            MainActor.assumeIsolated { reply(false) }
+        }
+        return .terminateLater
+    }
+
+    static let quitDeadline: TimeInterval = 8
+
+    /// True when macOS is logging out, restarting or shutting down.
+    static func isSystemQuit() -> Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              let reason = event.attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason))?.enumCodeValue else { return false }
+        return [kAELogOut, kAEReallyLogOut, kAEShowRestartDialog, kAERestart, kAEShowShutdownDialog, kAEShutDown]
+            .map { OSType($0) }.contains(reason)
     }
 
     /// Set by the window's Quit button and by relaunch, which really mean quit.
@@ -124,6 +152,7 @@ final class TweakController {
     private let quitter = LastWindowQuitter()
     private let shareSleep: ShareSleepManager
     private let shareConnect = ShareAutoConnect()
+    let ethernetHandoff = EthernetVPNHandoff()
 
     let windowLayouts: WindowLayouts
     let volumeLimits: DeviceVolumeLimits
@@ -148,6 +177,7 @@ final class TweakController {
 
     func start() {
         shareSleep.recoverPending()
+        ethernetHandoff.recoverPending()
         shortcuts.onChange = { [weak self] action in self?.register(action) }
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -267,6 +297,8 @@ final class TweakController {
             } else {
                 quitter.stop()
             }
+        case .preferEthernetForVPN:
+            on ? ethernetHandoff.start() : ethernetHandoff.stop()
         case .unmountSharesBeforeSleep:
             on ? shareSleep.start() : shareSleep.stop()
         case .keepAwakeHotKey:

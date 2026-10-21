@@ -13,10 +13,13 @@ enum NetworkShares {
         let serverURL: URL
     }
 
-    static func mounted() -> [Share] {
+    static func mounted() -> [Share] { snapshot() ?? [] }
+
+    static func snapshot() -> [Share]? {
         var mounts: UnsafeMutablePointer<statfs>?
-        let count = getmntinfo(&mounts, MNT_NOWAIT)
-        guard count > 0, let mounts else { return [] }
+        let count = getmntinfo_r_np(&mounts, MNT_NOWAIT)
+        defer { if let mounts { free(mounts) } }
+        guard count > 0, let mounts else { return nil }
         var shares: [Share] = []
         for index in 0..<Int(count) {
             var entry = mounts[index]
@@ -57,22 +60,13 @@ enum NetworkShares {
         return URL(string: "\(scheme)://\(rest)")
     }
 
-    /// Mounts silently with credentials from the keychain (as Finder saved them).
-    static func mount(_ url: URL) async -> Bool {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                var mountPoints: Unmanaged<CFArray>?
-                let openOptions = NSMutableDictionary()
-                openOptions[kNAUIOptionKey] = kNAUIOptionNoUI
-                let status = NetFSMountURLSync(url as CFURL, nil, nil, nil, openOptions, nil, &mountPoints)
-                mountPoints?.release()
-                continuation.resume(returning: status == 0 || status == EEXIST)
-            }
-        }
-    }
+    /// All callers share a bounded, cancellable mount and conservative recovery gate.
+    static func mount(_ url: URL) async -> Bool { await ShareMounter.shared.mount(url) }
 
     static func unmount(_ share: Share) async -> Bool {
-        await withCheckedContinuation { continuation in
+        ShareMountSafety.shared.beginUnmount()
+        defer { ShareMountSafety.shared.endUnmount() }
+        return await withCheckedContinuation { continuation in
             FileManager.default.unmountVolume(at: share.mountPoint, options: [.withoutUI]) { error in
                 continuation.resume(returning: error == nil)
             }
@@ -106,20 +100,6 @@ enum NetworkShares {
                 if once.take() { connection.cancel(); continuation.resume(returning: false) }
             }
         }
-    }
-}
-
-/// Serialises mount attempts so a half-up VPN can't stack several slow mounts of the
-/// same share.
-actor ShareMounter {
-    static let shared = ShareMounter()
-    private var inFlight: Set<URL> = []
-
-    func mount(_ url: URL) async -> Bool {
-        guard !inFlight.contains(url) else { return false }
-        inFlight.insert(url)
-        defer { inFlight.remove(url) }
-        return await NetworkShares.mount(url)
     }
 }
 
@@ -176,6 +156,7 @@ final class ShareSleepManager {
     private var skipped: [String] = []
 
     private func willSleep() {
+        ShareMountSafety.shared.setSleeping(true)
         recovery.suspend()
         skipped = []
         // Leave shares alone while a render runs or a file on them is open: a render
@@ -192,13 +173,16 @@ final class ShareSleepManager {
         recovery.enqueue(unmounting.map(\.serverURL))
         for share in unmounting {
             recovery.beginUnmount(share.serverURL)
+            ShareMountSafety.shared.beginUnmount()
             FileManager.default.unmountVolume(at: share.mountPoint, options: [.withoutUI]) { [weak self] _ in
+                ShareMountSafety.shared.endUnmount()
                 Task { @MainActor in self?.recovery.endUnmount(share.serverURL) }
             }
         }
     }
 
     private func didWake() {
+        ShareMountSafety.shared.setSleeping(false)
         if !skipped.isEmpty {
             Notifier.post(title: "Left \(skipped.joined(separator: ", ")) connected during sleep",
                           body: "A file on it was open or a render was running.")
@@ -220,10 +204,16 @@ final class ShareRemountQueue {
     private let wait: @MainActor (TimeInterval) async throws -> Void
     private let watchConnectivity: Bool
     private var task: Task<Void, Never>?
-    private var monitor: NWPathMonitor?
+    private var monitor: ShareConnectivityWatcher?
     private var generation = 0
     private var sleeping = true
     private var unmounting: [URL: Int] = [:]
+    /// True while a reachability check or mount is running. Network changes then only
+    /// ask for another pass instead of cancelling the mount (which can quarantine it).
+    private var busy = false
+    private var retryRequested = false
+    /// Network events arrive in bursts while a VPN settles; one pass covers a burst.
+    static let retryDebounce: TimeInterval = 2
     static let key = "sharesPendingSleepRestore"
 
     init(defaults: UserDefaults = .standard,
@@ -259,10 +249,11 @@ final class ShareRemountQueue {
 
     func suspend() {
         sleeping = true
+        busy = false; retryRequested = false
         generation += 1
         task?.cancel()
         task = nil
-        monitor?.cancel()
+        monitor?.stop()
         monitor = nil
     }
 
@@ -270,12 +261,8 @@ final class ShareRemountQueue {
         sleeping = false
         guard !pending.isEmpty, task == nil else { return }
         if watchConnectivity, monitor == nil {
-            let monitor = NWPathMonitor()
-            monitor.pathUpdateHandler = { [weak self] path in
-                guard path.status == .satisfied else { return }
-                Task { @MainActor in self?.retryNow() }
-            }
-            monitor.start(queue: DispatchQueue(label: "Tweaks.share-restore"))
+            let monitor = ShareConnectivityWatcher { [weak self] in self?.retryNow() }
+            monitor.start()
             self.monitor = monitor
         }
         beginRetry(initialDelay: 8)
@@ -283,9 +270,10 @@ final class ShareRemountQueue {
 
     func retryNow() {
         guard !sleeping, !pending.isEmpty else { return }
+        if busy { retryRequested = true; return }
         generation += 1
         task?.cancel()
-        beginRetry(initialDelay: 0)
+        beginRetry(initialDelay: Self.retryDebounce)
     }
 
     private func beginRetry(initialDelay: TimeInterval) {
@@ -294,7 +282,10 @@ final class ShareRemountQueue {
             guard let self else { return }
             var attempt = 0
             while !self.pending.isEmpty {
-                do { try await self.wait(attempt == 0 ? initialDelay : (attempt < 12 ? 15 : 60)) }
+                let delay: TimeInterval = self.retryRequested ? Self.retryDebounce
+                    : (attempt == 0 ? initialDelay : (attempt < 12 ? 15 : 60))
+                self.retryRequested = false
+                do { try await self.wait(delay) }
                 catch { return }
                 guard !Task.isCancelled, self.generation == token else { return }
                 let missing = Set(ShareAutoConnect.sharesToMount(wanted: Array(self.pending), mounted: self.mounted()))
@@ -305,9 +296,14 @@ final class ShareRemountQueue {
                 for url in missing {
                     guard self.unmounting[url] == nil else { continue }
                     guard !Task.isCancelled, self.generation == token else { return }
-                    guard await self.reachable(url) else { continue }
+                    self.busy = true
+                    let isReachable = await self.reachable(url)
+                    self.busy = false
+                    guard isReachable else { continue }
                     guard !Task.isCancelled, self.generation == token else { return }
+                    self.busy = true
                     let restored = await self.mount(url)
+                    self.busy = false
                     guard !Task.isCancelled, self.generation == token else { return }
                     if restored { self.pending.remove(url); self.save() }
                 }
@@ -315,7 +311,7 @@ final class ShareRemountQueue {
             }
             if self.generation == token {
                 self.task = nil
-                self.monitor?.cancel()
+                self.monitor?.stop()
                 self.monitor = nil
             }
         }
@@ -326,76 +322,97 @@ final class ShareRemountQueue {
     }
 }
 
-/// Keeps your work shares connected: whenever the network changes and a share's server
-/// is reachable (office network or VPN), it's mounted if it isn't already.
+/// Retries missing shares as dock/VPN routes settle, without canceling a mount on
+/// every path notification or stacking more requests behind a stalled helper.
 @MainActor
 final class ShareAutoConnect {
     var shares: [URL] = []
-    /// Backup for VPNs that connect without a path change.
     static let pollInterval: TimeInterval = 5 * 60
-
-    private var monitor: NWPathMonitor?
+    private let mounted: @MainActor () -> [URL]
+    private let reachable: @MainActor (URL) async -> Bool
+    private let mount: @MainActor (URL) async -> Bool
+    private let wait: @MainActor (TimeInterval) async throws -> Void
+    private let watchConnectivity: Bool
+    private var monitor: ShareConnectivityWatcher?
     private var pending: DispatchWorkItem?
     private var timer: Timer?
     private var checkTask: Task<Void, Never>?
+    private var running = false
+    private var generation = 0
+    private var checkAgain = false
+
+    init(mounted: @escaping @MainActor () -> [URL] = { NetworkShares.mounted().map(\.serverURL) },
+         reachable: @escaping @MainActor (URL) async -> Bool = { await NetworkShares.isReachable($0) },
+         mount: @escaping @MainActor (URL) async -> Bool = { await ShareMounter.shared.mount($0) },
+         wait: @escaping @MainActor (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
+         watchConnectivity: Bool = true) {
+        self.mounted = mounted; self.reachable = reachable; self.mount = mount
+        self.wait = wait; self.watchConnectivity = watchConnectivity
+    }
 
     func start() {
-        guard monitor == nil else { return }
-        let monitor = NWPathMonitor()
-        monitor.pathUpdateHandler = { [weak self] path in
-            guard path.status == .satisfied else { return }
-            Task { @MainActor in self?.scheduleCheck() }
+        guard !running else { return }
+        running = true
+        if watchConnectivity {
+            let watcher = ShareConnectivityWatcher { [weak self] in self?.networkChanged() }
+            watcher.start(); monitor = watcher
+            let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.networkChanged() }
+            }
+            timer.tolerance = 60
+            RunLoop.main.add(timer, forMode: .common); self.timer = timer
         }
-        monitor.start(queue: DispatchQueue(label: "Tweaks.shares"))
-        self.monitor = monitor
-        // VPNs often connect without a path change; check every few minutes as well.
-        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.scheduleCheck() }
-        }
-        timer.tolerance = 60
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
-        scheduleCheck()
+        networkChanged()
     }
 
     func stop() {
-        monitor?.cancel()
-        monitor = nil
-        timer?.invalidate()
-        timer = nil
-        pending?.cancel()
-        pending = nil
-        checkTask?.cancel()
-        checkTask = nil
+        running = false; generation += 1; checkAgain = false
+        ShareMountSafety.shared.invalidate()
+        monitor?.stop(); monitor = nil
+        timer?.invalidate(); timer = nil
+        pending?.cancel(); pending = nil
+        checkTask?.cancel(); checkTask = nil
     }
 
-    private func scheduleCheck() {
+    func networkChanged() {
+        guard running else { return }
+        guard checkTask == nil else { checkAgain = true; return }
         pending?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated { self?.check() }
-        }
+        if !watchConnectivity { beginCheck(); return }
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.beginCheck() } }
         pending = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
     }
 
-    private func check() {
+    private func beginCheck() {
+        guard running, checkTask == nil else { return }
+        pending = nil
+        let token = generation
         let wanted = shares
-        checkTask?.cancel()
-        checkTask = Task {
-            let mounted = NetworkShares.mounted().map(\.serverURL)
-            for url in Self.sharesToMount(wanted: wanted, mounted: mounted) {
-                if Task.isCancelled { return }
-                guard await NetworkShares.isReachable(url) else { continue }
-                if Task.isCancelled { return }
-                _ = await ShareMounter.shared.mount(url)
+        checkTask = Task { [weak self] in
+            guard let self else { return }
+            for delay in [0.0, 5, 15, 30, 60] {
+                do { try await self.wait(delay) } catch { break }
+                guard !Task.isCancelled, self.running, self.generation == token else { break }
+                let missing = Self.sharesToMount(wanted: wanted, mounted: self.mounted())
+                if missing.isEmpty { break }
+                for url in missing {
+                    guard !Task.isCancelled, self.running, self.generation == token else { break }
+                    guard await self.reachable(url) else { continue }
+                    guard !Task.isCancelled, self.running, self.generation == token else { break }
+                    _ = await self.mount(url)
+                }
             }
+            guard self.generation == token else { return }
+            self.checkTask = nil
+            if self.checkAgain { self.checkAgain = false; self.networkChanged() }
         }
     }
 
     /// Shares that are wanted but not mounted. A share counts as mounted when the same
     /// share name is mounted from any address, so connecting by IP or an alias doesn't
     /// lead to a second copy at /Volumes/users-1.
-    static func sharesToMount(wanted: [URL], mounted: [URL]) -> [URL] {
+    nonisolated static func sharesToMount(wanted: [URL], mounted: [URL]) -> [URL] {
         func shareName(_ url: URL) -> String {
             url.path().split(separator: "/").first.map { String($0).lowercased() } ?? ""
         }

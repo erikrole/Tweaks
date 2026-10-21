@@ -383,7 +383,8 @@ final class WatcherIntegrationTests: XCTestCase {
         defer { watcher.stop() }
         try Data("new".utf8).write(to: folder.appending(path: "Photo.JPG"))
 
-        let deadline = Date().addingTimeInterval(6)
+        // Real FSEvents plus the settle time; generous so a busy machine doesn't fail it.
+        let deadline = Date().addingTimeInterval(20)
         while Date() < deadline {
             try await Task.sleep(for: .milliseconds(200))
             if FileManager.default.fileExists(atPath: folder.appending(path: "Photo.jpg").path),

@@ -12,7 +12,7 @@ final class NewTweakTests: XCTestCase {
         let defaults = UserDefaults(suiteName: domain)!
         defer { defaults.removePersistentDomain(forName: domain) }
         let settings = TweakSettings(defaults: defaults)
-        for tweak in [Tweak.windowLayouts, .deviceVolumeLimits, .duplicateDownloads, .safeEjectHotKey] {
+        for tweak in [Tweak.windowLayouts, .deviceVolumeLimits, .duplicateDownloads, .safeEjectHotKey, .preferEthernetForVPN] {
             XCTAssertFalse(settings.isOn(tweak))
             settings.set(tweak, on: true)
             XCTAssertTrue(TweakSettings(defaults: defaults).isOn(tweak))

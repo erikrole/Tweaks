@@ -53,12 +53,26 @@ where every tweak has its own switch.
   Media Encoder or Premiere is busy, until two minutes after the work stops.
 
 **Network**
+- Optional **Move GlobalProtect to Ethernet** detects usable wired Ethernet on USB
+  and Thunderbolt docks, including Satechi and CalDigit TS5 Plus. If GlobalProtect
+  stays on Wi-Fi, it briefly reconnects Wi-Fi to move the tunnel, then restores
+  Wi-Fi. It verifies the wired router and VPN gateway first, leaves user-disabled
+  Wi-Fi alone, and makes one attempt per connection with a five-minute cooldown.
+  It never changes VPN authentication; Duo may still be required by the VPN.
+  Turning the feature off or quitting restores any Wi-Fi state it owns.
 - Network shares are unmounted as the Mac sleeps and remounted after wake once the
   server answers. Unresolved restores persist across further sleeps and app restarts;
   network changes trigger retries, with a one-minute retry after the initial attempts.
-- Work shares (the NAS share to start) are mounted whenever their server is reachable,
-  on the office network or over VPN, with the keychain password. The server list
-  and enable switch are stored separately; old preferences migrate automatically.
+- **Keep work shares connected** retries after dock, VPN route/DNS and wake changes,
+  with short retries while the VPN settles and a five-minute fallback. Mount requests
+  time out after 25 seconds and cancel without waiting forever for the system helper.
+  A verified macOS SMB account-lookup hang can reset that user's share helper only
+  when no network shares are mounted and no sleep/unmount work is running; resets
+  have a ten-minute cooldown. Active shares are left connected. Saved keychain
+  credentials are used; VPN/Duo authentication still needs the user when requested.
+  Empty macOS mount reservations can be reused to preserve the usual /Volumes path;
+  files and mount folders are never deleted or renamed. The server list and enable
+  switch remain separate, and turning the switch off cancels pending work.
 
 **Keep Awake** (replaces caffeinate)
 - Two modes, both running until you stop them:
@@ -110,8 +124,8 @@ where every tweak has its own switch.
   manual save/restore shortcuts are configurable. Closed, full-screen, minimized,
   or ambiguous windows are left alone. Window identity is stored as a fingerprint.
 
-The new automatic window-layout, device-volume, and duplicate-review features are
-off by default. The new save/restore/eject shortcuts start unassigned; choose their
+The new automatic window-layout, device-volume, duplicate-review, and Ethernet
+VPN handoff features are off by default. The new save/restore/eject shortcuts start unassigned; choose their
 keys in **Shortcuts** and enable the corresponding feature. Image export and the
 manual eject button run only when selected.
 
@@ -133,9 +147,15 @@ they come back.
 
 ## Build and run
 
+The [0.1.3 share recovery report](docs/share-recovery-2026-10-20.md) records bounded
+mounts, dock/VPN retries and guarded recovery, plus the 2026-10-21 hardening pass.
+Build 6 is Developer ID-signed (not notarized) and installed locally; existing
+settings and active NAS access are preserved. Live
+unplug/stall testing remains deferred while Adobe has files open on the share.
+
 The [0.1.1 repair report](docs/repair-2026-10-17.md) records fixes and verification
 for every confirmed defect in the [2026-10-17 audit](docs/verification-2026-10-17.md).
-Build 3 (source `8ff89bc`) is signed, notarized and installed locally; final Debug
+Build 3 (source `8ff89bc`) was signed, notarized and installed locally; final Debug
 and Release checks each passed 121 tests with three expected skips and no failures.
 Hardware, network and physical-input acceptance remain separate from fixture tests.
 

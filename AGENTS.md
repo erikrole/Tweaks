@@ -58,6 +58,14 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   `autoConnectShareURLs`. Preserve legacy migration and disabled intent. Pending
   sleep restores persist separately; cancellation must never discard them. Keep
   unmounts in flight gated until their callbacks finish, including after wake.
+- Share mounts use the cancellable NetFS async API and one global mount/reset
+  lease. Timeout/cancel must finish without a NetFS callback. Observe route, DNS,
+  link and wake changes; do not stack attempts while VPN routes settle. Reset only
+  a same-user, exact-path/start-identity NetAuthSysAgent with the known SMB account
+  lookup hang in two separated samples, no mounted network shares, and no sleep or
+  unmount work. Unknown mount-table state fails closed. Reuse only empty owned
+  local macOS mount reservations; never delete mount folders or force unmount.
+  Recovery tests inject their backend and must never reset a real system helper.
 - Caps Lock originals are per HID service and boot session. Consume an original
   only after a successful restore. Tests inject writes; do not change real HID
   settings in ordinary tests.
@@ -88,6 +96,15 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   app. An allowed TCC record for a development identity does not establish trust
   for a Developer ID build with the same bundle ID. Preserve the permission scope;
   any required local authentication must be completed by the user.
+- Ethernet VPN handoffs stay on their utility queue. Require a live wired router,
+  an Ethernet-bound gateway probe, and GlobalProtect ownership before cycling
+  Wi-Fi. Preserve user-disabled Wi-Fi, save recovery state before power changes,
+  restore on cancellation/quit/restart, and never change VPN credentials or MFA.
+  Tests must inject policy inputs and never toggle a real network interface.
+- Open-file checks go through `OpenFiles`, which scans per process by device and
+  inode, skips Virtualization.framework VM processes and is bounded; never call
+  `proc_listpidspath` or `lsof` directly (both hung on a VM process). Timeouts and
+  incomplete scans must fail safe as "in use".
 - Live NAS, Accessibility, power, and real Finder behavior require separate live
   evidence; passing isolated tests does not establish those behaviors.
 

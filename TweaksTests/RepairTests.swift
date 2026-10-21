@@ -136,7 +136,7 @@ final class RepairTests: XCTestCase {
         queue.suspend()
         queue.enqueue([b])
         XCTAssertEqual(queue.pending, [a, b])
-        let reloaded = ShareRemountQueue(defaults: defaults, watchConnectivity: false)
+        let reloaded = ShareRemountQueue(defaults: defaults, mounted: { [] }, reachable: { _ in false }, mount: { _ in false }, watchConnectivity: false)
         XCTAssertEqual(reloaded.pending, [a, b])
         queue.suspend()
         reloaded.suspend()
