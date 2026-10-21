@@ -272,10 +272,15 @@ enum ShareHelperRecovery {
         }
         let mains = threads.filter { $0.components(separatedBy: "\n").first?.contains("com.apple.main-thread") == true }
         let mounts = threads.filter { $0.contains("netfs_Mount") }
-        guard mains.count == 1, mounts.count == 1 else { return false }
+        guard mains.count == 1, !mounts.isEmpty, mounts.count <= 8 else { return false }
+        // Each retry adds another mount thread stuck in the same account lookup, sometimes
+        // inside LsarGetUserName and sometimes just above it. Every mount thread must be
+        // stuck in that RPC, and at least one must show LsarGetUserName.
+        let stuckInLookup = ["netfs_Mount", "SMB_Mount", "GetNetworkAccountSID",
+                             "rpc__cn_call_transceive", "rpc__cn_assoc_receive_frag", "__psynch_cvwait"]
         return ordered(["objc_sync_enter", "_os_unfair_lock_lock_slow", "__ulock_wait"], in: mains[0])
-            && ordered(["netfs_Mount", "SMB_Mount", "GetNetworkAccountSID", "LsarGetUserName",
-                        "rpc__cn_call_transceive", "rpc__cn_assoc_receive_frag", "__psynch_cvwait"], in: mounts[0])
+            && mounts.allSatisfy { ordered(stuckInLookup, in: $0) }
+            && mounts.contains { ordered(["GetNetworkAccountSID", "LsarGetUserName", "rpc__cn_call_transceive"], in: $0) }
     }
 
     private static func sample(_ helper: ShareHelperIdentity) -> String? {

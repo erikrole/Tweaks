@@ -125,6 +125,20 @@ final class ShareConnectionRecoveryTests: XCTestCase {
         XCTAssertFalse(ShareHelperRecovery.knownHang(frames.replacingOccurrences(of: "__ulock_wait2", with: "")))
         XCTAssertFalse(ShareHelperRecovery.knownHang("SMB_Mount GetNetworkAccountSID LsarGetUserName rpc__cn_call_transceive __psynch_cvwait __ulock_wait2"))
         XCTAssertFalse(ShareHelperRecovery.knownHang(frames + "\n            10 Thread_3\n                netfs_Mount"))
+        // As sampled live on 2026-10-21: a second retry stuck just above LsarGetUserName.
+        let secondRetry = """
+
+            10 Thread_3
+            + 10 netfs_Mount
+            + 10 SMB_Mount
+            + 10 GetNetworkAccountSID
+            + 10 rpc__cn_call_transceive
+            + 10 rpc__cn_assoc_receive_frag
+            + 10 __psynch_cvwait
+        """.replacingOccurrences(of: "+", with: " ")
+        XCTAssertTrue(ShareHelperRecovery.knownHang(frames + secondRetry))
+        XCTAssertFalse(ShareHelperRecovery.knownHang(frames.replacingOccurrences(of: "LsarGetUserName", with: "") + secondRetry),
+                       "at least one mount thread must show the account lookup")
 
     }
 
