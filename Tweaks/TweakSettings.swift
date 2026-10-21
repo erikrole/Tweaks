@@ -21,6 +21,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     case unmountSharesBeforeSleep
     case autoConnectShares
     case preferEthernetForVPN
+    case vpnReconnectReminder
     case keepAwakeHotKey
     case windowLayouts
     case deviceVolumeLimits
@@ -56,6 +57,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .unmountSharesBeforeSleep: "Disconnect network shares before sleep"
         case .autoConnectShares: "Keep work shares connected"
         case .preferEthernetForVPN: "Move GlobalProtect to Ethernet"
+        case .vpnReconnectReminder: "Remind me to reconnect GlobalProtect"
         case .keepAwakeHotKey: "Keep Awake shortcuts"
         case .windowLayouts: "Restore saved window layouts"
         case .deviceVolumeLimits: "Limit volume for each output device"
@@ -88,6 +90,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .safeEjectHotKey: "Set a shortcut to eject idle external drives. Drives in use stay connected, and the apps using them are listed below."
         case .duplicateDownloads: "Compare new downloads with existing files in Downloads. Duplicate copies are kept for review instead of being unzipped or imported. Empty files and links are skipped."
         case .autoConnectShares: "Reconnects the shares below after dock or VPN changes using your keychain. Recovers verified stuck connection attempts when no network shares are mounted. VPN sign-in may still be needed."
+        case .vpnReconnectReminder: "If you leave the wired network with GlobalProtect turned off, one notification reminds you to reconnect it. Tweaks never connects, disconnects or reroutes the VPN."
         case .preferEthernetForVPN: "Moves a Wi-Fi-bound GlobalProtect connection to usable Ethernet on USB or Thunderbolt docks. Wi-Fi briefly reconnects and stays available afterward. VPN sign-in rules still apply."
         }
     }

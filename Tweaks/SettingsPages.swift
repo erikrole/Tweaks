@@ -147,7 +147,7 @@ extension SettingsWindowController {
 
     private func buildNetwork() {
         addSection("Network")
-        addToggles([.preferEthernetForVPN, .unmountSharesBeforeSleep, .autoConnectShares])
+        addToggles([.preferEthernetForVPN, .vpnReconnectReminder, .unmountSharesBeforeSleep, .autoConnectShares])
         sharesBox.orientation = .vertical
         sharesBox.alignment = .leading
         sharesBox.spacing = 4

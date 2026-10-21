@@ -149,3 +149,26 @@ final class ShareChannelTests: XCTestCase {
         XCTAssertFalse(channels.contains { $0.kind == "Ethernet" })
     }
 }
+
+final class VPNReminderStateTests: XCTestCase {
+    func testRemindsOnceAfterLeavingTheDockWithVPNOff() {
+        var state = VPNReminderState()
+        XCTAssertFalse(state.update(wired: true, vpnUp: false))
+        XCTAssertTrue(state.update(wired: false, vpnUp: false), "undocked with the VPN off")
+        XCTAssertFalse(state.update(wired: false, vpnUp: false), "only once")
+    }
+
+    func testNoReminderWhenVPNWasOnOrComesBack() {
+        var state = VPNReminderState()
+        XCTAssertFalse(state.update(wired: true, vpnUp: true))
+        XCTAssertFalse(state.update(wired: false, vpnUp: true))
+        XCTAssertFalse(state.update(wired: true, vpnUp: false))
+        XCTAssertFalse(state.update(wired: true, vpnUp: true), "reconnected at the desk")
+        XCTAssertFalse(state.update(wired: false, vpnUp: false), "left with it on, then it dropped: not ours to nag")
+    }
+
+    func testNeverDockedNeverReminds() {
+        var state = VPNReminderState()
+        XCTAssertFalse(state.update(wired: false, vpnUp: false))
+    }
+}

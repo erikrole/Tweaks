@@ -33,6 +33,7 @@
 		785E6FFDD4DC1C0476E3BE62 /* ScopeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F635E28C8BA73956FF610E36 /* ScopeController.swift */; };
 		81D5335271B06616917DADD0 /* EthernetHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6616555CB7C62F617AA17330 /* EthernetHandoff.swift */; };
 		82934CB0C04FF5ADD0B6D4A2 /* TweaksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273D3495028E3E79230CC808 /* TweaksTests.swift */; };
+		8526E228BFB3D87A033B427E /* VPNReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B925D43676CC11D2865EDF /* VPNReminder.swift */; };
 		86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */; };
 		88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */; };
 		8D570C7F33B8D028C3F2381E /* IdleDimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B070E7081A928251873A8A6 /* IdleDimmer.swift */; };
@@ -120,6 +121,7 @@
 		6616555CB7C62F617AA17330 /* EthernetHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EthernetHandoff.swift; sourceTree = "<group>"; };
 		663F4C04ADBA2AE66F81D244 /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
 		68FBBFB6B0508737DB126C6C /* BundledMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledMedia.swift; sourceTree = "<group>"; };
+		74B925D43676CC11D2865EDF /* VPNReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNReminder.swift; sourceTree = "<group>"; };
 		77B5861D539F71B4156C522D /* TweaksMedia.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TweaksMedia.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkProfileTests.swift; sourceTree = "<group>"; };
 		7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeEject.swift; sourceTree = "<group>"; };
@@ -267,6 +269,7 @@
 				099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */,
 				4250E65BFE4ECAA3C306C480 /* TweaksApp.swift */,
 				B669558E8002E222EB08AA36 /* TweakSettings.swift */,
+				74B925D43676CC11D2865EDF /* VPNReminder.swift */,
 				DD5360C1DD194AFD5689306C /* WindowLayouts.swift */,
 			);
 			path = Tweaks;
@@ -494,6 +497,7 @@
 				62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */,
 				AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */,
 				65D4944005B264C99ED50D66 /* TweaksApp.swift in Sources */,
+				8526E228BFB3D87A033B427E /* VPNReminder.swift in Sources */,
 				D5EA9215B2EFC0C482808342 /* WindowLayouts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

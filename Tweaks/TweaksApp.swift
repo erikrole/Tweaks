@@ -153,6 +153,7 @@ final class TweakController {
     private let shareSleep: ShareSleepManager
     private let shareConnect = ShareAutoConnect()
     let ethernetHandoff = EthernetVPNHandoff()
+    let vpnReminder = VPNReminder()
 
     let windowLayouts: WindowLayouts
     let volumeLimits: DeviceVolumeLimits
@@ -299,6 +300,8 @@ final class TweakController {
             }
         case .preferEthernetForVPN:
             on ? ethernetHandoff.start() : ethernetHandoff.stop()
+        case .vpnReconnectReminder:
+            on ? vpnReminder.start() : vpnReminder.stop()
         case .unmountSharesBeforeSleep:
             on ? shareSleep.start() : shareSleep.stop()
         case .keepAwakeHotKey:
