@@ -3,7 +3,7 @@ import Darwin
 import IOKit.pwr_mgt
 
 /// Away mode's screen: the display never sleeps (so macOS never locks), but the built-in
-/// panel fades to 0 (external displays fade to black) after a short idle and comes back on any key or mouse input, including
+/// panel fades to 0 (external displays fade to black, the keyboard light goes off) after a short idle and comes back on any key or mouse input, including
 /// input from remote or agent control. Nothing covers the screen, so screenshots still
 /// show the real desktop. The Mac stays unlocked while this runs.
 @MainActor
@@ -132,6 +132,7 @@ final class IdleDimmer {
     }
 
     private var fadeTimer: Timer?
+    private let keyboard = KeyboardBacklight()
     /// The fade down takes this long; waking is instant.
     static let fadeDuration: TimeInterval = 0.8
     private static let fadeSteps = 16
@@ -143,6 +144,7 @@ final class IdleDimmer {
         if isDimmed {
             // Auto-brightness can raise it again; put it back.
             if fadeTimer == nil { builtIn.forEach { _ = set($0, 0) } }
+            keyboard.turnOff()
             return
         }
         for id in builtIn where savedBrightness[id] == nil {
@@ -154,6 +156,7 @@ final class IdleDimmer {
         }
         dimmedAt = Date()
         isDimmed = true
+        keyboard.turnOff()
         fadeStep = 0
         let timer = Timer(timeInterval: Self.fadeDuration / Double(Self.fadeSteps), repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.advanceFade() }
@@ -191,6 +194,7 @@ final class IdleDimmer {
             for (id, level) in savedBrightness { _ = set(id, level) }
         }
         if isDimmed { CGDisplayRestoreColorSyncSettings() }
+        keyboard.restore()
         savedBrightness = [:]
         isDimmed = false
         UserDefaults.standard.removeObject(forKey: Self.restoreKey)
@@ -202,5 +206,53 @@ final class IdleDimmer {
               let set = symbol("DisplayServicesSetBrightness", as: SetBrightness.self) else { return }
         for id in builtInDisplays { _ = set(id, level) }
         defaults.removeObject(forKey: restoreKey)
+    }
+}
+
+/// The keyboard backlight, through CoreBrightness's KeyboardBrightnessClient (private but
+/// long-stable). Changes aren't committed, so the saved preference stays as you set it.
+@MainActor
+private final class KeyboardBacklight {
+    private typealias Get = @convention(c) (AnyObject, Selector, UInt64) -> Float
+    private typealias Set = @convention(c) (AnyObject, Selector, Float, Int32, Bool, UInt64) -> Bool
+
+    private static let getSelector = NSSelectorFromString("brightnessForKeyboard:")
+    private static let setSelector = NSSelectorFromString("setBrightness:fadeSpeed:commit:forKeyboard:")
+    private static let idsSelector = NSSelectorFromString("copyKeyboardBacklightIDs")
+
+    private lazy var client: NSObject? = {
+        _ = dlopen("/System/Library/PrivateFrameworks/CoreBrightness.framework/CoreBrightness", RTLD_LAZY)
+        guard let type = NSClassFromString("KeyboardBrightnessClient") as? NSObject.Type else { return nil }
+        let client = type.init()
+        let needed = [Self.getSelector, Self.setSelector, Self.idsSelector]
+        return needed.allSatisfy { client.responds(to: $0) } ? client : nil
+    }()
+
+    private var saved: [UInt64: Float] = [:]
+
+    private var ids: [UInt64] {
+        guard let client else { return [] }
+        let list = client.perform(Self.idsSelector)?.takeRetainedValue() as? [NSNumber]
+        return list?.map(\.uint64Value) ?? []
+    }
+
+    func turnOff() {
+        guard let client else { return }
+        let get = unsafeBitCast(client.method(for: Self.getSelector), to: Get.self)
+        let set = unsafeBitCast(client.method(for: Self.setSelector), to: Set.self)
+        for id in ids {
+            if saved[id] == nil {
+                let level = get(client, Self.getSelector, id)
+                if level > 0.01 { saved[id] = level }
+            }
+            _ = set(client, Self.setSelector, 0, 500, false, id)
+        }
+    }
+
+    func restore() {
+        guard let client, !saved.isEmpty else { return }
+        let set = unsafeBitCast(client.method(for: Self.setSelector), to: Set.self)
+        for (id, level) in saved { _ = set(client, Self.setSelector, level, 0, false, id) }
+        saved = [:]
     }
 }
