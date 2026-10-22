@@ -46,6 +46,9 @@ The final build is Developer ID-signed, notarized, stapled and installed as
 0.1.6 build 9 from source `9509af23b768552d7443e7d9ae1f9367ad56f127`.
 Apple accepted submission `f6024716-d682-4b7d-85d9-9e2a1e40e3b0`.
 Strict host/extension signatures, Gatekeeper and stapler validation passed.
+The [published v0.1.6 release](https://github.com/erikrole/Tweaks/releases/tag/v0.1.6)
+tags that exact source revision. Both uploaded assets are complete; their sizes
+and GitHub SHA-256 digests match the local signed ZIP and checksum file.
 The signed installed app retains Accessibility trust. Its final retest passed
 a timed Away session with both power assertions, Stop, expanded date controls,
 15-minute pause, change to a chosen resume time, and Resume Now. Manual Keep Awake
