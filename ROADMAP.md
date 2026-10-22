@@ -2,6 +2,13 @@
 
 ## Current state
 
+Version 0.1.5 rebuilds Settings with a native source-list sidebar, nine focused
+pages, semantic system colors, grouped AppKit controls and a resizable window.
+Standard Settings/Edit/Window menus support keyboard navigation and text editing.
+Existing preferences and background behavior are retained; shortcut recording
+cancels on navigation, focus loss and close. See
+[native Settings verification](docs/native-settings-2026-10-22.md).
+
 Version 0.1.4 consolidates audio controls while preserving existing preferences,
 adds session-only recent actions and a 30-minute file/link automation pause, and
 adds immediate copied-link cleaning with guarded restore and site exclusions.

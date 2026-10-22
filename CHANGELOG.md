@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5 — 2026-10-22
+
+- Rebuild Settings with native sidebar navigation, grouped controls, system
+  appearance and a resizable window. Give Audio, Copied Links, Shortcuts and
+  Activity dedicated pages while preserving every existing control and preference.
+- Add standard Settings, Edit and Window menus, including ⌘, to open Settings,
+  ⌘W to close it and the explicit ⌘Q Quit command.
+- Cancel shortcut recording when switching panes, changing windows or closing
+  Settings so hidden controls cannot capture later keystrokes.
+
+See [validation and release status](docs/native-settings-2026-10-22.md).
+
 ## 0.1.4 — 2026-10-22
 
 - Consolidate wake and per-device volume controls, with a configurable default

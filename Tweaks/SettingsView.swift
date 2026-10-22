@@ -2,7 +2,7 @@ import AppKit
 import Observation
 
 /// The settings window. Built with AppKit so the idle process does not map SwiftUI.
-/// Five short pages instead of one long scroll.
+/// Native sidebar navigation, grouped controls and system appearance.
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let settings: TweakSettings
@@ -12,11 +12,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private let scroll = NSScrollView()
     private let chrome = NSStackView()
+    private let splitController = NSSplitViewController()
+    private let sidebar = SettingsSidebar()
+    private let pageTitle = NSTextField(labelWithString: "General")
+    private let pageSummary = NSTextField(labelWithString: "")
     private var pages: [SettingsPage] = []
     private var selectedTab = SettingsTab.general.rawValue
     /// The column currently being built. Nil once the pages exist.
     var column: NSStackView?
-    var toggles: [Tweak: NSSwitch] = [:]
+    var sectionColumn: NSStackView?
+    var toggles: [Tweak: NSButton] = [:]
     var accessNotes: [Tweak: NSTextField] = [:]
     var recorders: [ShortcutAction: ShortcutRecorder] = [:]
     let sessionLabel = NSTextField(labelWithString: "")
@@ -31,7 +36,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let loginError = NSTextField(labelWithString: "")
     private let accessRow = NSStackView()
     var measured: [(NSTextField, CGFloat)] = []
-    var columnConstraints: [NSLayoutConstraint] = []
+    var columnConstraints: [(NSLayoutConstraint, CGFloat)] = []
     private var shownShares: [String] = []
     private var shownApps: [String] = []
     let volumeBox = NSStackView()
@@ -65,19 +70,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         self.tweaks = tweaks
         self.launchAtLogin = launchAtLogin
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 600),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
-        window.title = "Tweaks"
+        window.title = "Tweaks Settings"
+        window.contentMinSize = NSSize(width: 760, height: 540)
+        window.contentMaxSize = NSSize(width: 1100, height: 1000)
         window.isReleasedWhenClosed = false
-        // Paper is a light palette. Aqua keeps switches, buttons and fields on that side in Dark Mode.
-        // Leave the titlebar opaque. A transparent one is layer-backed, and that display link
-        // keeps running after the window is ordered out for as long as the window object exists.
-        window.appearance = NSAppearance(named: .aqua)
-        window.isOpaque = true
-        window.isMovableByWindowBackground = true
-        window.backgroundColor = Paper.background
+        window.backgroundColor = .windowBackgroundColor
+        // Inherit the system appearance, accent and accessibility preferences.
+        window.appearance = nil
         super.init(window: window)
         window.delegate = self
         window.contentView = build()
@@ -95,13 +98,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         clipboardTimer?.invalidate()
         clipboardTimer = nil
         window?.delegate = nil
+        recorders.values.forEach { $0.cancelRecording() }
+        sidebar.onSelect = nil
         // Drop the scroll view before the controller goes. A tall document was being
         // redrawn on a display link even after the window had ordered out.
         scroll.documentView = nil
         window?.contentView = nil
         pages.removeAll()
         column = nil
+        sectionColumn = nil
+        recorders.removeAll()
         columnConstraints.removeAll()
+        measured.removeAll()
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated { self?.onClose?() }
         }
@@ -137,10 +145,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Build
 
     private func build() -> NSView {
-        scroll.drawsBackground = true
-        scroll.backgroundColor = Paper.background
-        scroll.contentView.drawsBackground = true
-        scroll.contentView.backgroundColor = Paper.background
+        scroll.identifier = NSUserInterfaceItemIdentifier("settings-content")
+        scroll.drawsBackground = false
+        scroll.contentView.drawsBackground = false
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         scroll.automaticallyAdjustsContentInsets = false
@@ -150,84 +157,90 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         banner.orientation = .vertical
         banner.alignment = .leading
         banner.spacing = 6
-        let bannerText = wrappingLabel("Window layouts, clearing notifications, dismissing Shortcut banners, the green button and blocking Music need permission to look at other apps' windows. Allow Tweaks in System Settings › Privacy & Security › Accessibility. If the switch is already on and this is still here, quit Tweaks and open it again.", size: 12, color: Paper.secondary, reserve: 16)
-        let openAccess = button("Open Accessibility Settings", #selector(openAccessibility))
-        let relaunch = button("Relaunch", #selector(relaunch))
-        let bannerButtons = NSStackView(views: [openAccess, relaunch])
-        bannerButtons.orientation = .horizontal
-        bannerButtons.spacing = 8
-        banner.addArrangedSubview(plainLabel("Some tweaks need Accessibility", size: 13, weight: .semibold, color: Paper.ink))
+        let bannerText = wrappingLabel("Allow Tweaks in System Settings → Privacy & Security → Accessibility to use window and notification actions.", size: 12, color: .secondaryLabelColor)
+        let buttons = NSStackView(views: [button("Open Accessibility Settings…", #selector(openAccessibility)),
+                                          button("Relaunch", #selector(relaunch))])
+        buttons.spacing = 8
+        banner.addArrangedSubview(plainLabel("Accessibility permission needed", size: 13, weight: .semibold, color: .labelColor))
         banner.addArrangedSubview(bannerText)
-        banner.addArrangedSubview(bannerButtons)
-        let marker = SettingsRule()
-        marker.vertical = true
-        accessRow.orientation = .horizontal
-        accessRow.alignment = .top
-        accessRow.distribution = .fill
-        accessRow.spacing = 10
-        accessRow.addArrangedSubview(marker)
+        banner.addArrangedSubview(buttons)
+        accessRow.orientation = .vertical
+        accessRow.alignment = .leading
         accessRow.addArrangedSubview(banner)
-        marker.widthAnchor.constraint(equalToConstant: 2).isActive = true
-        marker.heightAnchor.constraint(equalTo: banner.heightAnchor).isActive = true
-        marker.setContentHuggingPriority(.required, for: .horizontal)
-        pin(accessRow)
 
-        let tabs = NSSegmentedControl()
-        tabs.segmentCount = SettingsTab.allCases.count
-        tabs.trackingMode = .selectOne
-        tabs.segmentDistribution = .fillEqually
-        tabs.segmentStyle = .roundRect
-        tabs.font = .systemFont(ofSize: 12, weight: .medium)
-        for tab in SettingsTab.allCases {
-            tabs.setLabel(tab.title, forSegment: tab.rawValue)
-        }
-        tabs.selectedSegment = selectedTab
-        tabs.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        tabs.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        tabs.target = self
-        tabs.action = #selector(tabChanged(_:))
-        pin(tabs)
-
+        pageTitle.font = .systemFont(ofSize: 24, weight: .semibold)
+        pageTitle.textColor = .labelColor
+        pageSummary.font = .systemFont(ofSize: 12)
+        pageSummary.textColor = .secondaryLabelColor
+        pageSummary.lineBreakMode = .byWordWrapping
+        pageSummary.maximumNumberOfLines = 0
+        measured.append((pageSummary, 0))
         chrome.orientation = .vertical
         chrome.alignment = .leading
-        chrome.spacing = 12
-        chrome.edgeInsets = NSEdgeInsets(top: 16, left: 22, bottom: 8, right: 22)
+        chrome.spacing = 8
+        chrome.edgeInsets = NSEdgeInsets(top: 24, left: 28, bottom: 16, right: 28)
         chrome.detachesHiddenViews = true
+        chrome.addArrangedSubview(pageTitle)
+        chrome.addArrangedSubview(pageSummary)
+        chrome.setCustomSpacing(12, after: pageSummary)
         chrome.addArrangedSubview(accessRow)
-        chrome.addArrangedSubview(tabs)
-        pauseNotice.font = .systemFont(ofSize: 11, weight: .medium)
-        pauseNotice.textColor = Paper.secondary
+        pauseNotice.font = .systemFont(ofSize: 11)
+        pauseNotice.textColor = .secondaryLabelColor
         chrome.addArrangedSubview(pauseNotice)
 
         pages = installPages()
         column = nil
+        sectionColumn = nil
         scroll.documentView = pages.first
 
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 600))
+        let detail = NSViewController()
+        detail.view = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 620))
         chrome.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(chrome)
-        root.addSubview(scroll)
+        detail.view.addSubview(chrome)
+        detail.view.addSubview(scroll)
         NSLayoutConstraint.activate([
-            chrome.topAnchor.constraint(equalTo: root.topAnchor),
-            chrome.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            chrome.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            chrome.topAnchor.constraint(equalTo: detail.view.topAnchor),
+            chrome.leadingAnchor.constraint(equalTo: detail.view.leadingAnchor),
+            chrome.trailingAnchor.constraint(equalTo: detail.view.trailingAnchor),
             scroll.topAnchor.constraint(equalTo: chrome.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: detail.view.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: detail.view.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: detail.view.bottomAnchor),
         ])
-        return root
+        splitController.splitView.isVertical = true
+        let navigation = NSSplitViewItem(sidebarWithViewController: sidebar)
+        navigation.minimumThickness = 180
+        navigation.maximumThickness = 180
+        navigation.canCollapse = false
+        let body = NSSplitViewItem(viewController: detail)
+        body.minimumThickness = 480
+        splitController.addSplitViewItem(navigation)
+        splitController.addSplitViewItem(body)
+        splitController.view.frame = NSRect(x: 0, y: 0, width: 820, height: 620)
+        sidebar.onSelect = { [weak self] tab in self?.selectPane(tab) }
+        sidebar.select(.general)
+        pageSummary.stringValue = SettingsTab.general.summary
+        return splitController.view
     }
 
-    @objc private func tabChanged(_ sender: NSSegmentedControl) {
-        let index = sender.selectedSegment
-        guard pages.indices.contains(index), index != selectedTab else { return }
-        selectedTab = index
-        scroll.documentView = pages[index]
+    var selectedPane: SettingsTab { SettingsTab(rawValue: selectedTab) ?? .general }
+
+    func selectPane(_ tab: SettingsTab) {
+        guard !closed, pages.indices.contains(tab.rawValue) else { return }
+        recorders.values.forEach { $0.cancelRecording() }
+        selectedTab = tab.rawValue
+        sidebar.select(tab)
+        pageTitle.stringValue = tab.title
+        pageSummary.stringValue = tab.summary
+        scroll.documentView = pages[tab.rawValue]
         pinnedToTop = false
-        fitStack()
+        fitStack(preparingToShow: true)
         scrollToTop()
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        recorders.values.forEach { $0.cancelRecording() }
     }
 
     // MARK: - State
@@ -305,13 +318,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         for share in shares {
             let label = NSTextField(labelWithString: share)
             label.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-            label.textColor = Paper.ink
+            label.textColor = .labelColor
             label.lineBreakMode = .byTruncatingMiddle
             let remove = NSButton(title: "Remove", target: self, action: #selector(removeShare(_:)))
             remove.identifier = NSUserInterfaceItemIdentifier(share)
             remove.bezelStyle = .inline
             remove.font = .systemFont(ofSize: 11)
-            remove.contentTintColor = Paper.secondary
+            remove.contentTintColor = .secondaryLabelColor
             addRow(label, trailing: remove, to: sharesBox)
         }
     }
@@ -323,13 +336,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         shownApps = apps
         appsBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for bundleID in apps {
-            let label = plainLabel(Self.appName(for: bundleID), size: 13, weight: .regular, color: Paper.ink)
+            let label = plainLabel(Self.appName(for: bundleID), size: 13, weight: .regular, color: .labelColor)
             label.lineBreakMode = .byTruncatingTail
             let remove = NSButton(title: "Remove", target: self, action: #selector(removeApp(_:)))
             remove.identifier = NSUserInterfaceItemIdentifier(bundleID)
             remove.bezelStyle = .inline
             remove.font = .systemFont(ofSize: 11)
-            remove.contentTintColor = Paper.secondary
+            remove.contentTintColor = .secondaryLabelColor
             addRow(label, trailing: remove, to: appsBox)
         }
     }
@@ -351,7 +364,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             toggle.isEnabled = device.supportsVolume || model.rules[device.id] != nil
             toggle.target = self
             toggle.action = #selector(volumeRuleToggled(_:))
-            let name = plainLabel(device.name, size: 13, weight: .regular, color: Paper.ink)
+            let name = plainLabel(device.name, size: 13, weight: .regular, color: .labelColor)
             name.lineBreakMode = .byTruncatingTail
             addRow(name, trailing: toggle, to: volumeBox)
             if let rule = model.rules[device.id] {
@@ -394,7 +407,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         duplicateBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
         duplicateBox.addArrangedSubview(smallLabel(model.status))
         for match in model.matches {
-            duplicateBox.addArrangedSubview(plainLabel("New: \(match.newFile.lastPathComponent)", size: 12, weight: .regular, color: Paper.ink))
+            duplicateBox.addArrangedSubview(plainLabel("New: \(match.newFile.lastPathComponent)", size: 12, weight: .regular, color: .labelColor))
             let size = ByteCountFormatter.string(fromByteCount: match.bytes, countStyle: .file)
             duplicateBox.addArrangedSubview(smallLabel("Matches: \(match.existingFile.lastPathComponent) · \(size)"))
             let buttons = [button("Show Both", #selector(showDuplicate(_:))),
@@ -438,11 +451,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         defer { fitting = false }
         // contentView bounds, not contentSize: contentSize shrinks when a scroller appears,
         // which was changing the document width and scheduling another layout.
-        let boundsWidth = window?.contentView?.bounds.width ?? 0
-        let width = boundsWidth > 1 ? boundsWidth : 500
+        window?.contentView?.layoutSubtreeIfNeeded()
+        let boundsWidth = scroll.bounds.width
+        let width = boundsWidth > 1 ? boundsWidth : 640
         let inner = max(200, width - page.column.edgeInsets.left - page.column.edgeInsets.right)
-        for constraint in columnConstraints where constraint.constant != inner {
-            constraint.constant = inner
+        for (constraint, inset) in columnConstraints {
+            let value = max(120, inner - inset)
+            if constraint.constant != value { constraint.constant = value }
         }
         for (label, reserve) in measured {
             let limit = max(120, inner - reserve)
@@ -547,7 +562,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc func clearRecentActions() { tweaks.recentActions.clear(); sync() }
 
-    @objc func tweakToggled(_ sender: NSSwitch) {
+    @objc func tweakToggled(_ sender: NSButton) {
         guard let id = sender.identifier?.rawValue, let tweak = Tweak(rawValue: id) else { return }
         settings.set(tweak, on: sender.state == .on)
     }

@@ -67,6 +67,33 @@ final class VerificationRegressionTests: XCTestCase {
         }
     }
 
+    func testNativeSettingsPreserveAllChoicesAndExposeEveryTweakAndShortcut() {
+        let domain = "NativeSettings-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: domain)!
+        defaults.set([String](), forKey: TweakSettings.shareURLsKey)
+        defer { defaults.removePersistentDomain(forName: domain) }
+        do {
+            let settings = TweakSettings(defaults: defaults)
+            settings.set(.calendarInvites, on: false)
+            settings.set(.deviceVolumeLimits, on: true)
+            let controller = TweakController(defaults: defaults)
+            controller.settings = settings
+            let before = defaults.persistentDomain(forName: domain)! as NSDictionary
+            let window = SettingsWindowController(settings: settings, tweaks: controller, launchAtLogin: LaunchAtLoginController())
+            defer { window.close() }
+            XCTAssertNil(window.window?.appearance)
+            XCTAssertTrue(window.window!.styleMask.contains(.resizable))
+            XCTAssertEqual(Set(window.toggles.keys), Set(Tweak.allCases))
+            XCTAssertEqual(Set(window.recorders.keys), Set(ShortcutAction.allCases))
+            for pane in SettingsTab.allCases { window.selectPane(pane); window.sync() }
+            for (tweak, checkbox) in window.toggles {
+                XCTAssertEqual(checkbox.state == .on, settings.isOn(tweak))
+                XCTAssertEqual(checkbox.title, tweak.title)
+            }
+            XCTAssertEqual(defaults.persistentDomain(forName: domain)! as NSDictionary, before)
+        }
+    }
+
     func testSettingsPagesHaveUsableGeometryBeforeAndAfterDisplay() {
         withDefaults { defaults in
             let settings = TweakSettings(defaults: defaults)
@@ -80,8 +107,8 @@ final class VerificationRegressionTests: XCTestCase {
             @MainActor func descendants(_ view: NSView) -> [NSView] {
                 [view] + view.subviews.flatMap(descendants)
             }
-            let scroll = descendants(root).compactMap { $0 as? NSScrollView }.first!
-            let tabs = descendants(root).compactMap { $0 as? NSSegmentedControl }.first!
+            let scroll = descendants(root).compactMap { $0 as? NSScrollView }.first { $0.identifier?.rawValue == "settings-content" }!
+            let categories = descendants(root).compactMap { $0 as? NSTableView }.first!
             @MainActor func checkGeometry() {
                 root.layoutSubtreeIfNeeded()
                 let page = scroll.documentView as! SettingsPage
@@ -100,11 +127,38 @@ final class VerificationRegressionTests: XCTestCase {
             }
             checkGeometry()
             settingsWindow.showWindow(nil)
-            for tab in SettingsTab.allCases {
-                tabs.selectedSegment = tab.rawValue
-                tabs.sendAction(tabs.action, to: tabs.target)
-                settingsWindow.sync()
-                checkGeometry()
+            for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+                settingsWindow.window?.appearance = NSAppearance(named: appearance)
+                for size in [NSSize(width: 760, height: 540), NSSize(width: 960, height: 760)] {
+                    settingsWindow.window?.setContentSize(size)
+                    for tab in SettingsTab.allCases {
+                        categories.selectRowIndexes(IndexSet(integer: tab.rawValue), byExtendingSelection: false)
+                        settingsWindow.sync()
+                        XCTAssertEqual(settingsWindow.selectedPane, tab)
+                        checkGeometry()
+                        if let output = ProcessInfo.processInfo.environment["TWEAKS_SETTINGS_CAPTURE_DIR"], size.width == 960,
+                           let bitmap = root.bitmapImageRepForCachingDisplay(in: root.bounds) {
+                            root.displayIfNeeded()
+                            root.cacheDisplay(in: root.bounds, to: bitmap)
+                            // cacheDisplay omits the window's opaque background.
+                            let image = NSImage(size: root.bounds.size)
+                            image.lockFocus()
+                            settingsWindow.window!.effectiveAppearance.performAsCurrentDrawingAppearance {
+                                NSColor.windowBackgroundColor.setFill()
+                                root.bounds.fill()
+                                let snapshot = NSImage(size: root.bounds.size)
+                                snapshot.addRepresentation(bitmap)
+                                snapshot.draw(in: root.bounds, from: .zero, operation: .sourceOver, fraction: 1)
+                            }
+                            image.unlockFocus()
+                            let composed = image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))
+                            let folder = URL(filePath: output)
+                            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                            let name = "\(appearance.rawValue)-\(tab.rawValue).png"
+                            try? composed?.representation(using: .png, properties: [:])?.write(to: folder.appending(path: name))
+                        }
+                    }
+                }
             }
         }
     }

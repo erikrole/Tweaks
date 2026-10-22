@@ -175,10 +175,12 @@ final class ShortcutRecorder: NSView {
         button.setContentHuggingPriority(.required, for: .horizontal)
         clear.target = self
         clear.action = #selector(clearShortcut)
-        clear.title = "×"
+        clear.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Remove shortcut")
+        clear.imagePosition = .imageOnly
+        clear.isBordered = false
         clear.bezelStyle = .inline
         clear.font = .systemFont(ofSize: 14)
-        clear.contentTintColor = Paper.secondary
+        clear.contentTintColor = .secondaryLabelColor
         clear.toolTip = "Remove shortcut"
         clear.setContentHuggingPriority(.required, for: .horizontal)
         let row = NSStackView(views: [button, clear])
@@ -257,6 +259,8 @@ final class ShortcutRecorder: NSView {
             return swallow ? nil : event
         }
     }
+
+    func cancelRecording() { if recording { stopRecording() } }
 
     private func stopRecording() {
         if let monitor { NSEvent.removeMonitor(monitor) }

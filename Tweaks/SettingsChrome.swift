@@ -12,8 +12,8 @@ final class SettingsPage: NSView {
         let column = NSStackView()
         column.orientation = .vertical
         column.alignment = .leading
-        column.spacing = 10
-        column.edgeInsets = NSEdgeInsets(top: 16, left: 22, bottom: 28, right: 22)
+        column.spacing = 12
+        column.edgeInsets = NSEdgeInsets(top: 8, left: 28, bottom: 28, right: 28)
         column.detachesHiddenViews = true
         self.column = column
         super.init(frame: frameRect)
@@ -35,48 +35,50 @@ final class SettingsPage: NSView {
 }
 
 extension SettingsWindowController {
+    var content: NSStackView? { sectionColumn ?? column }
+
     func addSection(_ title: String) {
         guard let column else { return }
-        if let last = column.arrangedSubviews.last {
-            column.setCustomSpacing(20, after: last)
-        }
-        let header = plainLabel(title, size: 11, weight: .semibold, color: Paper.secondary)
-        let rule = SettingsRule()
-        pin(rule)
-        rule.heightAnchor.constraint(equalToConstant: 1).isActive = true
-        let block = NSStackView(views: [header, rule])
-        block.orientation = .vertical
-        block.alignment = .leading
-        block.spacing = 4
-        column.addArrangedSubview(block)
+        if let last = column.arrangedSubviews.last { column.setCustomSpacing(24, after: last) }
+        let header = plainLabel(title, size: 13, weight: .semibold, color: .labelColor)
+        column.addArrangedSubview(header)
+        column.setCustomSpacing(8, after: header)
+        let group = SettingsGroup()
+        column.addArrangedSubview(group)
+        pin(group, inset: 0)
+        sectionColumn = group.column
     }
 
     func addToggles(_ tweaks: [Tweak]) {
-        guard let column else { return }
+        guard let content else { return }
         for tweak in tweaks {
-            let title = wrappingLabel(tweak.title, size: 13, color: Paper.ink, reserve: 72)
-            let detail = wrappingLabel(tweak.detail, size: 11, color: Paper.secondary, reserve: 72)
-            let note = wrappingLabel("Waiting for Accessibility permission", size: 11, color: Paper.secondary, reserve: 72)
+            let toggle = NSButton(checkboxWithTitle: tweak.title, target: self, action: #selector(tweakToggled(_:)))
+            toggle.identifier = NSUserInterfaceItemIdentifier(tweak.rawValue)
+            toggle.font = .systemFont(ofSize: 13)
+            toggle.setAccessibilityHelp(tweak.detail)
+            toggles[tweak] = toggle
+            let detail = wrappingLabel(tweak.detail, size: 11, color: .secondaryLabelColor, reserve: 20)
+            let note = wrappingLabel("Waiting for Accessibility permission", size: 11, color: .systemOrange, reserve: 20)
             note.isHidden = true
             accessNotes[tweak] = note
-            let text = NSStackView(views: [title, detail, note])
-            text.orientation = .vertical
-            text.alignment = .leading
-            text.spacing = 2
-            text.detachesHiddenViews = true
-            let toggle = NSSwitch()
-            toggle.identifier = NSUserInterfaceItemIdentifier(tweak.rawValue)
-            toggle.target = self
-            toggle.action = #selector(tweakToggled(_:))
-            toggle.setContentHuggingPriority(.required, for: .horizontal)
-            toggles[tweak] = toggle
-            column.addArrangedSubview(labeledRowView(text, trailing: toggle))
+            let help = NSStackView(views: [detail, note])
+            help.orientation = .vertical
+            help.alignment = .leading
+            help.spacing = 3
+            help.detachesHiddenViews = true
+            help.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
+            let row = NSStackView(views: [toggle, help])
+            row.orientation = .vertical
+            row.alignment = .leading
+            row.spacing = 4
+            content.addArrangedSubview(row)
+            pin(row)
         }
     }
 
     func labeledRow(_ title: String, trailing: NSView, reserve: CGFloat = 72) -> NSView {
-        let label = plainLabel(title, size: 13, weight: .regular, color: Paper.ink)
-        measured.append((label, reserve))
+        let label = plainLabel(title, size: 13, weight: .regular, color: .labelColor)
+        measured.append((label, reserve + (sectionColumn == nil ? 0 : 24)))
         return labeledRowView(label, trailing: trailing)
     }
 
@@ -106,11 +108,11 @@ extension SettingsWindowController {
     }
 
     /// Column width, updated once the scroll view knows how wide it is.
-    func pin(_ view: NSView) {
+    func pin(_ view: NSView, inset: CGFloat? = nil) {
         let width = view.widthAnchor.constraint(equalToConstant: 456)
         width.priority = NSLayoutConstraint.Priority(999)
         width.isActive = true
-        columnConstraints.append(width)
+        columnConstraints.append((width, inset ?? (sectionColumn == nil ? 0 : 24)))
     }
 
     func plainLabel(_ text: String, size: CGFloat, weight: NSFont.Weight, color: NSColor) -> NSTextField {
@@ -124,54 +126,74 @@ extension SettingsWindowController {
 
     func wrappingLabel(_ text: String, size: CGFloat, color: NSColor, reserve: CGFloat = 0) -> NSTextField {
         let label = plainLabel(text, size: size, weight: .regular, color: color)
-        measured.append((label, reserve))
+        measured.append((label, reserve + (sectionColumn == nil ? 0 : 24)))
         return label
     }
 
     func note(_ text: String) -> NSTextField {
-        wrappingLabel(text, size: 11, color: Paper.secondary)
+        wrappingLabel(text, size: 11, color: .secondaryLabelColor)
     }
 
     /// A vertical box whose rows are rebuilt when its model changes.
     func boxed(_ box: NSStackView) {
-        guard let column else { return }
+        guard let content else { return }
         box.orientation = .vertical
         box.alignment = .leading
         box.spacing = 6
         pin(box)
-        column.addArrangedSubview(box)
+        content.addArrangedSubview(box)
     }
 
-    func smallLabel(_ text: String, color: NSColor = Paper.secondary) -> NSTextField {
+    func smallLabel(_ text: String, color: NSColor = .secondaryLabelColor) -> NSTextField {
         let label = plainLabel(text, size: 11, weight: .regular, color: color)
-        measured.append((label, 0))
+        measured.append((label, 24))
         return label
     }
 
     func button(_ title: String, _ action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.bezelStyle = .rounded
-        button.font = .systemFont(ofSize: 12)
+        button.font = .systemFont(ofSize: 13)
         button.setContentHuggingPriority(.required, for: .horizontal)
         return button
     }
 }
 
-/// A 1pt hairline, or a 2pt vertical mark beside the Accessibility note.
+/// Standard AppKit box with semantic system colors; content remains ordinary controls.
 @MainActor
-final class SettingsRule: NSView {
-    var vertical = false {
-        didSet { invalidateIntrinsicContentSize() }
+final class SettingsGroup: NSView {
+    let column = NSStackView()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        let background = NSBox()
+        background.boxType = .custom
+        background.titlePosition = .noTitle
+        background.borderType = .lineBorder
+        background.borderColor = .separatorColor
+        background.borderWidth = 0.5
+        background.cornerRadius = 8
+        background.fillColor = .controlBackgroundColor
+        background.translatesAutoresizingMaskIntoConstraints = false
+        column.orientation = .vertical
+        column.alignment = .leading
+        column.spacing = 14
+        column.detachesHiddenViews = true
+        column.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(background)
+        addSubview(column)
+        NSLayoutConstraint.activate([
+            background.leadingAnchor.constraint(equalTo: leadingAnchor),
+            background.trailingAnchor.constraint(equalTo: trailingAnchor),
+            background.topAnchor.constraint(equalTo: topAnchor),
+            background.bottomAnchor.constraint(equalTo: bottomAnchor),
+            column.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            column.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            column.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            column.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+        ])
     }
 
-    override var intrinsicContentSize: NSSize {
-        vertical
-            ? NSSize(width: 2, height: NSView.noIntrinsicMetric)
-            : NSSize(width: NSView.noIntrinsicMetric, height: 1)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        Paper.line.setFill()
-        bounds.fill()
-    }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
 }

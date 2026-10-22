@@ -98,11 +98,18 @@ access to their normal caches/test services; a sandbox denial is not a test resu
 - Keep generated benchmarks, DerivedData, xcresults, private data, and credentials
   out of commits. `.build/validation/` is ignored. Share aggregate measurements in
   docs with their configuration and limitations.
-- Settings document columns use Auto Layout for their contents and a manually sized
-  outer scroll document. Measure before showing; keep all five page geometry checks
-  green and check installed runtime logs for app constraint/geometry faults.
+- Settings uses an AppKit source-list sidebar and nine grouped pages. Keep system
+  colors and inherited appearance; do not reintroduce a fixed palette or force Aqua.
+  Document columns use Auto Layout inside a manually sized scroll document. Measure
+  against the detail pane, not the whole window, and account for group insets. Keep
+  every page's light/dark, minimum/expanded size geometry checks green and check
+  installed runtime logs for app constraint/geometry faults.
   Symbolize unfamiliar AppKit warnings before assigning them to app layout; the
   macOS window-sharing indicator can emit negative-size warnings during capture.
+- Settings navigation and construction must not write feature preferences. Preserve
+  all tweak controls, shortcuts and manual actions. Cancel shortcut recording when
+  switching panes, losing the key window or closing Settings. Closing the window
+  leaves background work running; the native Quit command follows guarded shutdown.
 - After tests and installation, verify Accessibility against the actual signed
   app. An allowed TCC record for a development identity does not establish trust
   for a Developer ID build with the same bundle ID. Preserve the permission scope;

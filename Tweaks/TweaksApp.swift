@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var launchAtLogin = LaunchAtLoginController()
     private lazy var controller = TweakController()
     private var settingsWindow: SettingsWindowController?
+    private var hasSettingsMenu = false
     /// False in a second copy that quits at once, so quitting it never builds a controller
     /// (which would undo the running copy's saved screen and keyboard levels).
     private var started = false
@@ -76,7 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    private func showSettings() {
+    @objc private func showSettings() {
+        if !hasSettingsMenu {
+            NSApp.mainMenu = SettingsMenus.make(target: self, settings: #selector(showSettings), quit: #selector(quitFromMenu))
+            hasSettingsMenu = true
+        }
         if settingsWindow == nil {
             let window = SettingsWindowController(settings: settings, tweaks: controller, launchAtLogin: launchAtLogin)
             window.onClose = { [weak self] in
@@ -93,8 +98,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.showWindow(nil)
     }
 
-    /// ⌘Q (or Quit from the Dock) while the window is open just closes it; Tweaks keeps
-    /// working. The Quit Tweaks button in the window really quits.
+    @objc private func quitFromMenu() {
+        Self.reallyQuit = true
+        NSApp.terminate(nil)
+    }
+
+    /// Closing Settings leaves background work running. Explicit Quit commands
+    /// and the Quit Tweaks button use the guarded app termination path.
     /// Put the screen and keyboard light back if Away had them dimmed.
     func applicationWillTerminate(_ notification: Notification) {
         guard started else { return }

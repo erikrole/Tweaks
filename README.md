@@ -3,7 +3,13 @@
 Tweaks is a small background app for macOS that does a handful of quality-of-life
 things, chosen from the Supercharge features actually in use on one Mac. It has no
 menu bar icon; open it again from Finder, Spotlight or Raycast to see its settings,
-where every tweak has its own switch.
+where every tweak has its own control.
+
+Settings uses a native macOS sidebar with General, Audio, Files & Finder, Copied
+Links, Keep Awake, Windows, Network, Shortcuts and Activity pages. Standard controls
+and grouped sections follow system light/dark appearance and accent colors. The
+window is resizable. ⌘, opens Settings, ⌘W closes it while Tweaks keeps running,
+and the explicit Quit command (⌘Q) quits through the normal recovery checks.
 
 **Keyboard and sound**
 - Caps Lock with no delay: a normal tap toggles it instantly (the HID
@@ -49,12 +55,12 @@ where every tweak has its own switch.
   domain and its subdomains. An optional global shortcut starts unassigned.
 
 **Automatic actions and history**
-- In **Files**, pause Downloads processing, disk-image offers and automatic link
+- In **Activity**, pause Downloads processing, disk-image offers and automatic link
   cleaning for 30 minutes, or resume early. Saved feature switches do not change;
   the deadline survives relaunch and expires after sleep. Files received while
   paused remain untouched on resume. Already-started file transactions finish;
   pending disk-image offers are canceled. Manual actions remain available.
-- **Recent actions** shows the latest 100 download, installer, duplicate-review,
+- **Activity → Recent actions** shows the latest 100 download, installer, duplicate-review,
   image-export, link, volume and pause actions from the current session. Clear it
   at any time. History and original clipboard contents stay in memory only.
 
