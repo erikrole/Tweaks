@@ -18,6 +18,12 @@ scene cleanup is a possible contributor, not a demonstrated cause.
 The user confirms pointer motion with unresponsive apps; keyboard responsiveness
 is unknown. Astra now prioritizes a shared session/input or presentation stall over
 a menu-bar-only failure, without identifying the faulty component.
+The user reports months of recurrence before the TS5, only with GlobalProtect
+connected/reconnecting, including intermittent iOS insertion triggers. An older
+directory-service watchdog proves dispatch-thread exhaustion, making identity
+dependencies the strongest concrete lead. DNS/LDAP errors also occur during usable
+startup. A single captured iPhone insertion stayed responsive with GlobalProtect
+reported disconnected afterward; no controlled VPN-off comparison or fix is established.
 
 Version 0.1.6 adds live feature status, a compact Activity overview, native Keep
 Awake duration/app/time controls, and expanded pause controls with an unassigned
@@ -108,6 +114,12 @@ installation boundary.
   the pointer moved while apps did not respond, and historical keyboard response
   cannot be established. Protected WindowServer capture remains an access boundary;
   repeated stable-session samples cannot reconstruct the earlier failure.
+- Prioritize cross-process directory/identity dependencies during attachment and
+  VPN/network transitions. Keep healthy-session DNS warnings as counterexamples,
+  distinguish USB discovery interfaces from Internet tethering, and preserve the
+  exact VPN state/timing of future explicitly authorized comparisons. Protected
+  service stacks remain an evidence gap. Do not toggle VPN or reconnect devices
+  automatically to reproduce this issue.
 - On the updated signed app, verify monitor disconnect/reconnect and matching AX
   windows, USB/Bluetooth audio transitions and rounded volume controls, Finder-to-
   host image requests, and safe eject with both idle and busy multi-volume drives.

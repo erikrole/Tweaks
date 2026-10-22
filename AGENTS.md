@@ -144,6 +144,10 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   Preserve bounded command/recording deadlines, signal-safe cancellation, owned
   child cleanup, PID-specific sample names and explicit partial manifests. A
   protected WindowServer sample failure is missing evidence, not a passing check.
+  The same boundary applies to directory/VPN daemons. USB inventory includes private
+  device identifiers; keep it local. USB network-class interfaces do not by
+  themselves establish Internet tethering. A log-show query may exceed its requested
+  end; locally enforce boot/time bounds and mark interrupted output incomplete.
   The CalDigit physical reconnect remains deferred until explicitly authorized.
 
 App benchmarks perform five warm-ups and thirty measured iterations, printing

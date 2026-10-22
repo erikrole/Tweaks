@@ -15,7 +15,11 @@ import time
 
 
 PREDICATE = ('process IN {"WindowServer", "ControlCenter", "SystemUIServer", '
-             '"MenuBarAgent", "bluetoothd", "coreaudiod", "powerd", "Tweaks"} '
+             '"MenuBarAgent", "bluetoothd", "coreaudiod", "powerd", "Tweaks", '
+             '"opendirectoryd", "configd", "nesessionmanager", "PanGPS", "PanGPA", '
+             '"mDNSResponder", "NetAuthSysAgent", "io.tailscale.ipn.macsys.network-extension", '
+             '"usbmuxd", "usbd", "accessoryd", "AMPDeviceDiscoveryAgent", '
+             '"AMPDevicesAgent", "MobileDeviceUpdater"} '
              'OR subsystem == "com.erole.Tweaks"')
 CANCELLED = False
 
@@ -98,7 +102,8 @@ class Capture:
         name = f"processes-{index:03}.txt"
         self.run(name, ["/bin/ps", "-axo", "pid,comm"], timeout=min(8, remaining))
         rows = (self.directory / name).read_text().splitlines()
-        wanted = {"WindowServer", "ControlCenter", "Tweaks"}
+        wanted = {"WindowServer", "ControlCenter", "Tweaks", "opendirectoryd",
+                  "PanGPS", "Finder", "AMPDeviceDiscoveryAgent"}
         for row in rows[1:]:
             fields = row.strip().split(None, 1)
             if len(fields) != 2:
@@ -148,6 +153,7 @@ def main():
     capture.run("power-before.txt", ["/usr/bin/pmset", "-g", "assertions"])
     capture.run("displays.json", ["/usr/sbin/system_profiler", "SPDisplaysDataType", "-json"], timeout=12)
     capture.run("thunderbolt.json", ["/usr/sbin/system_profiler", "SPThunderboltDataType", "-json"], timeout=12)
+    capture.run("usb-before.txt", ["/usr/sbin/ioreg", "-r", "-c", "IOUSBHostDevice", "-l"])
     with (folder / "live.log").open("xb") as output:
         # A native backup timeout bounds an orphaned stream. One extra second
         # avoids treating the utility's coarse timeout rounding as an early exit.
@@ -166,6 +172,7 @@ def main():
                 ended["at"] = time.monotonic()
             observer = threading.Thread(target=observe_exit, daemon=True)
             observer.start()
+            print(f"Recording phase started for {args.seconds} seconds.", flush=True)
             index = 0
             while time.monotonic() < deadline:
                 check_cancelled()
@@ -196,6 +203,7 @@ def main():
                                     "seconds": round(time.monotonic() - started, 3)})
             capture.save_manifest(incomplete=True)
     capture.run("power-after.txt", ["/usr/bin/pmset", "-g", "assertions"])
+    capture.run("usb-after.txt", ["/usr/sbin/ioreg", "-r", "-c", "IOUSBHostDevice", "-l"])
     capture.run("preferences-after.plist", ["/usr/bin/defaults", "export", "com.erole.Tweaks", "-"])
     try:
         before = plistlib.loads((folder / "preferences-before.plist").read_bytes())
@@ -212,7 +220,8 @@ def main():
                           incomplete=bool(unavailable) or changed != [],
                           note="Protected WindowServer sampling may need separate administrator authorization. "
                                "Do not run this collector as root. Current samples do not reconstruct an earlier freeze.")
-    print(f"Preference keys changed: {changed}; unavailable commands: {unavailable}")
+    print(f"Preference keys changed: {changed}; unavailable commands: {len(unavailable)}. "
+          "See manifest.json for per-command results.")
     return 1 if unavailable or changed != [] else 0
 
 

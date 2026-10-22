@@ -224,7 +224,11 @@ temporary fixtures. The live-share check skips when no network share is mounted.
 The [CalDigit incident investigation](docs/dock-hang-2026-10-22.md) records the
 closed-lid Dell built-in-DP / LG USB-C-to-DP layout, display timeouts continuing
 after Tweaks exited, and a later Bluetooth watchdog failure. The full freeze's
-cause remains unresolved. A bounded read-only capture is available for manual use:
+cause remains unresolved. The recurring history predates the TS5, occurs with
+GlobalProtect connected/reconnecting, and includes iOS attachment triggers.
+Older directory-service thread exhaustion is the leading concrete service failure;
+DNS/LDAP warnings also occur in usable sessions and do not identify the cause.
+A bounded read-only capture is available for manual use:
 
 ```sh
 python3 scripts/capture-dock-diagnostics.py --seconds 120
@@ -239,6 +243,10 @@ preferences may contain private data. Exit 1 and `manifest.json` identify partia
 evidence, including protected WindowServer samples unavailable without separate
 administrator authorization; cancellation exits 130. No dock reconnect is currently
 authorized, and healthy-session samples cannot establish the earlier freeze's cause.
+Capture includes network/directory/accessory logs and before/after USB inventory.
+Protected directory/VPN daemon samples can also be unavailable. The one authorized
+iPhone insertion stayed responsive, with GlobalProtect reported disconnected at the
+post-insertion check; it does not establish a fix or a VPN-on comparison.
 
 ## Performance benchmarks
 
