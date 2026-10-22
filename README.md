@@ -163,10 +163,16 @@ they come back.
 
 ## Build and run
 
+[Version 0.1.4](docs/audio-actions-2026-10-22.md) is Developer ID-signed, notarized,
+stapled and installed locally as build 7. Audio consolidation, immediate link
+actions, temporary pause and session history retain the existing preferences.
+Debug and Release each pass 170 tests with two expected skips; the Finder package
+passes 19 tests and all required Release benchmarks pass.
+
 The [0.1.3 share recovery report](docs/share-recovery-2026-10-20.md) records bounded
 mounts, dock/VPN retries and guarded recovery, plus the 2026-10-21 hardening pass.
-Build 6 is Developer ID-signed (not notarized) and installed locally; existing
-settings and active NAS access are preserved. Live
+That report includes the earlier Developer ID-signed build 6 and its NAS-access
+verification. Live
 unplug/stall testing remains deferred while Adobe has files open on the share.
 
 The [0.1.1 repair report](docs/repair-2026-10-17.md) records fixes and verification

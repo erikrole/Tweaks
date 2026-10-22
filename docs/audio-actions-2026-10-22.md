@@ -41,7 +41,27 @@ history are written to disk; Clear Recent Actions removes the current list.
 - `git diff --check` passed. The complete live preference export matched its
   pre-work snapshot after implementation and tests; no keys changed.
 
-Signed packaging and installed verification are pending. The existing signed app
-and preference export are backed up privately outside the repository. No real
-share faults, physical device switches, wake-volume changes or user Downloads
-fixtures were used by tests.
+## Installed release
+
+- Source revision: `371fb6ca2518df071cee208c4f9996d4e6f2cce0`.
+- Version 0.1.4 build 7 was Developer ID-signed, accepted by Apple's notary
+  service, stapled and installed at `/Applications/Tweaks.app`. Signature
+  verification and Gatekeeper's Notarized Developer ID assessment passed.
+- The signed app showed the preserved 40% wake maximum, disabled device-limit
+  switch, existing device choices and existing shortcut assignments. The new
+  cleaning shortcut remains unassigned. No Accessibility waiting banner appeared;
+  the installed app reports Accessibility trust.
+- The live Files page showed immediate link controls, exclusions, temporary pause
+  and recent actions with usable geometry. A pause/resume cycle updated the status
+  and history while leaving feature switches unchanged.
+- The complete preference export after installation and pause/resume matched the
+  pre-work snapshot exactly: zero keys changed. The pause deadline was cleared.
+- The pre-existing Away session was resumed and confirmed in the signed app's
+  Sleep page and actual power assertions. No user clipboard contents were changed
+  for live checks; link cleaning and restoration used private pasteboards in tests.
+- The two unrelated `.claude` files retained their original hashes. The previous
+  signed app and preference export remain backed up privately outside the repository.
+
+No real share faults, physical device switches, wake-volume changes or user
+Downloads fixtures were used by tests. Physical wake/audio transitions remain
+separate acceptance work; the new policy and channel behavior have fixture coverage.
