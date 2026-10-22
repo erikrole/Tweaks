@@ -448,6 +448,34 @@ actor ShareMounter {
     }
 }
 
+/// SystemConfiguration may retain/release its context on its own notification queue,
+/// regardless of the queue selected for change delivery. Keep those C callbacks
+/// outside actor isolation, and retain only an immutable box with a weak owner.
+final class ShareConnectivityContext: Sendable {
+    let changed: @MainActor @Sendable () -> Void
+    init(changed: @escaping @MainActor @Sendable () -> Void) { self.changed = changed }
+
+    func makeContext() -> SCDynamicStoreContext {
+        SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
+                             retain: shareConnectivityRetainContext, release: shareConnectivityReleaseContext, copyDescription: nil)
+    }
+}
+
+private func shareConnectivityRetainContext(_ raw: UnsafeRawPointer) -> UnsafeRawPointer {
+    _ = Unmanaged<ShareConnectivityContext>.fromOpaque(raw).retain()
+    return raw
+}
+
+private func shareConnectivityReleaseContext(_ raw: UnsafeRawPointer) {
+    Unmanaged<ShareConnectivityContext>.fromOpaque(raw).release()
+}
+
+func shareConnectivityNotify(_ store: SCDynamicStore, _ keys: CFArray, _ info: UnsafeMutableRawPointer?) {
+    guard let info else { return }
+    let context = Unmanaged<ShareConnectivityContext>.fromOpaque(info).takeUnretainedValue()
+    Task { @MainActor in context.changed() }
+}
+
 /// VPN route/DNS changes do not always change NWPath. Watch both sources, and wake.
 @MainActor
 final class ShareConnectivityWatcher {
@@ -455,31 +483,34 @@ final class ShareConnectivityWatcher {
     private var path: NWPathMonitor?
     private var wake: NSObjectProtocol?
     private var sleep: NSObjectProtocol?
+    private var generation: UInt64 = 0
     private let changed: @MainActor () -> Void
     init(changed: @escaping @MainActor () -> Void) { self.changed = changed }
 
     func start() {
         guard path == nil else { return }
-        var context = SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: { raw in
-            _ = Unmanaged<ShareConnectivityWatcher>.fromOpaque(raw).retain()
-            return raw
-        }, release: { raw in
-            Unmanaged<ShareConnectivityWatcher>.fromOpaque(raw).release()
-        }, copyDescription: nil)
-        store = SCDynamicStoreCreate(nil, "Tweaks.share-connectivity" as CFString, { _, _, info in
-            guard let info else { return }
-            MainActor.assumeIsolated {
-                let watcher = Unmanaged<ShareConnectivityWatcher>.fromOpaque(info).takeUnretainedValue()
-                ShareMountSafety.shared.invalidate(); watcher.changed()
-            }
-        }, &context)
+        generation &+= 1
+        let session = generation
+        let owner = ShareConnectivityContext { [weak self] in
+            guard let self, self.generation == session, self.path != nil else { return }
+            ShareMountSafety.shared.invalidate(); self.changed()
+        }
+        var context = owner.makeContext()
+        store = withExtendedLifetime(owner) {
+            SCDynamicStoreCreate(nil, "Tweaks.share-connectivity" as CFString, shareConnectivityNotify, &context)
+        }
         if let store {
             SCDynamicStoreSetNotificationKeys(store, ["State:/Network/Global/IPv4", "State:/Network/Global/IPv6", "State:/Network/Global/DNS"] as CFArray,
                 ["State:/Network/Service/.*/IPv[46]", "State:/Network/Service/.*/DNS", "State:/Network/Interface/en[0-9]+/Link"] as CFArray)
             SCDynamicStoreSetDispatchQueue(store, .main)
         }
         let monitor = NWPathMonitor()
-        monitor.pathUpdateHandler = { [weak self] _ in Task { @MainActor in self?.changed() } }
+        monitor.pathUpdateHandler = { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.generation == session, self.path != nil else { return }
+                self.changed()
+            }
+        }
         monitor.start(queue: DispatchQueue(label: "Tweaks.share-path")); path = monitor
         // Gate recovery on sleep here too, so it holds when "unmount before sleep" is off.
         sleep = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { _ in
@@ -491,6 +522,7 @@ final class ShareConnectivityWatcher {
     }
 
     func stop() {
+        generation &+= 1
         if let store { SCDynamicStoreSetDispatchQueue(store, nil) }
         store = nil; path?.cancel(); path = nil
         if let wake { NSWorkspace.shared.notificationCenter.removeObserver(wake) }; wake = nil

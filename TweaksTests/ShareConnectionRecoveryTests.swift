@@ -1,4 +1,5 @@
 import XCTest
+import SystemConfiguration
 @testable import Tweaks
 
 private final class FakeShareBackend: ShareMountBackend, @unchecked Sendable {
@@ -37,6 +38,44 @@ private final class ShareTestState: @unchecked Sendable {
 
 @MainActor
 final class ShareConnectionRecoveryTests: XCTestCase {
+    func testConnectivityContextLifetimeCallbacksRunOnBackgroundQueue() async throws {
+        var box: ShareConnectivityContext? = ShareConnectivityContext { XCTFail("Lifetime callbacks must not deliver changes") }
+        weak var weakBox = box
+        let retained = try await Task.detached { [owned = box!] in
+            XCTAssertFalse(Thread.isMainThread)
+            let context = owned.makeContext()
+            let retain = try XCTUnwrap(context.retain)
+            return UInt(bitPattern: retain(try XCTUnwrap(context.info)))
+        }.value
+        box = nil
+        XCTAssertNotNil(weakBox, "The C context must own its retained box")
+        try await Task.detached {
+            XCTAssertFalse(Thread.isMainThread)
+            let raw = UnsafeRawPointer(bitPattern: retained)!
+            let context = Unmanaged<ShareConnectivityContext>.fromOpaque(raw).takeUnretainedValue().makeContext()
+            try XCTUnwrap(context.release)(raw)
+        }.value
+        XCTAssertNil(weakBox, "Background release must balance the context retain")
+    }
+
+    func testConnectivityNotificationHopsToMainActorWithoutRetainingOwner() async throws {
+        var owner: ShareConnectivityWatcher? = ShareConnectivityWatcher { XCTFail("Watcher must not start services") }
+        weak var weakOwner = owner
+        let delivered = expectation(description: "Main actor notification")
+        let box = ShareConnectivityContext { [weak owner] in
+            XCTAssertTrue(Thread.isMainThread)
+            XCTAssertNil(owner)
+            delivered.fulfill()
+        }
+        owner = nil
+        XCTAssertNil(weakOwner)
+        await Task.detached { [box] in
+            // No dynamic-store subscription, network change, or mount is needed.
+            let store = SCDynamicStoreCreate(nil, "Tweaks.context-regression" as CFString, nil, nil)!
+            shareConnectivityNotify(store, [] as CFArray, box.makeContext().info)
+        }.value
+        await fulfillment(of: [delivered], timeout: 2)
+    }
     private let url = URL(string: "smb://nas.example.edu/users")!
     private var share: NetworkShares.Share { .init(mountPoint: URL(filePath: "/Volumes/users"), serverURL: url) }
 

@@ -66,6 +66,11 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   unmount work. Unknown mount-table state fails closed. Reuse only empty owned
   local macOS mount reservations; never delete mount folders or force unmount.
   Recovery tests inject their backend and must never reset a real system helper.
+- SystemConfiguration context retain/release callbacks can run on its internal
+  notification queue, even when change notifications target main. Use top-level
+  nonisolated C callbacks with a Sendable context box, weak actor ownership, and
+  generation checks before delivering changes. Exercise the real callback pointers
+  on a background queue without subscribing or changing the network in regressions.
 - Caps Lock originals are per HID service and boot session. Consume an original
   only after a successful restore. Tests inject writes; do not change real HID
   settings in ordinary tests.

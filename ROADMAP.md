@@ -2,6 +2,11 @@
 
 ## Current state
 
+Version 0.1.7 repairs the confirmed SystemConfiguration context-release crash found
+during investigation of the CalDigit TS5 Plus incident. The reported system freeze
+and earlier WindowServer display timeouts remain unattributed; physical dock
+acceptance is still open. See [the incident report](docs/dock-hang-2026-10-22.md).
+
 Version 0.1.6 adds live feature status, a compact Activity overview, native Keep
 Awake duration/app/time controls, and expanded pause controls with an unassigned
 pause/resume shortcut. Existing settings and shortcuts are preserved. See
