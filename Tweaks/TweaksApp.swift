@@ -91,6 +91,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// ⌘Q (or Quit from the Dock) while the window is open just closes it; Tweaks keeps
     /// working. The Quit Tweaks button in the window really quits.
+    /// Put the screen and keyboard light back if Away had them dimmed.
+    func applicationWillTerminate(_ notification: Notification) {
+        controller.keepAwake.stop()
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if !Self.reallyQuit, let window = settingsWindow?.window, window.isVisible {
             window.close()

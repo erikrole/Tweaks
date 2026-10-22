@@ -26,6 +26,7 @@ final class IdleDimmer {
 
     init() {
         Self.recoverBrightness()
+        KeyboardBacklight.recover()
     }
 
     func start(dimNow: Bool = false) {
@@ -228,7 +229,25 @@ private final class KeyboardBacklight {
         return needed.allSatisfy { client.responds(to: $0) } ? client : nil
     }()
 
-    private var saved: [UInt64: Float] = [:]
+    private var saved: [UInt64: Float] = [:] {
+        didSet { Self.persist(saved) }
+    }
+
+    /// Saved so a quit, crash or reinstall while dimmed doesn't leave the keyboard dark.
+    private static let restoreKey = "darkScreenRestoreKeyboard"
+
+    private static func persist(_ levels: [UInt64: Float]) {
+        if levels.isEmpty { UserDefaults.standard.removeObject(forKey: restoreKey); return }
+        UserDefaults.standard.set(Dictionary(uniqueKeysWithValues: levels.map { (String($0.key), $0.value) }), forKey: restoreKey)
+    }
+
+    /// Restores levels left behind by a previous run.
+    static func recover() {
+        guard let stored = UserDefaults.standard.dictionary(forKey: restoreKey) as? [String: Float], !stored.isEmpty else { return }
+        let backlight = KeyboardBacklight()
+        backlight.saved = Dictionary(uniqueKeysWithValues: stored.compactMap { key, level in UInt64(key).map { ($0, level) } })
+        backlight.restore()
+    }
 
     private var ids: [UInt64] {
         guard let client else { return [] }
