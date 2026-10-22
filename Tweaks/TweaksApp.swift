@@ -29,6 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var launchAtLogin = LaunchAtLoginController()
     private lazy var controller = TweakController()
     private var settingsWindow: SettingsWindowController?
+    /// False in a second copy that quits at once, so quitting it never builds a controller
+    /// (which would undo the running copy's saved screen and keyboard levels).
+    private var started = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
@@ -43,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.settingsWindow?.sync()
         }
         controller.start()
+        started = true
 
         let firstLaunch = UserDefaults.standard.object(forKey: "hasLaunched") == nil
         UserDefaults.standard.set(true, forKey: "hasLaunched")
@@ -93,10 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// working. The Quit Tweaks button in the window really quits.
     /// Put the screen and keyboard light back if Away had them dimmed.
     func applicationWillTerminate(_ notification: Notification) {
+        guard started else { return }
         controller.keepAwake.stop()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard started else { return .terminateNow }
         if !Self.reallyQuit, let window = settingsWindow?.window, window.isVisible {
             window.close()
             return .terminateCancel

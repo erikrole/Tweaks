@@ -147,7 +147,10 @@ final class KeepAwake {
 
     /// Hyper+/ tap: Screen stays on; tap again to stop.
     func toggleDefault() {
-        if session == nil { startScreenOn() } else { stop(reason: "Stopped.") }
+        guard let session else { return startScreenOn() }
+        // A timed session in its last five minutes: the heads-up says a tap adds an hour.
+        if session.warned, case .date = session.until { return extend(by: 3600) }
+        stop(reason: "Stopped.")
     }
 
     /// Hyper+/ hold: Away (or switch to it); hold again while Away to stop.
@@ -185,7 +188,8 @@ final class KeepAwake {
     func extend(by seconds: TimeInterval) {
         guard let session else { return start(.date(Date().addingTimeInterval(seconds))) }
         let base: Date = if case let .date(end) = session.until, end > Date() { end } else { Date() }
-        start(.date(base.addingTimeInterval(seconds)), keepsDisplayOn: session.keepsDisplayOn, onlyOnPower: session.onlyOnPower)
+        start(.date(base.addingTimeInterval(seconds)), keepsDisplayOn: session.keepsDisplayOn, onlyOnPower: session.onlyOnPower,
+              dimsWhenIdle: session.dimsWhenIdle)
     }
 
     func setKeepsDisplayOn(_ on: Bool) {
@@ -452,6 +456,8 @@ final class KeepAwake {
             current.pausedOnBattery = shouldPause
             session = current
             applyAssertion()
+            // Away's activity declarations would also keep a paused Mac awake on battery.
+            if current.dimsWhenIdle { shouldPause ? dimmer.stop() : dimmer.start() }
             HUD.show(shouldPause ? "On battery · Keep Awake paused" : "Plugged in · Keep Awake resumed",
                      symbol: shouldPause ? "pause.circle.fill" : symbol)
         }

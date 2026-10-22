@@ -155,6 +155,14 @@ final class RenderKeepAwake {
     private func check() {
         let busy = Self.sampleBusyRenderer(using: &sampler)
         let now = Date()
+        // Same floor as Keep Awake: a render never drains a forgotten laptop flat.
+        if let battery = Battery.current(), !battery.pluggedIn, battery.percent <= KeepAwake.batteryFloor {
+            if assertion != 0 { HUD.show("Battery low · render no longer keeps the Mac awake", symbol: "battery.25") }
+            release()
+            lastBusy = nil
+            schedule(idle: busy == nil)
+            return
+        }
         if let busy {
             lastBusy = now
             hold(for: busy)
