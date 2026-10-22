@@ -15,6 +15,9 @@ Independent Astra review found matching graphics warnings in the usable
 post-reboot session, so they are not a unique full-freeze signature. The confirmed
 Tweaks crash remains the only precisely identified defect; later server-side
 scene cleanup is a possible contributor, not a demonstrated cause.
+The user confirms pointer motion with unresponsive apps; keyboard responsiveness
+is unknown. Astra now prioritizes a shared session/input or presentation stall over
+a menu-bar-only failure, without identifying the faulty component.
 
 Version 0.1.6 adds live feature status, a compact Activity overview, native Keep
 Awake duration/app/time controls, and expanded pause controls with an unassigned
@@ -101,8 +104,9 @@ installation boundary.
   separately authorized test. Compare with Tweaks quit, then isolate the LG
   USB-C-to-DisplayPort path. Review main-thread event-tap/AX, dimming/ColorSync and
   audio discovery work as hardening candidates without assigning causality from
-  the existing logs. First clarify whether only the clock stopped or all visible
-  interaction failed. Protected WindowServer capture remains an access boundary;
+  the existing logs. Capture input delivery and window presentation separately:
+  the pointer moved while apps did not respond, and historical keyboard response
+  cannot be established. Protected WindowServer capture remains an access boundary;
   repeated stable-session samples cannot reconstruct the earlier failure.
 - On the updated signed app, verify monitor disconnect/reconnect and matching AX
   windows, USB/Bluetooth audio transitions and rounded volume controls, Finder-to-
