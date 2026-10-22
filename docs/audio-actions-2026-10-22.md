@@ -61,6 +61,16 @@ history are written to disk; Clear Recent Actions removes the current list.
   for live checks; link cleaning and restoration used private pasteboards in tests.
 - The two unrelated `.claude` files retained their original hashes. The previous
   signed app and preference export remain backed up privately outside the repository.
+- Screen-capture geometry warnings were inspected rather than counted as clean
+  logs: all 42 recorded stacks contained AppKit's
+  `-[NSThemeFrame _positionSharingIndicator]`. Symbols were resolved against the
+  AppKit image loaded by the installed process. The page geometry checks and
+  observed controls passed; these warnings originate in the macOS sharing indicator.
+- [GitHub release v0.1.4](https://github.com/erikrole/Tweaks/releases/tag/v0.1.4)
+  is published with the notarized Apple Silicon ZIP and checksum. Both uploaded
+  assets report SHA-256 digests matching the local files. The tag points to the
+  exact source revision embedded in the app. The final live preference export,
+  including after Away restoration, still has zero changed keys.
 
 No real share faults, physical device switches, wake-volume changes or user
 Downloads fixtures were used by tests. Physical wake/audio transitions remain
