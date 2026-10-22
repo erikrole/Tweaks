@@ -70,6 +70,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var shownDuplicates = ""
     private var pinnedToTop = false
     private var fitting = false
+    private var fitScheduled = false
     private var tracking = false
     /// Set in windowWillClose. Layout, observation and Finder Sync queries stop with the window.
     private var closed = false
@@ -463,9 +464,23 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func fitStack(preparingToShow: Bool = false) {
+        if preparingToShow { measureStack(); return }
+        guard !closed, window?.isVisible == true, !fitScheduled else { return }
+        fitScheduled = true
+        // Native controls and window delegates can fire while AppKit is laying out.
+        // Measure after that stack unwinds, once for the complete state update.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.fitScheduled = false
+            guard !self.closed, self.window?.isVisible == true else { return }
+            self.measureStack()
+        }
+    }
+
+    private func measureStack() {
         // Nothing to lay out while the window is closed or ordered out. A hidden document
         // that keeps invalidating itself is what held a display link with no window on screen.
-        guard !closed, !fitting, preparingToShow || window?.isVisible == true, let page else { return }
+        guard !closed, !fitting, let page else { return }
         fitting = true
         defer { fitting = false }
         // contentView bounds, not contentSize: contentSize shrinks when a scroller appears,

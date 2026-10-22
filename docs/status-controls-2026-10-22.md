@@ -29,8 +29,11 @@ remain untouched after resuming. The deadline keeps its existing preference key.
 
 ## Verification
 
-Debug and Release each discovered 187 tests: 185 passed, two expected profile skips,
-zero failures. Release used `ENABLE_TESTABILITY=YES ONLY_ACTIVE_ARCH=YES`.
+The initial source passed Debug and Release with 187 discovered tests each, two
+expected profile skips, and no failures. A subsequent installed layout fix adds
+one regression; Debug and Release now pass 188 discovered tests each with two
+expected skips and no failures. Release used
+`ENABLE_TESTABILITY=YES ONLY_ACTIVE_ARCH=YES`.
 FinderUtilitiesKit passed all 19 tests. The complete live preference export after
 implementation/tests matched the original snapshot exactly, including all existing
 shortcut data. Independent read-only review found no remaining release blockers.
@@ -52,9 +55,30 @@ Aqua geometry checks at minimum and expanded sizes, including date/app controls.
 
 ## Live acceptance boundaries
 
-The current hardware inventory has the built-in display, AirPods and built-in
-speakers, and no external physical disk. The other ejectable disk is a virtual disk
-image. Adobe processes are active. Physical monitor reconnection and idle/busy
-multi-volume drive eject therefore require the corresponding hardware. NAS
-sleep/disconnect testing must account for active creative work before interruption.
-These remain distinct from injected regression coverage and signed-app UI checks.
+Before the host restarted, the inventory showed the built-in display and AirPods,
+with no external physical disk; the other ejectable disk was a virtual disk image.
+After restart/docking, two external displays and a Headphone output are available.
+Premiere activity is observed by the installed render hold. Physical monitor
+reconnection, idle/busy multi-volume drive eject, audio-limit transitions, and NAS
+sleep/disconnect testing remain open. Active creative work was not interrupted.
+
+The first signed candidate passed strict signatures and Gatekeeper. Installed
+checks passed a 15-minute pause, change to a chosen resume time, Resume Now, a real
+30-minute Away session with both power assertions, and a chosen Calculator session
+that stopped automatically when Calculator quit. Existing shortcut labels remain
+unchanged; the new pause shortcut is unassigned. Synthetic computer-use input did
+not establish global hot-key delivery. Computer-use capture selected Settings
+instead of the floating panel, so installed panel visual acceptance remains open.
+
+The host restart changed Caps Lock's per-boot recovery keys. Installation added one
+new keyboard recovery record while retaining every existing original value. These
+runtime records are distinct from feature choices and shortcut bytes, which match
+the original snapshot. Old-boot recovery state is not restored over the new boot.
+
+The first candidate logged one layout-recursion warning during the timed-session
+check. Non-preparing Settings measurements now coalesce onto the next main-queue
+turn, with a regression for expanded date controls; the final signed candidate
+requires a fresh installed retest. All 66 negative-geometry capture warnings were
+symbolized to macOS's window-sharing indicator; no constraint failures were found.
+CoreAudio, denied WindowServer task-port, and status-item scene messages are also
+retained in the private runtime log. These are not physical-device acceptance.

@@ -124,6 +124,23 @@ final class StatusControlsTests: XCTestCase {
         XCTAssertNil(controller.keepAwake.session)
     }
 
+    func testExpandedSessionControlsScheduleDocumentMeasurement() async throws {
+        let settings = TweakSettings(defaults: defaults)
+        let controller = TweakController(defaults: defaults); controller.settings = settings
+        let window = SettingsWindowController(settings: settings, tweaks: controller, launchAtLogin: LaunchAtLoginController())
+        defer { window.close() }
+        window.showWindow(nil); window.selectPane(.sleep)
+        func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        let scroll = try XCTUnwrap(descendants(window.window!.contentView!).compactMap { $0 as? NSScrollView }.first { $0.identifier?.rawValue == "settings-content" })
+        let page = try XCTUnwrap(scroll.documentView as? SettingsPage)
+        let original = page.frame.height
+        window.awakeEnd.choice.selectItem(at: SessionEndChoice.time.rawValue)
+        window.awakeEnd.changed()
+        try await Task.sleep(for: .milliseconds(30))
+        XCTAssertGreaterThan(page.frame.height, original)
+        XCTAssertGreaterThanOrEqual(page.frame.height + 0.5, page.column.fittingSize.height)
+    }
+
     func testRoutineProgressAndRepeatedFailuresDoNotFloodHistory() {
         let controller = TweakController(defaults: defaults)
         controller.settings = TweakSettings(defaults: defaults)

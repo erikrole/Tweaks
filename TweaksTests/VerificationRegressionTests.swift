@@ -140,7 +140,8 @@ final class VerificationRegressionTests: XCTestCase {
                             for choice in [SessionEndChoice.time, .appQuits, .indefinitely] {
                                 settingsWindow.awakeEnd.choice.selectItem(at: choice.rawValue)
                                 settingsWindow.awakeEnd.changed()
-                                // The control's callback must resize the document itself.
+                                // Measure the expanded variant before asserting its geometry.
+                                settingsWindow.selectPane(tab)
                                 checkGeometry()
                             }
                         }
