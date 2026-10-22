@@ -35,6 +35,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var shownShares: [String] = []
     private var shownApps: [String] = []
     let volumeBox = NSStackView()
+    let wakeLimitSlider = NSSlider(value: 0.4, minValue: 0, maxValue: 1, target: nil, action: nil)
+    let wakeLimitLabel = NSTextField(labelWithString: "Default maximum: 40%")
+    let pauseStatus = NSTextField(labelWithString: "")
+    let pauseNotice = NSTextField(labelWithString: "")
+    let pauseButton = NSButton()
+    let restoreLinkButton = NSButton()
+    let linkStatus = NSTextField(labelWithString: "")
+    let excludedHostsField = NSTextField()
+    let recentActionsBox = NSStackView()
+    private var shownRecentActions: [UUID] = []
     let duplicateBox = NSStackView()
     let ejectButton = NSButton()
     let ejectResults = NSTextField(labelWithString: "")
@@ -48,6 +58,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var tracking = false
     /// Set in windowWillClose. Layout, observation and Finder Sync queries stop with the window.
     private var closed = false
+    private var clipboardTimer: Timer?
 
     init(settings: TweakSettings, tweaks: TweakController, launchAtLogin: LaunchAtLoginController) {
         self.settings = settings
@@ -81,6 +92,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         closed = true
+        clipboardTimer?.invalidate()
+        clipboardTimer = nil
         window?.delegate = nil
         // Drop the scroll view before the controller goes. A tall document was being
         // redrawn on a display link even after the window had ordered out.
@@ -97,6 +110,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     override func showWindow(_ sender: Any?) {
         fitStack(preparingToShow: true)
         super.showWindow(sender)
+        if clipboardTimer == nil {
+            let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, !self.closed, self.window?.isVisible == true else { return }
+                    self.tweaks.linkCleaner.refreshClipboardState()
+                }
+            }
+            timer.tolerance = 0.5
+            RunLoop.main.add(timer, forMode: .common)
+            clipboardTimer = timer
+        }
         fitStack()
         DispatchQueue.main.async { [weak self] in
             guard let self, !self.closed, self.window?.isVisible == true else { return }
@@ -171,6 +195,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         chrome.detachesHiddenViews = true
         chrome.addArrangedSubview(accessRow)
         chrome.addArrangedSubview(tabs)
+        pauseNotice.font = .systemFont(ofSize: 11, weight: .medium)
+        pauseNotice.textColor = Paper.secondary
+        chrome.addArrangedSubview(pauseNotice)
 
         pages = installPages()
         column = nil
@@ -233,6 +260,20 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         rebuildApps()
         rebuildVolumeLimits()
         rebuildDuplicates()
+        let until = tweaks.automationPause.until
+        let pauseText = until.map { "Automatic file and link actions paused until \(DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short))." }
+        pauseStatus.stringValue = pauseText ?? "Automatic actions follow your switches below."
+        pauseNotice.stringValue = pauseText ?? ""
+        pauseNotice.isHidden = until == nil
+        pauseButton.title = until == nil ? "Pause for 30 Minutes" : "Resume Automatic Actions"
+        wakeLimitSlider.doubleValue = Double(tweaks.volumeLimits.wakeMaximum)
+        wakeLimitLabel.stringValue = "Default maximum: \(Int((tweaks.volumeLimits.wakeMaximum * 100).rounded()))%"
+        linkStatus.stringValue = tweaks.linkCleaner.status
+        restoreLinkButton.isEnabled = tweaks.linkCleaner.canRestore
+        if excludedHostsField.currentEditor() == nil {
+            excludedHostsField.stringValue = tweaks.linkCleaner.excludedHosts.joined(separator: ", ")
+        }
+        rebuildRecentActions()
         let ejecting = tweaks.safeEject.busy
         ejectButton.isEnabled = !ejecting
         ejectButton.title = ejecting ? "Ejecting…" : "Eject Idle External Drives"
@@ -299,6 +340,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let signature = "\(model.devices.map { "\($0.id)|\($0.name)|\($0.supportsVolume)" })\(model.rules.sorted { $0.key < $1.key }.map { "\($0.key)|\($0.value.maximum)|\($0.value.muteOnSwitchAway)" })\(model.status)"
         guard signature != shownVolume else { return }
         shownVolume = signature
+        measured.removeAll { $0.0.isDescendant(of: volumeBox) }
         volumeBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let refresh = button("Refresh Devices", #selector(refreshDevices))
         addRow(smallLabel("Output device limits"), trailing: refresh, to: volumeBox)
@@ -348,6 +390,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let signature = "\(model.matches.map(\.id))\(model.busy)\(model.status)"
         guard signature != shownDuplicates else { return }
         shownDuplicates = signature
+        measured.removeAll { $0.0.isDescendant(of: duplicateBox) }
         duplicateBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
         duplicateBox.addArrangedSubview(smallLabel(model.status))
         for match in model.matches {
@@ -368,6 +411,23 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
         duplicateBox.isHidden = false
         fitStack()
+    }
+
+    private func rebuildRecentActions() {
+        let entries = tweaks.recentActions.entries
+        let ids = entries.map(\.id)
+        guard ids != shownRecentActions || recentActionsBox.arrangedSubviews.isEmpty else { return }
+        shownRecentActions = ids
+        measured.removeAll { $0.0.isDescendant(of: recentActionsBox) }
+        recentActionsBox.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        if entries.isEmpty { recentActionsBox.addArrangedSubview(smallLabel("No actions recorded in this session yet.")) }
+        for entry in entries {
+            let time = DateFormatter.localizedString(from: entry.date, dateStyle: .none, timeStyle: .short)
+            let label = smallLabel("\(time) · \(entry.message)")
+            label.lineBreakMode = .byWordWrapping
+            label.maximumNumberOfLines = 0
+            recentActionsBox.addArrangedSubview(label)
+        }
     }
 
     private func fitStack(preparingToShow: Bool = false) {
@@ -431,6 +491,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.tweaks.volumeLimits.devices
             _ = self.tweaks.volumeLimits.rules
             _ = self.tweaks.volumeLimits.status
+            _ = self.tweaks.volumeLimits.wakeMaximum
+            _ = self.tweaks.automationPause.until
+            _ = self.tweaks.recentActions.entries
+            _ = self.tweaks.linkCleaner.status
+            _ = self.tweaks.linkCleaner.excludedHosts
+            _ = self.tweaks.linkCleaner.canRestore
             _ = self.tweaks.duplicates.matches
             _ = self.tweaks.duplicates.busy
             _ = self.tweaks.duplicates.status
@@ -452,6 +518,34 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     // MARK: - Actions
+
+    @objc func wakeMaximumChanged(_ sender: NSSlider) {
+        tweaks.volumeLimits.setWakeMaximum(Float(sender.doubleValue))
+        sync()
+    }
+
+    @objc func toggleAutomationPause() {
+        if tweaks.automationPause.isPaused { tweaks.automationPause.resume() }
+        else { tweaks.automationPause.pause(for: 30 * 60) }
+        sync()
+    }
+
+    @objc func cleanLinkNow() {
+        _ = tweaks.linkCleaner.cleanNow()
+        sync()
+    }
+
+    @objc func restoreOriginalLink() {
+        _ = tweaks.linkCleaner.restoreOriginal()
+        sync()
+    }
+
+    @objc func saveLinkExclusions() {
+        tweaks.linkCleaner.setExcludedHosts(excludedHostsField.stringValue)
+        sync()
+    }
+
+    @objc func clearRecentActions() { tweaks.recentActions.clear(); sync() }
 
     @objc func tweakToggled(_ sender: NSSwitch) {
         guard let id = sender.identifier?.rawValue, let tweak = Tweak(rawValue: id) else { return }

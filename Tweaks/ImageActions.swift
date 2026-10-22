@@ -106,6 +106,7 @@ enum ImageExporter {
 @MainActor
 final class ImageActions {
     private var window: NSWindow?
+    var onAction: ((String) -> Void)?
 
     func choose() {
         let panel = NSOpenPanel()
@@ -124,6 +125,7 @@ final class ImageActions {
         window.title = "Quick Image Actions"
         window.isReleasedWhenClosed = false
         let panel = ImageActionsPanel(files: files)
+        panel.onAction = onAction
         window.contentView = panel.view
         window.center()
         NSApp.activate()
@@ -138,6 +140,7 @@ final class ImageActions {
 /// AppKit only, like the rest of Tweaks: SwiftUI is never mapped for this panel.
 @MainActor
 private final class ImageActionsPanel: NSObject {
+    var onAction: ((String) -> Void)?
     let view = NSView()
     private let files: [URL]
     private let format = NSPopUpButton()
@@ -236,6 +239,7 @@ private final class ImageActionsPanel: NSObject {
                 } catch { errors.append("\(file.lastPathComponent): \(error.localizedDescription)") }
             }
             statusLabel.stringValue = "Saved \(outputs.count) of \(files.count) copies." + (errors.isEmpty ? "" : "\n" + errors.joined(separator: "\n"))
+            onAction?("Image export saved \(outputs.count) of \(files.count) copies. Originals were kept." + (errors.isEmpty ? "" : " Review export errors in Quick Image Actions."))
             showCopiesButton.isHidden = outputs.isEmpty
             spinner.stopAnimation(nil)
             save.isEnabled = true

@@ -2,29 +2,46 @@ import AppKit
 import Foundation
 import Security
 
+/// Invalidates all asynchronous work from an earlier observer lifetime.
+struct InstallerSession {
+    private var id = UUID()
+    private var active = false
+
+    mutating func begin() -> UUID { id = UUID(); active = true; return id }
+    mutating func end() { active = false; id = UUID() }
+    func accepts(_ candidate: UUID) -> Bool { active && candidate == id }
+}
+
 /// When a disk image you downloaded mounts and holds a single app, offers to install it:
 /// copy to /Applications (the old copy goes to the Trash), eject the image, trash the
 /// .dmg and open the new app.
 @MainActor
 final class DMGInstaller {
     private var observer: NSObjectProtocol?
+    private var session = InstallerSession()
+    var onAction: ((String) -> Void)?
 
     func start() {
         guard observer == nil else { return }
+        let session = session.begin()
         observer = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didMountNotification, object: nil, queue: .main
         ) { [weak self] notification in
             guard let volume = notification.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL else { return }
-            Task { @MainActor in await self?.handleMount(volume) }
+            Task { @MainActor in await self?.handleMount(volume, session: session) }
         }
     }
 
     func stop() {
+        session.end()
         if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
         observer = nil
     }
 
-    private func handleMount(_ volume: URL) async {
+    private func accepts(_ candidate: UUID) -> Bool { observer != nil && session.accepts(candidate) }
+
+    private func handleMount(_ volume: URL, session: UUID) async {
+        guard accepts(session) else { return }
         guard let image = await Self.diskImagePath(for: volume),
               let app = try? await FileWork.run({ Self.singleApp(in: volume) })
         else { return }
@@ -34,10 +51,11 @@ final class DMGInstaller {
         let incoming = await AppIdentity.read(app)
         let exists = (try? await FileWork.run { FileManager.default.fileExists(atPath: destination.path) }) == true
         let installed = exists ? await AppIdentity.read(destination) : nil
-        guard observer != nil else { return }
+        guard accepts(session) else { return }
 
         // Refuse what would be a downgrade or a different developer's app with the same name.
         if let problem = Self.problem(installing: incoming, over: installed) {
+            onAction?("Did not install \(name): \(problem)")
             Self.tell("Didn't install \(name)", problem)
             return
         }
@@ -51,7 +69,7 @@ final class DMGInstaller {
         // Return means "Not Now", so a keystroke meant for another app can't install anything.
         alert.buttons[0].keyEquivalent = ""
         alert.buttons[1].keyEquivalent = "\r"
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runModal() == .alertFirstButtonReturn, accepts(session) else { return }
 
         // Copy next to the destination first; the installed app is only replaced once the
         // new copy is complete and passes Gatekeeper, so there's never a moment without it.
@@ -64,18 +82,21 @@ final class DMGInstaller {
                 Self.tell("Didn't install \(name)", "macOS's Gatekeeper check rejected this copy, so the app you have is unchanged.")
                 return
             }
+            guard accepts(session) else { await Self.remove(staging); return }
             if installed != nil {
                 guard await Self.quitAndWait(bundleID: incoming.bundleID ?? installed?.bundleID) else {
                     await Self.remove(staging)
                     Self.tell("Didn't update \(name)", "\(name) is still open. Quit it (saving your work) and open the disk image again.")
                     return
                 }
+                guard accepts(session) else { await Self.remove(staging); return }
                 recoveryNote = try await FileWork.run { try Self.replaceApp(at: destination, with: staging) }
             } else {
                 try await FileWork.run { try FileManager.default.moveItem(at: staging, to: destination) }
             }
         } catch {
             await Self.remove(staging)
+            onAction?("Could not install \(name). The previous app was preserved.")
             Self.tell("Couldn't install \(name)", error.localizedDescription)
             return
         }
@@ -85,6 +106,7 @@ final class DMGInstaller {
         })
         let notes = [recoveryNote, cleanupNote].compactMap { $0 }
         if !notes.isEmpty { Self.tell("Installed \(name)", notes.joined(separator: "\n\n")) }
+        onAction?(notes.isEmpty ? "Installed \(name) and cleaned up its disk image." : "Installed \(name); review the recovery or cleanup message.")
         _ = try? await NSWorkspace.shared.openApplication(at: destination, configuration: NSWorkspace.OpenConfiguration())
     }
 

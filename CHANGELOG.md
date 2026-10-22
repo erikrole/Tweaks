@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.4 — 2026-10-22
+
+- Consolidate wake and per-device volume controls, with a configurable default
+  wake maximum and existing switches and device rules preserved.
+- Pause automatic Downloads, disk-image offers and link cleaning for 30 minutes
+  without changing saved feature choices; retain the deadline across relaunch.
+- Show the latest 100 file, link, volume and pause actions in session-only history.
+- Clean copied links immediately, restore the original while clipboard ownership
+  is unchanged, and exclude selected sites. The optional shortcut is unassigned.
+
+See [validation and release status](docs/audio-actions-2026-10-22.md).
+
 ## 0.1.1 — 2026-10-17
 
 - Repair settings construction and page layout, preserving usable share, app and audio controls.

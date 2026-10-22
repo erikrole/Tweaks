@@ -10,12 +10,14 @@ where every tweak has its own switch.
   `CapsLockDelayOverride` property, reapplied on wake and every fifteen minutes). Turning it
   off restores each keyboard's previous delay from this boot, or macOS's usual
   quarter-second hold if Tweaks never saw another value.
-- Volume capped at 40% after waking.
+- One **Volume limits** section combines the default wake maximum (40% until you
+  change it) and optional per-device limits. Existing wake and device switches and
+  saved rules are preserved. When both apply, the lower maximum wins.
 - Optional volume limits for individual output devices, with an option to mute the
   next output when switching away from a selected device. Limits never raise the
   volume, including quieter individual channels; master and channel-only software
   controls are supported. Devices with their own hardware control are identified in settings. The
-  separate 40% wake cap also applies if it remains enabled.
+  default wake maximum also applies if it remains enabled.
 - A speaker icon in the menu bar only while sound is muted; click it to unmute.
 - The play/pause key no longer opens Music; opening Music yourself still works.
 
@@ -41,6 +43,20 @@ where every tweak has its own switch.
   are stripped from copied links within a few seconds; a fast paste can happen
   before cleaning. Only a clipboard holding a single http(s)
   link is touched, and password-manager items never are.
+- **Clean Link Now** runs immediately, including when automatic cleaning is off or
+  paused. **Restore Original** restores all original clipboard formats only while
+  Tweaks still owns that clipboard generation. Site exclusions cover the named
+  domain and its subdomains. An optional global shortcut starts unassigned.
+
+**Automatic actions and history**
+- In **Files**, pause Downloads processing, disk-image offers and automatic link
+  cleaning for 30 minutes, or resume early. Saved feature switches do not change;
+  the deadline survives relaunch and expires after sleep. Files received while
+  paused remain untouched on resume. Already-started file transactions finish;
+  pending disk-image offers are canceled. Manual actions remain available.
+- **Recent actions** shows the latest 100 download, installer, duplicate-review,
+  image-export, link, volume and pause actions from the current session. Clear it
+  at any time. History and original clipboard contents stay in memory only.
 
 **Sleep**
 - Tweaks tries to eject idle external drives as the Mac sleeps; busy drives remain

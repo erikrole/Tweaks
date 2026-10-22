@@ -73,6 +73,17 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   and suppress repeated above-limit readbacks: hardware may round scalar writes.
   Compare the entire channel snapshot for suppression, and never raise a quieter
   channel while capping another.
+- Audio consolidation retains the `wakeVolumeLimit`, `deviceVolumeLimits` and
+  `deviceVolumeRules` preferences byte-for-byte. `audioWakeMaximum` defaults to
+  40% without writing a migration; an enabled device cap can only lower it further.
+- Temporary pause overrides Downloads, DMG offers and automatic link cleaning,
+  never their saved switches. Persist only its expiry; leave arrivals during the
+  pause untouched on resume. Cancel pending work, finish started file transactions,
+  and invalidate DMG session identities across stop/restart.
+- Recent actions are bounded to 100 session-only entries; never persist the log or
+  original links. Manual link cleaning shares automatic protected-item guards and
+  site exclusions. Clipboard restore requires the original ownership count before
+  and after writing, and must not replace a newer copy. Tests use private pasteboards.
 - Image requests from Finder only open a review panel in the host. Export uses
   ImageIO off-main, a private staging directory, and atomic no-overwrite publishing.
   Keep originals intact, reject multi-frame input, and test metadata/orientation.

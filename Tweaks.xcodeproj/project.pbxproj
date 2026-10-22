@@ -10,6 +10,7 @@
 		068338E78EA3C7960E7C680F /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02298ACE943D679C9B6FA019 /* SettingsChrome.swift */; };
 		0EBB14037392855A61DA1198 /* DeviceVolumeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */; };
 		13E8DF7EB0B9E1613316984E /* MediaReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6529D5EF39EDC973E8F09C64 /* MediaReader.swift */; };
+		1508C2BE4F8895A18F783900 /* AudioActionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9A66277A10A3BC8DB07E0B /* AudioActionsTests.swift */; };
 		1B640C0C290CAF710B6A3889 /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */; };
 		1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E331E81854D32C0B5583B639 /* MoreTweaks.swift */; };
 		1DAA204BD278AAE2E4E1CDD1 /* EthernetHandoffTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5DFADA5703E67A9940351B /* EthernetHandoffTests.swift */; };
@@ -19,6 +20,7 @@
 		2C89F5AAD00BFAB2A839D25A /* ShareConnectionRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC839332AEC88CB20A0C87D2 /* ShareConnectionRecovery.swift */; };
 		2FD8EC43873788B91DC2D2E2 /* FileWorkProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */; };
 		3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */; };
+		351D993A29E1C7C51965CD08 /* RecentActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CCDE285DFD1F40E90B9C16 /* RecentActions.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
 		415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */; };
 		4DFCB8C814030C62E6CF0134 /* BundledMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FBBFB6B0508737DB126C6C /* BundledMedia.swift */; };
@@ -114,6 +116,7 @@
 		4437269ADC4A1BDE79462983 /* ShareConnectionRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareConnectionRecoveryTests.swift; sourceTree = "<group>"; };
 		477EBDD93C6EC737F0A3019F /* JobWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobWatcher.swift; sourceTree = "<group>"; };
 		5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		53CCDE285DFD1F40E90B9C16 /* RecentActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActions.swift; sourceTree = "<group>"; };
 		57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTweaks.swift; sourceTree = "<group>"; };
 		6529D5EF39EDC973E8F09C64 /* MediaReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaReader.swift; sourceTree = "<group>"; };
 		65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageActions.swift; sourceTree = "<group>"; };
@@ -132,6 +135,7 @@
 		9D69E6C921208ED675457D48 /* FinderSyncExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSyncExtension.swift; sourceTree = "<group>"; };
 		A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVolumeLimits.swift; sourceTree = "<group>"; };
 		A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAwake.swift; sourceTree = "<group>"; };
+		AF9A66277A10A3BC8DB07E0B /* AudioActionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioActionsTests.swift; sourceTree = "<group>"; };
 		B5C2178EC6AB88894C211F68 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B669558E8002E222EB08AA36 /* TweakSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TweakSettings.swift; sourceTree = "<group>"; };
 		B7E4A379C97DAD8B47F5D295 /* HUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUD.swift; sourceTree = "<group>"; };
@@ -172,6 +176,7 @@
 		11B2803453AA00B7C62978D9 /* TweaksTests */ = {
 			isa = PBXGroup;
 			children = (
+				AF9A66277A10A3BC8DB07E0B /* AudioActionsTests.swift */,
 				CE5DFADA5703E67A9940351B /* EthernetHandoffTests.swift */,
 				ED622B020DC2A82821215B2B /* EthernetRecoveryTests.swift */,
 				F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */,
@@ -259,6 +264,7 @@
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
+				53CCDE285DFD1F40E90B9C16 /* RecentActions.swift */,
 				7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */,
 				F90BB2070E38C524774DE6DD /* Safety.swift */,
 				02298ACE943D679C9B6FA019 /* SettingsChrome.swift */,
@@ -453,6 +459,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1508C2BE4F8895A18F783900 /* AudioActionsTests.swift in Sources */,
 				1DAA204BD278AAE2E4E1CDD1 /* EthernetHandoffTests.swift in Sources */,
 				EBE65803E24D18F63F209505 /* EthernetRecoveryTests.swift in Sources */,
 				415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */,
@@ -487,6 +494,7 @@
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
+				351D993A29E1C7C51965CD08 /* RecentActions.swift in Sources */,
 				72B7F68BE99F37AFC4052D1E /* SafeEject.swift in Sources */,
 				DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */,
 				068338E78EA3C7960E7C680F /* SettingsChrome.swift in Sources */,
@@ -562,7 +570,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -571,7 +579,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks;
 				PRODUCT_NAME = Tweaks;
 				SDKROOT = macosx;
@@ -751,7 +759,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -761,7 +769,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.FinderSync;
 				PRODUCT_NAME = TweaksFinderSync;
 				SDKROOT = macosx;
@@ -796,7 +804,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -805,7 +813,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks;
 				PRODUCT_NAME = Tweaks;
 				SDKROOT = macosx;
@@ -819,7 +827,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -829,7 +837,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.FinderSync;
 				PRODUCT_NAME = TweaksFinderSync;
 				SDKROOT = macosx;

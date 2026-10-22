@@ -108,6 +108,8 @@ final class DeviceVolumeLimits {
     private(set) var devices: [AudioOutputDevice] = []
     private(set) var rules: [String: DeviceVolumeRule]
     private(set) var status = "Set a limit for each output device you use."
+    private(set) var wakeMaximum: Float
+    var onAction: ((String) -> Void)?
     private let defaults: UserDefaults
     private let queue = DispatchQueue(label: "Tweaks.audio-limits")
     private var active = false
@@ -124,7 +126,31 @@ final class DeviceVolumeLimits {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let saved = defaults.object(forKey: "audioWakeMaximum") as? Float ?? WakeVolume.cap
+        wakeMaximum = saved.isFinite ? min(1, max(0, saved)) : WakeVolume.cap
         rules = defaults.data(forKey: "deviceVolumeRules").flatMap { try? JSONDecoder().decode([String: DeviceVolumeRule].self, from: $0) } ?? [:]
+    }
+
+    func setWakeMaximum(_ value: Float) {
+        guard value.isFinite else { return }
+        wakeMaximum = min(1, max(0, value))
+        defaults.set(wakeMaximum, forKey: "audioWakeMaximum")
+    }
+
+    /// Keeps the previous wake behavior: the wake cap and an enabled device cap
+    /// both apply, so the stricter ceiling wins. Never enables device limits.
+    static func wakeLimit(defaultMaximum: Float, deviceMaximum: Float?) -> Float {
+        min(defaultMaximum, deviceMaximum ?? defaultMaximum)
+    }
+
+    func applyWakeLimit(deviceLimitsEnabled: Bool) {
+        guard let id = OutputAudio.defaultDevice(), let device = AudioDeviceAccess.describe(id) else { return }
+        let limit = Self.wakeLimit(defaultMaximum: wakeMaximum, deviceMaximum: deviceLimitsEnabled ? rules[device.id]?.maximum : nil)
+        var wakeEnforcer = ChannelVolumeLimitEnforcer()
+        if let result = wakeEnforcer.enforce(maximum: limit, read: { OutputAudio.volumes(device: id) },
+                                             write: { OutputAudio.capVolume($0, device: id) }) {
+            report(result, name: device.name)
+        }
     }
 
     func refreshDevices() { devices = AudioDeviceAccess.outputs() }
@@ -208,6 +234,17 @@ final class DeviceVolumeLimits {
         case .failed: status = "macOS couldn't change \(current.name)'s volume. Use its hardware control."
         case .unverified: status = "Could not verify \(current.name)'s volume after setting its limit."
         }
+        onAction?(status)
+    }
+
+    private func report(_ result: VolumeLimitEnforcer.Result, name: String) {
+        switch result {
+        case .applied(let value): status = "After wake, limited \(name) to \(Int(value * 100))%."
+        case .rounded: status = "After wake, \(name) rounded above its volume limit. Use its hardware control."
+        case .failed: status = "Could not apply the wake volume limit to \(name)."
+        case .unverified: status = "Could not verify the wake volume limit for \(name)."
+        }
+        onAction?(status)
     }
 }
 

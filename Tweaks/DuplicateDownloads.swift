@@ -76,6 +76,7 @@ final class DuplicateReview {
     private(set) var matches: [DuplicateMatch] = []
     private(set) var busy = false
     private(set) var status = "New duplicates appear here. Nothing is trashed automatically."
+    var onAction: ((String) -> Void)?
 
     func add(_ match: DuplicateMatch) {
         guard !matches.contains(where: { $0.id == match.id }), matches.count < 100 else { return }
@@ -84,7 +85,10 @@ final class DuplicateReview {
         Notifier.post(title: "Duplicate download found", body: "\(match.newFile.lastPathComponent) matches an existing file. Review it in Tweaks.")
     }
 
-    func keep(_ match: DuplicateMatch) { matches.removeAll { $0.id == match.id } }
+    func keep(_ match: DuplicateMatch) {
+        matches.removeAll { $0.id == match.id }
+        onAction?("Kept both copies of \(match.newFile.lastPathComponent).")
+    }
     func clear() { matches = [] }
 
     func trash(_ match: DuplicateMatch) async {
@@ -99,7 +103,11 @@ final class DuplicateReview {
             }
             status = removed ? "Moved \(match.newFile.lastPathComponent) to the Trash. The existing file is unchanged."
                 : "A file changed or is in use. Both files were left alone."
-            keep(match)
-        } catch { status = "Could not trash the new copy: \(error.localizedDescription)" }
+            matches.removeAll { $0.id == match.id }
+            onAction?(status)
+        } catch {
+            status = "Could not trash the new copy: \(error.localizedDescription)"
+            onAction?(status)
+        }
     }
 }

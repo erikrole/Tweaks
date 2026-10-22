@@ -2,6 +2,12 @@
 
 ## Current state
 
+Version 0.1.4 consolidates audio controls while preserving existing preferences,
+adds session-only recent actions and a 30-minute file/link automation pause, and
+adds immediate copied-link cleaning with guarded restore and site exclusions.
+The new manual cleaning shortcut is unassigned. Release checks and installed
+verification are recorded in [the release report](docs/audio-actions-2026-10-22.md).
+
 Version 0.1.3 adds bounded work-share mounts and conservative recovery for the
 verified macOS SMB account-lookup hang. Dock, VPN route/DNS and wake events trigger
 retries; the normal share path is reused when an empty macOS mount reservation

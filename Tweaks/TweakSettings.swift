@@ -40,7 +40,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .capsLockNoDelay: "Caps Lock with no delay"
-        case .wakeVolumeLimit: "Cap volume at 40% after waking"
+        case .wakeVolumeLimit: "Apply the default maximum after waking"
         case .muteIcon: "Show a menu bar icon only when muted"
         case .lowercaseExtensions: "Lowercase file extensions in Downloads"
         case .calendarInvites: "Open downloaded calendar invites in Fantastical"
@@ -60,7 +60,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
         case .vpnReconnectReminder: "Remind me to reconnect GlobalProtect"
         case .keepAwakeHotKey: "Keep Awake shortcuts"
         case .windowLayouts: "Restore saved window layouts"
-        case .deviceVolumeLimits: "Limit volume for each output device"
+        case .deviceVolumeLimits: "Enforce device limits on switch and volume changes"
         case .safeEjectHotKey: "Safe-eject shortcut"
         case .duplicateDownloads: "Review duplicate downloads"
         }
@@ -69,7 +69,7 @@ enum Tweak: String, CaseIterable, Identifiable, Sendable {
     var detail: String {
         switch self {
         case .capsLockNoDelay: "A normal tap toggles Caps Lock instantly instead of needing a short hold."
-        case .wakeVolumeLimit: "So a loud setting from last night doesn't blast when you open the lid."
+        case .wakeVolumeLimit: "Lowers loud output to the default maximum below. An enabled device limit can lower it further. Never raises volume or unmutes."
         case .muteIcon: "A speaker icon appears in the menu bar while sound is muted; click it to unmute."
         case .lowercaseExtensions: "Renames IMG_0001.JPG to IMG_0001.jpg as downloads land."
         case .calendarInvites: "Strips alarms, opens the invite in Fantastical, then moves the file to the Trash."

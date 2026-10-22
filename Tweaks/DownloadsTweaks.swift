@@ -10,6 +10,7 @@ final class DownloadsWatcher {
     var unzipArchives = false { didSet { updateOptions() } }
     var detectDuplicates = false { didSet { updateOptions() } }
     var onDuplicate: (@MainActor @Sendable (DuplicateMatch) -> Void)?
+    var onAction: (@MainActor @Sendable (String) -> Void)?
 
     private let folder: URL
     private let queue: DispatchQueue?
@@ -41,7 +42,7 @@ final class DownloadsWatcher {
         // initial snapshot. Discovery and extraction use independent serial queues.
         let worker = DownloadSession(folder: folder,
                                      queue: queue ?? DispatchQueue(label: "com.erole.Tweaks.downloads.\(UUID().uuidString)", qos: .utility),
-                                     options: options, fileIsOpen: fileIsOpen, onDuplicate: onDuplicate)
+                                     options: options, fileIsOpen: fileIsOpen, onDuplicate: onDuplicate, onAction: onAction)
         session = worker
         worker.start { [weak self, weak worker] in
             guard let self, let worker, self.session === worker else { return }
@@ -86,17 +87,18 @@ final class DownloadsWatcher {
                           NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.archiveutility" }
                       },
                       shouldContinue: @escaping @Sendable () -> Bool = { true },
-                      onDeferred: @escaping @Sendable () -> Void = {}) async {
+                      onDeferred: @escaping @Sendable () -> Void = {},
+                      onAction: @escaping @Sendable (String) -> Void = { _ in }) async {
         // Workspace interaction stays on the main actor; all archive I/O stays off it.
         guard shouldContinue() else { return }
         guard !archiveUtilityRunning() else { onDeferred(); return }
         try? await FileWork.run {
-            extractArchive(archive, expectedVersion: expectedVersion, shouldContinue: shouldContinue, onDeferred: onDeferred)
+            extractArchive(archive, expectedVersion: expectedVersion, shouldContinue: shouldContinue, onDeferred: onDeferred, onAction: onAction)
         }
     }
 
     nonisolated private static func extractArchive(_ archive: URL, expectedVersion: FileVersion?,
-                                                  shouldContinue: () -> Bool, onDeferred: () -> Void) {
+                                                  shouldContinue: () -> Bool, onDeferred: () -> Void, onAction: (String) -> Void) {
         dispatchPrecondition(condition: .notOnQueue(.main))
         guard shouldContinue() else { return }
         guard let version = expectedVersion ?? FileVersion.read(archive),
@@ -134,8 +136,10 @@ final class DownloadsWatcher {
             }
             if version.matches(archive) {
                 try FileManager.default.trashItem(at: archive, resultingItemURL: nil)
+                onAction("Extracted \(archive.lastPathComponent) and moved its archive to the Trash.")
             } else { onDeferred() }
         } catch {
+            onAction("Archive action could not finish for \(archive.lastPathComponent).")
             // Keep the original archive on failure. moveItem never replaces a destination.
         }
     }
@@ -217,6 +221,7 @@ private final class DownloadSession: @unchecked Sendable {
     private let queue: DispatchQueue
     private let fileIsOpen: @Sendable (String) -> Bool
     private let onDuplicate: (@MainActor @Sendable (DuplicateMatch) -> Void)?
+    private let onAction: (@MainActor @Sendable (String) -> Void)?
     private let lock = NSLock()
     private var configuration: Options?
     private var ready = false
@@ -227,8 +232,10 @@ private final class DownloadSession: @unchecked Sendable {
 
     init(folder: URL, queue: DispatchQueue, options: Options,
          fileIsOpen: @escaping @Sendable (String) -> Bool,
-         onDuplicate: (@MainActor @Sendable (DuplicateMatch) -> Void)?) {
+         onDuplicate: (@MainActor @Sendable (DuplicateMatch) -> Void)?,
+         onAction: (@MainActor @Sendable (String) -> Void)?) {
         self.onDuplicate = onDuplicate
+        self.onAction = onAction
         self.folder = folder
         self.queue = queue
         self.configuration = options
@@ -332,6 +339,7 @@ private final class DownloadSession: @unchecked Sendable {
            options?.lowercase == true, DownloadsWatcher.moveCaseOnly(from: url, to: renamed) {
             seen.insert(renamed.lastPathComponent)
             url = renamed
+            report("Lowercased the extension of \(renamed.lastPathComponent).")
         }
         guard let currentVersion = FileVersion.read(url), version.sameContents(as: currentVersion) else { return }
         if options?.duplicates == true,
@@ -339,6 +347,7 @@ private final class DownloadSession: @unchecked Sendable {
             Task { @MainActor in
                 guard self.options?.duplicates == true else { return }
                 self.onDuplicate?(duplicate)
+                self.onAction?("Found a duplicate download: \(duplicate.newFile.lastPathComponent). Both copies were kept for review.")
             }
             // Keep both copies available for review; don't auto-unzip or import the new one.
             return
@@ -351,7 +360,8 @@ private final class DownloadSession: @unchecked Sendable {
             Task { @MainActor in
                 await DownloadsWatcher.unzip(archive, expectedVersion: currentVersion,
                                              shouldContinue: { self.options?.archives == true },
-                                             onDeferred: { self.retryArchive(archive) })
+                                             onDeferred: { self.retryArchive(archive) },
+                                             onAction: { self.report($0) })
             }
         }
     }
@@ -389,10 +399,20 @@ private final class DownloadSession: @unchecked Sendable {
                 guard error == nil else { return }
                 self.queue.async {
                     guard self.options?.invites == true, version.matches(original) else { return }
-                    try? FileManager.default.trashItem(at: original, resultingItemURL: nil)
+                    do {
+                        try FileManager.default.trashItem(at: original, resultingItemURL: nil)
+                        self.report("Opened \(original.lastPathComponent) in Fantastical without alarms; original moved to the Trash.")
+                    } catch {
+                        self.report("Opened \(original.lastPathComponent) in Fantastical; could not move the original to the Trash.")
+                    }
                 }
             }
         }
+    }
+
+    private func report(_ message: String) {
+        guard let onAction else { return }
+        Task { @MainActor in onAction(message) }
     }
 }
 

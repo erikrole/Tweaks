@@ -159,7 +159,9 @@ final class TweakController {
     private let greenButton = GreenButtonFill()
     private let ejector = SleepEjector()
     let renderAwake = RenderKeepAwake()
-    private let linkCleaner = LinkCleaner()
+    let linkCleaner: LinkCleaner
+    let recentActions = RecentActions()
+    let automationPause: AutomationPause
     private let quitter = LastWindowQuitter()
     private let shareSleep: ShareSleepManager
     private let shareConnect = ShareAutoConnect()
@@ -185,6 +187,25 @@ final class TweakController {
         windowLayouts = WindowLayouts(defaults: defaults)
         volumeLimits = DeviceVolumeLimits(defaults: defaults)
         shortcuts = ShortcutStore(defaults: defaults)
+        linkCleaner = LinkCleaner(defaults: defaults)
+        automationPause = AutomationPause(defaults: defaults)
+        linkCleaner.onAction = { [weak self] in self?.recentActions.record($0) }
+        volumeLimits.onAction = { [weak self] in self?.recentActions.record($0) }
+        downloads.onAction = { [weak self] in self?.recentActions.record($0) }
+        dmg.onAction = { [weak self] in self?.recentActions.record($0) }
+        duplicates.onAction = { [weak self] in self?.recentActions.record($0) }
+        imageActions.onAction = { [weak self] in self?.recentActions.record($0) }
+        automationPause.onChange = { [weak self] in
+            guard let self else { return }
+            self.recentActions.record(self.automationPause.isPaused ? "Paused automatic file and link actions." : "Resumed automatic file and link actions.")
+            Self.pausableTweaks.forEach(self.apply)
+        }
+    }
+
+    static let pausableTweaks: [Tweak] = [.lowercaseExtensions, .calendarInvites, .unzipDownloads, .duplicateDownloads, .dmgInstaller, .cleanCopiedLinks]
+
+    func shouldRun(_ tweak: Tweak) -> Bool {
+        settings?.isOn(tweak) == true && !(automationPause.isPaused && Self.pausableTweaks.contains(tweak))
     }
 
     func start() {
@@ -196,6 +217,7 @@ final class TweakController {
             MainActor.assumeIsolated { self?.didWake() }
         }
         Tweak.allCases.forEach(apply)
+        register(.cleanLink)
         // If any tweak needs Accessibility and it's missing, ask once at launch so the
         // system adds a fresh, correctly signed Tweaks entry to the list.
         if !AX.isTrusted, Tweak.allCases.contains(where: { $0.needsAccessibility && settings?.isOn($0) == true }) {
@@ -243,7 +265,7 @@ final class TweakController {
     }
 
     func apply(_ tweak: Tweak) {
-        let on = settings?.isOn(tweak) ?? false
+        let on = shouldRun(tweak)
         switch tweak {
         case .capsLockNoDelay:
             capsLockTimer?.invalidate()
@@ -263,13 +285,14 @@ final class TweakController {
         case .muteIcon:
             on ? mute.start() : mute.stop()
         case .lowercaseExtensions, .calendarInvites, .unzipDownloads, .duplicateDownloads:
-            downloads.lowercaseExtensions = settings?.isOn(.lowercaseExtensions) ?? false
-            downloads.openCalendarInvites = settings?.isOn(.calendarInvites) ?? false
-            downloads.unzipArchives = settings?.isOn(.unzipDownloads) ?? false
+            downloads.lowercaseExtensions = shouldRun(.lowercaseExtensions)
+            downloads.openCalendarInvites = shouldRun(.calendarInvites)
+            downloads.unzipArchives = shouldRun(.unzipDownloads)
             downloads.onDuplicate = { [weak self] match in self?.duplicates.add(match) }
-            downloads.detectDuplicates = settings?.isOn(.duplicateDownloads) ?? false
+            downloads.detectDuplicates = shouldRun(.duplicateDownloads)
             if tweak == .duplicateDownloads {
-                if on { Notifier.requestPermission() } else { duplicates.clear() }
+                if on { Notifier.requestPermission() }
+                else if settings?.isOn(.duplicateDownloads) != true { duplicates.clear() }
             }
             let needed = downloads.lowercaseExtensions || downloads.openCalendarInvites || downloads.unzipArchives || downloads.detectDuplicates
             if needed, !downloads.isRunning { downloads.start() }
@@ -334,6 +357,14 @@ final class TweakController {
         shortcutErrors[action] = nil
         let tweak: Tweak
         switch action {
+        case .cleanLink:
+            guard let shortcut = shortcuts.shortcut(for: action) else { return }
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.cleanLink() }
+            shortcutErrors[action] = hotKeys[action].flatMap { HotKey.failureMessage(status: $0.registrationStatus) }
+            return
+        default: break
+        }
+        switch action {
         case .clearNotifications: tweak = .clearNotificationsHotKey
         case .saveWindowLayout, .restoreWindowLayout: tweak = .windowLayouts
         case .safeEject: tweak = .safeEjectHotKey
@@ -367,6 +398,7 @@ final class TweakController {
             }
         case .clearNotifications:
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.clearNotifications() }
+        case .cleanLink: break // Registered above; manual actions work even while automatic cleaning is off.
         }
         if let hotKey = hotKeys[action] {
             shortcutErrors[action] = HotKey.failureMessage(status: hotKey.registrationStatus)
@@ -382,10 +414,16 @@ final class TweakController {
     }
 
     private func didWake() {
+        automationPause.expireIfNeeded()
         if settings?.isOn(.wakeVolumeLimit) == true {
-            WakeVolume.apply()
+            volumeLimits.applyWakeLimit(deviceLimitsEnabled: settings?.isOn(.deviceVolumeLimits) == true)
         }
         if settings?.isOn(.capsLockNoDelay) == true { CapsLockTweak.apply() }
+    }
+
+    func cleanLink() {
+        _ = linkCleaner.cleanNow()
+        HUD.show(linkCleaner.status, symbol: "link", duration: 3)
     }
 }
 

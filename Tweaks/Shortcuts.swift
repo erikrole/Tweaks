@@ -63,6 +63,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
     case saveWindowLayout
     case restoreWindowLayout
     case safeEject
+    case cleanLink
 
     var id: String { rawValue }
 
@@ -75,6 +76,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
         case .saveWindowLayout: "Save this display setup's windows"
         case .restoreWindowLayout: "Restore this display setup's windows"
         case .safeEject: "Eject idle external drives"
+        case .cleanLink: "Clean copied link now"
         }
     }
 
@@ -82,7 +84,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .keepAwake: Shortcut(keyCode: UInt32(kVK_ANSI_Slash), modifiers: Shortcut.hyperModifiers, key: "/")
         case .clearNotifications: Shortcut(keyCode: UInt32(kVK_ANSI_N), modifiers: Shortcut.hyperModifiers, key: "N")
-        case .keepAwakePanel, .screenOff, .saveWindowLayout, .restoreWindowLayout, .safeEject: nil
+        case .keepAwakePanel, .screenOff, .saveWindowLayout, .restoreWindowLayout, .safeEject, .cleanLink: nil
         }
     }
 }

@@ -295,13 +295,44 @@ struct CPUSampler {
 /// when it holds nothing but a single http(s) link, and never touches concealed items
 /// from password managers.
 @MainActor
+@Observable
 final class LinkCleaner {
     /// Clipboard checks wake the process. Two seconds is soon enough for a paste, and the
     /// tolerance lets the system coalesce the wakeup.
     static let pollInterval: TimeInterval = 2
 
     private var timer: Timer?
-    private var lastChangeCount = NSPasteboard.general.changeCount
+    private var lastChangeCount: Int
+    private let pasteboard: NSPasteboard
+    private let defaults: UserDefaults
+    private let writeItems: (NSPasteboard, [NSPasteboardItem]) -> Bool
+    private(set) var excludedHosts: [String]
+    private(set) var status = "Clean a single copied link now, or restore the last cleaned link."
+    var onAction: ((String) -> Void)?
+    private var originalItems: [[NSPasteboard.PasteboardType: Data]]?
+    private var cleanedChangeCount: Int?
+
+    var canRestore: Bool { originalItems != nil && cleanedChangeCount == pasteboard.changeCount }
+
+    init(defaults: UserDefaults = .standard, pasteboard: NSPasteboard = .general,
+         writeItems: @escaping (NSPasteboard, [NSPasteboardItem]) -> Bool = { $0.writeObjects($1) }) {
+        self.defaults = defaults
+        self.pasteboard = pasteboard
+        self.writeItems = writeItems
+        lastChangeCount = pasteboard.changeCount
+        excludedHosts = defaults.stringArray(forKey: "linkCleanerExcludedHosts") ?? []
+    }
+
+    func setExcludedHosts(_ text: String) {
+        excludedHosts = Array(Set(text.components(separatedBy: CharacterSet(charactersIn: ", \n\t"))
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased() }
+            .filter { !$0.isEmpty && !$0.contains(where: { "/:?@#".contains($0) }) })).sorted()
+        defaults.set(excludedHosts, forKey: "linkCleanerExcludedHosts")
+    }
+
+    func isExcluded(_ host: String) -> Bool {
+        excludedHosts.contains { host.lowercased() == $0.lowercased() || host.lowercased().hasSuffix("." + $0.lowercased()) }
+    }
 
     static let trackingParameters: Set<String> = [
         "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "yclid", "twclid", "ttclid",
@@ -324,7 +355,7 @@ final class LinkCleaner {
 
     func start() {
         guard timer == nil else { return }
-        lastChangeCount = NSPasteboard.general.changeCount
+        lastChangeCount = pasteboard.changeCount
         let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
@@ -339,9 +370,25 @@ final class LinkCleaner {
     }
 
     private func check() {
-        let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
+        refreshClipboardState()
+        _ = cleanNow(automatic: true)
+    }
+
+    func refreshClipboardState() {
+        if originalItems != nil, cleanedChangeCount != pasteboard.changeCount {
+            originalItems = nil
+            cleanedChangeCount = nil
+            status = "The clipboard changed. Its newer contents were left alone."
+        }
+    }
+
+    /// Manual and automatic cleaning share the same protected-item and race guards.
+    @discardableResult
+    func cleanNow(automatic: Bool = false) -> Bool {
+        refreshClipboardState()
+        let observed = pasteboard.changeCount
         let types = Set(pasteboard.types ?? [])
         // Only a single plain link: never rich text, files, several items, password
         // manager secrets or a clipboard manager's own temporary writes.
@@ -350,18 +397,65 @@ final class LinkCleaner {
             .fileURL, .rtf, .html, .init("public.rtf"), .init("public.html"),
         ]
         guard pasteboard.pasteboardItems?.count == 1, types.isDisjoint(with: skip),
-              let text = pasteboard.string(forType: .string),
-              let cleaned = Self.clean(text), cleaned != text,
-              pasteboard.changeCount == lastChangeCount
-        else { return }
+              let text = pasteboard.string(forType: .string), let cleaned = Self.clean(text) else {
+            if !automatic { status = "Copy one plain http or https link first. Protected and rich clipboard items are left alone." }
+            return false
+        }
+        if let host = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines))?.host, isExcluded(host) {
+            if !automatic { status = "This site is excluded. The copied link is unchanged." }
+            return false
+        }
+        guard cleaned != text else {
+            if !automatic { status = "This link has no tracking parameters to remove." }
+            return false
+        }
+        let original = pasteboard.pasteboardItems?.map { item in
+            Dictionary(uniqueKeysWithValues: item.types.compactMap { type in item.data(forType: type).map { (type, $0) } })
+        }
+        guard pasteboard.changeCount == observed else { return false }
         let item = NSPasteboardItem()
         item.setString(cleaned, forType: .string)
         item.setString(cleaned, forType: .URL)
         // Lets clipboard managers know this rewrite isn't a new copy.
         item.setString("", forType: .init("org.nspasteboard.AutoGeneratedType"))
-        pasteboard.clearContents()
-        pasteboard.writeObjects([item])
-        lastChangeCount = pasteboard.changeCount
+        let owned = pasteboard.clearContents()
+        guard pasteboard.changeCount == owned, writeItems(pasteboard, [item]), pasteboard.changeCount == owned else {
+            originalItems = nil
+            cleanedChangeCount = nil
+            status = "Clipboard ownership changed or macOS couldn't write the link. Restore is unavailable."
+            return false
+        }
+        lastChangeCount = owned
+        originalItems = original
+        cleanedChangeCount = lastChangeCount
+        status = "Copied the cleaned link. Restore Original is available until the clipboard changes."
+        onAction?(automatic ? "Automatically cleaned a copied link." : "Cleaned a copied link.")
+        return true
+    }
+
+    @discardableResult
+    func restoreOriginal() -> Bool {
+        guard canRestore, let originalItems else {
+            self.originalItems = nil
+            cleanedChangeCount = nil
+            status = "The clipboard changed. Its newer contents were left alone."
+            return false
+        }
+        let items = originalItems.map { values in
+            let item = NSPasteboardItem()
+            for (type, data) in values { item.setData(data, forType: type) }
+            return item
+        }
+        // Building pasteboard items can request data; check ownership once more.
+        guard canRestore else { return false }
+        let owned = pasteboard.clearContents()
+        let written = pasteboard.changeCount == owned && writeItems(pasteboard, items) && pasteboard.changeCount == owned
+        lastChangeCount = owned
+        self.originalItems = nil
+        cleanedChangeCount = nil
+        status = written ? "Restored the original copied link." : "macOS couldn't restore the original link."
+        if written { onAction?("Restored the original copied link.") }
+        return written
     }
 
     /// The link without tracking parameters, or nil if the text isn't a single http(s) link.

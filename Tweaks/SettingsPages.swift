@@ -43,7 +43,17 @@ extension SettingsWindowController {
         column?.addArrangedSubview(note("Click a shortcut, then press the new keys. Delete clears it, Esc cancels. Hyper is ⌃⌥⇧⌘."))
 
         addSection("Keyboard and sound")
-        addToggles([.capsLockNoDelay, .wakeVolumeLimit, .muteIcon, .blockMusicLaunch, .deviceVolumeLimits])
+        addToggles([.capsLockNoDelay, .muteIcon, .blockMusicLaunch])
+        addSection("Volume limits")
+        addToggles([.wakeVolumeLimit])
+        wakeLimitSlider.isContinuous = false
+        wakeLimitSlider.setAccessibilityLabel("Default maximum after waking")
+        wakeLimitSlider.target = self
+        wakeLimitSlider.action = #selector(wakeMaximumChanged(_:))
+        wakeLimitSlider.widthAnchor.constraint(equalToConstant: 180).isActive = true
+        column?.addArrangedSubview(labeledRowView(wakeLimitLabel, trailing: wakeLimitSlider))
+        addToggles([.deviceVolumeLimits])
+        column?.addArrangedSubview(note("The default applies after waking. Device overrides apply on output changes and volume increases when enabled. If both apply, the lower maximum wins."))
         boxed(volumeBox)
         tweaks.volumeLimits.refreshDevices()
 
@@ -62,9 +72,44 @@ extension SettingsWindowController {
     }
 
     private func buildFiles() {
+        addSection("Automatic actions")
+        pauseStatus.lineBreakMode = .byWordWrapping
+        pauseStatus.maximumNumberOfLines = 0
+        measured.append((pauseStatus, 0))
+        column?.addArrangedSubview(pauseStatus)
+        pauseButton.title = "Pause for 30 Minutes"
+        pauseButton.bezelStyle = .rounded
+        pauseButton.target = self
+        pauseButton.action = #selector(toggleAutomationPause)
+        column?.addArrangedSubview(pauseButton)
+        column?.addArrangedSubview(note("Pauses Downloads actions, disk-image offers, and automatic link cleaning without changing your switches. Files received during the pause stay untouched after resuming. Manual actions remain available."))
+
         addSection("Downloads and clipboard")
         addToggles([.lowercaseExtensions, .calendarInvites, .dmgInstaller, .unzipDownloads, .cleanCopiedLinks, .duplicateDownloads])
         boxed(duplicateBox)
+
+        addSection("Copied links")
+        let linkButtons = NSStackView(views: [button("Clean Link Now", #selector(cleanLinkNow)), restoreLinkButton])
+        linkButtons.orientation = .horizontal
+        linkButtons.spacing = 8
+        restoreLinkButton.title = "Restore Original"
+        restoreLinkButton.bezelStyle = .rounded
+        restoreLinkButton.target = self
+        restoreLinkButton.action = #selector(restoreOriginalLink)
+        column?.addArrangedSubview(linkButtons)
+        linkStatus.lineBreakMode = .byWordWrapping
+        linkStatus.maximumNumberOfLines = 0
+        measured.append((linkStatus, 0))
+        column?.addArrangedSubview(linkStatus)
+        excludedHostsField.placeholderString = "example.com, another.example"
+        excludedHostsField.setAccessibilityLabel("Sites to leave unchanged")
+        excludedHostsField.target = self
+        excludedHostsField.action = #selector(saveLinkExclusions)
+        pin(excludedHostsField)
+        column?.addArrangedSubview(plainLabel("Sites to leave unchanged (including subdomains)", size: 12, weight: .regular, color: Paper.ink))
+        column?.addArrangedSubview(excludedHostsField)
+        column?.addArrangedSubview(button("Save Site Exclusions", #selector(saveLinkExclusions)))
+        column?.addArrangedSubview(note("Clean Link Now works even when automatic cleaning is off or paused. A global shortcut can be assigned under General. Original links stay in memory only; copying anything else prevents restoration over newer clipboard contents."))
 
         addSection("Finder")
         column?.addArrangedSubview(button("Quick Image Actions…", #selector(chooseImages)))
@@ -75,6 +120,11 @@ extension SettingsWindowController {
         finderLabel.lineBreakMode = .byTruncatingTail
         let finderButton = button("Finder Extensions…", #selector(showFinderExtensions))
         column?.addArrangedSubview(labeledRowView(finderLabel, trailing: finderButton))
+
+        addSection("Recent actions")
+        column?.addArrangedSubview(note("The latest 100 file, link, volume and pause actions from this session. History is cleared when Tweaks quits and is never saved to disk."))
+        boxed(recentActionsBox)
+        column?.addArrangedSubview(button("Clear Recent Actions", #selector(clearRecentActions)))
     }
 
     private func buildSleep() {
