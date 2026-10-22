@@ -42,7 +42,15 @@ All seven required Release benchmarks passed. App median/p95 wall latency was
 5.29/6.03 ms for an existing 10,000-item scan, and 8.35/8.55 ms for 1,000 link
 cleanups. Compilation and other timed work did not overlap those runs. These are
 host-specific measurements, not battery-life claims.
-Signed installed verification is in progress.
+The final build is Developer ID-signed, notarized, stapled and installed as
+0.1.6 build 9 from source `9509af23b768552d7443e7d9ae1f9367ad56f127`.
+Apple accepted submission `f6024716-d682-4b7d-85d9-9e2a1e40e3b0`.
+Strict host/extension signatures, Gatekeeper and stapler validation passed.
+The signed installed app retains Accessibility trust. Its final retest passed
+a timed Away session with both power assertions, Stop, expanded date controls,
+15-minute pause, change to a chosen resume time, and Resume Now. Manual Keep Awake
+and automation pause were returned to off; the independent Adobe render hold
+continues. No saved preference key changed between final preinstall and acceptance.
 
 The installed app,
 complete preference domain, source revision and unrelated local file hashes were
@@ -75,10 +83,18 @@ new keyboard recovery record while retaining every existing original value. Thes
 runtime records are distinct from feature choices and shortcut bytes, which match
 the original snapshot. Old-boot recovery state is not restored over the new boot.
 
-The first candidate logged one layout-recursion warning during the timed-session
-check. Non-preparing Settings measurements now coalesce onto the next main-queue
-turn, with a regression for expanded date controls; the final signed candidate
-requires a fresh installed retest. All 66 negative-geometry capture warnings were
-symbolized to macOS's window-sharing indicator; no constraint failures were found.
-CoreAudio, denied WindowServer task-port, and status-item scene messages are also
-retained in the private runtime log. These are not physical-device acceptance.
+Settings measurements outside pre-show/navigation now coalesce onto the next
+main-queue turn, with a regression for expanded date controls. The final installed
+retest still logged one layout-recursion warning. A fresh isolated Debug process,
+with every background feature disabled and a separate preference domain, stopped
+at `_NSDetectedLayoutRecursion`. Its full stack places the recursion in AppKit's
+`NSSceneStatusItem` variant-scene connection and `NSStatusItem` display placement,
+with an `NSNextStepFrame` being laid out. No Settings or HUD callback appears in
+that path. Independent review accepted this as framework attribution; the warning
+is recorded, not claimed absent. Diagnostic startup edits were restored byte-for-byte.
+
+The final 96 negative-geometry capture warnings have 24 complete stack fingerprints;
+every fingerprint symbolized to macOS's `_positionSharingIndicator`. No constraint
+failures or internal-consistency exceptions were found. CoreAudio, denied
+WindowServer task-port, and status-item scene messages remain in the private log.
+These diagnostics do not establish physical-device acceptance.
