@@ -6,6 +6,11 @@ Version 0.1.7 repairs the confirmed SystemConfiguration context-release crash fo
 during investigation of the CalDigit TS5 Plus incident. The reported system freeze
 and earlier WindowServer display timeouts remain unattributed; physical dock
 acceptance is still open. See [the incident report](docs/dock-hang-2026-10-22.md).
+The expanded same-boot timeline includes an LG hotplug out/in sequence, later
+WindowServer fence timeout after Tweaks died, and a Bluetooth watchdog restart.
+A manual bounded diagnostic collector is prepared and checked against the stable
+session. Reconnection remains deferred at the user's instruction; no additional
+app behavior or saved preferences changed during the follow-up.
 
 Version 0.1.6 adds live feature status, a compact Activity overview, native Keep
 Awake duration/app/time controls, and expanded pause controls with an unassigned
@@ -88,6 +93,11 @@ installation boundary.
 
 ## Next validation
 
+- Resolve the dock freeze with contemporaneous blocked-thread evidence during a
+  separately authorized test. Compare with Tweaks quit, then isolate the LG
+  USB-C-to-DisplayPort path. Review main-thread event-tap/AX, dimming/ColorSync and
+  audio discovery work as hardening candidates without assigning causality from
+  the existing logs. Protected WindowServer capture remains an access boundary.
 - On the updated signed app, verify monitor disconnect/reconnect and matching AX
   windows, USB/Bluetooth audio transitions and rounded volume controls, Finder-to-
   host image requests, and safe eject with both idle and busy multi-volume drives.

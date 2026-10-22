@@ -139,6 +139,12 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   incomplete scans must fail safe as "in use".
 - Live NAS, Accessibility, power, and real Finder behavior require separate live
   evidence; passing isolated tests does not establish those behaviors.
+- `scripts/capture-dock-diagnostics.py` is a manual read-only collector. Run as the
+  logged-in user, never root; keep raw logs/preferences in private ignored output.
+  Preserve bounded command/recording deadlines, signal-safe cancellation, owned
+  child cleanup, PID-specific sample names and explicit partial manifests. A
+  protected WindowServer sample failure is missing evidence, not a passing check.
+  The CalDigit physical reconnect remains deferred until explicitly authorized.
 
 App benchmarks perform five warm-ups and thirty measured iterations, printing
 `PERF_RESULT` JSON with median/p95 wall latency and mean process CPU time. Compare

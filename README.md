@@ -219,6 +219,27 @@ xcodebuild -project Tweaks.xcodeproj -scheme Tweaks -destination 'platform=macOS
 The app test host skips normal background-tweak startup. Download tests use
 temporary fixtures. The live-share check skips when no network share is mounted.
 
+## Dock diagnostics
+
+The [CalDigit incident investigation](docs/dock-hang-2026-10-22.md) records the
+closed-lid Dell built-in-DP / LG USB-C-to-DP layout, display timeouts continuing
+after Tweaks exited, and a later Bluetooth watchdog failure. The full freeze's
+cause remains unresolved. A bounded read-only capture is available for manual use:
+
+```sh
+python3 scripts/capture-dock-diagnostics.py --seconds 120
+```
+
+Run as the logged-in user, never with sudo. This does not reconnect devices or
+change app/settings/network state. The recording phase is 1–300 seconds; inventory
+and final snapshots have separate bounded deadlines. Ctrl-C/SIGTERM retains partial
+evidence and stops owned children. New private output folders default to
+`~/Code Support/Tweaks/diagnostics/`; existing folders are rejected. Logs and
+preferences may contain private data. Exit 1 and `manifest.json` identify partial
+evidence, including protected WindowServer samples unavailable without separate
+administrator authorization; cancellation exits 130. No dock reconnect is currently
+authorized, and healthy-session samples cannot establish the earlier freeze's cause.
+
 ## Performance benchmarks
 
 ```sh
