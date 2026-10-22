@@ -43,11 +43,18 @@ final class AutomationPause {
 
     func pause(for duration: TimeInterval, now: Date = Date()) {
         guard duration.isFinite, duration > 0 else { return }
+        _ = pause(until: now.addingTimeInterval(duration), now: now)
+    }
+
+    @discardableResult
+    func pause(until end: Date, now: Date = Date()) -> Bool {
+        guard end.timeIntervalSinceReferenceDate.isFinite, end > now else { return false }
         timer?.invalidate()
-        until = now.addingTimeInterval(duration)
-        defaults.set(until, forKey: "fileAutomationPausedUntil")
+        until = end
+        defaults.set(end, forKey: "fileAutomationPausedUntil")
         armTimer()
         onChange?()
+        return true
     }
 
     private func armTimer() {

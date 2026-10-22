@@ -45,6 +45,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let pauseStatus = NSTextField(labelWithString: "")
     let pauseNotice = NSTextField(labelWithString: "")
     let pauseButton = NSButton()
+    let pauseChoice = NSPopUpButton()
+    let pauseDate = NSDatePicker()
+    let resumePauseButton = NSButton()
+    let pauseError = NSTextField(labelWithString: "")
+    let awakeMode = NSPopUpButton()
+    let awakeEnd = SessionEndControls()
+    var activityStatusLabels: [Tweak: NSTextField] = [:]
+    var activityStatusRows: [Tweak: NSView] = [:]
+    let showAllStatuses = NSButton(checkboxWithTitle: "Show all features", target: nil, action: nil)
+    var awakeSummary: NSTextField?
     let restoreLinkButton = NSButton()
     let linkStatus = NSTextField(labelWithString: "")
     let excludedHostsField = NSTextField()
@@ -123,6 +133,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 MainActor.assumeIsolated {
                     guard let self, !self.closed, self.window?.isVisible == true else { return }
                     self.tweaks.linkCleaner.refreshClipboardState()
+                    self.tweaks.keepAwake.refreshClock()
                 }
             }
             timer.tolerance = 0.5
@@ -250,8 +261,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         for (tweak, toggle) in toggles {
             let on = settings.isOn(tweak)
             if toggle.state != (on ? .on : .off) { toggle.state = on ? .on : .off }
-            let waiting = tweak.needsAccessibility && !tweaks.hasAccessibility && on
-            accessNotes[tweak]?.isHidden = !waiting
+            let status = tweaks.featureStatus(for: tweak)
+            accessNotes[tweak]?.stringValue = status.text
+            accessNotes[tweak]?.textColor = status.phase == .blocked ? .systemOrange : .secondaryLabelColor
+            accessNotes[tweak]?.isHidden = false
+            activityStatusLabels[tweak]?.stringValue = status.text
+            activityStatusRows[tweak]?.isHidden = showAllStatuses.state != .on && [.ready, .off].contains(status.phase)
         }
         accessRow.isHidden = tweaks.hasAccessibility
         for (action, recorder) in recorders {
@@ -269,6 +284,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         } else {
             renderLabel.isHidden = true
         }
+        let reasons = [tweaks.keepAwake.session == nil ? nil : "Manual session: \(tweaks.keepAwake.statusLine).",
+                       tweaks.renderAwake.holdingFor.map { "Render hold: \($0)." }].compactMap { $0 }
+        awakeSummary?.stringValue = (reasons.isEmpty ? "No manual session or render hold is active." : reasons.joined(separator: " ")) + " Ready and disabled features are hidden unless you show all."
         rebuildShares()
         rebuildApps()
         rebuildVolumeLimits()
@@ -278,7 +296,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         pauseStatus.stringValue = pauseText ?? "Automatic actions follow your saved settings."
         pauseNotice.stringValue = pauseText ?? ""
         pauseNotice.isHidden = until == nil
-        pauseButton.title = until == nil ? "Pause for 30 Minutes" : "Resume Automatic Actions"
+        pauseButton.title = until == nil ? "Pause" : "Change Pause"
+        resumePauseButton.isHidden = until == nil
         wakeLimitSlider.doubleValue = Double(tweaks.volumeLimits.wakeMaximum)
         wakeLimitLabel.stringValue = "Default maximum: \(Int((tweaks.volumeLimits.wakeMaximum * 100).rounded()))%"
         linkStatus.stringValue = tweaks.linkCleaner.status
@@ -493,6 +512,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         tracking = true
         withObservationTracking { [weak self] in
             guard let self else { return }
+            _ = self.tweaks.runtimeStatuses
             _ = self.tweaks.hasAccessibility
             _ = self.tweaks.shortcutErrors
             _ = self.tweaks.shortcuts.shortcuts
@@ -505,6 +525,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.settings.quitApps
             _ = self.tweaks.volumeLimits.devices
             _ = self.tweaks.volumeLimits.rules
+            _ = self.tweaks.volumeLimits.statusPhase
+            _ = self.tweaks.volumeLimits.wakeStatus
+            _ = self.tweaks.windowLayouts.statusPhase
             _ = self.tweaks.volumeLimits.status
             _ = self.tweaks.volumeLimits.wakeMaximum
             _ = self.tweaks.automationPause.until
@@ -540,8 +563,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc func toggleAutomationPause() {
-        if tweaks.automationPause.isPaused { tweaks.automationPause.resume() }
-        else { tweaks.automationPause.pause(for: 30 * 60) }
+        tweaks.toggleAutomationPause()
         sync()
     }
 

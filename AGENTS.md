@@ -110,6 +110,15 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   all tweak controls, shortcuts and manual actions. Cancel shortcut recording when
   switching panes, losing the key window or closing Settings. Closing the window
   leaves background work running; the native Quit command follows guarded shutdown.
+- Feature status is execution state, not a saved enable switch. Guard asynchronous
+  status delivery with the originating generation, and deduplicate per generation.
+  Keep pending recovery visible while disabled; never call an unverified/failed
+  audio write Ready. History excludes repeated progress and identical failures.
+- Keep Awake duration/mode and pause pickers are session-only until explicitly
+  started. Reject invalid deadlines and stale app launch identities without replacing
+  a session. Visible countdowns work with the menu-bar countdown disabled. Dynamic
+  date/app controls must request scroll-document measurement. New pause shortcuts
+  start unassigned and must not rewrite existing shortcut data.
 - After tests and installation, verify Accessibility against the actual signed
   app. An allowed TCC record for a development identity does not establish trust
   for a Developer ID build with the same bundle ID. Preserve the permission scope;

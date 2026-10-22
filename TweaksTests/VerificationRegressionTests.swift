@@ -136,6 +136,14 @@ final class VerificationRegressionTests: XCTestCase {
                         settingsWindow.sync()
                         XCTAssertEqual(settingsWindow.selectedPane, tab)
                         checkGeometry()
+                        if tab == .sleep {
+                            for choice in [SessionEndChoice.time, .appQuits, .indefinitely] {
+                                settingsWindow.awakeEnd.choice.selectItem(at: choice.rawValue)
+                                settingsWindow.awakeEnd.changed()
+                                // The control's callback must resize the document itself.
+                                checkGeometry()
+                            }
+                        }
                         if let output = ProcessInfo.processInfo.environment["TWEAKS_SETTINGS_CAPTURE_DIR"], size.width == 960,
                            let bitmap = root.bitmapImageRepForCachingDisplay(in: root.bounds) {
                             root.displayIfNeeded()

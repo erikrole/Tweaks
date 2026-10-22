@@ -128,6 +128,9 @@ private func ethernetHandoffCommand(_ path: String, _ arguments: [String], timeo
 
 final class EthernetHandoffWorker: @unchecked Sendable {
     let directory: URL
+    var onStatus: (@Sendable (FeatureRuntime, UInt64) -> Void)?
+    private var lastStatus: FeatureRuntime?
+    private var lastStatusGeneration: UInt64?
     private let commandRunner: @Sendable (String, [String], TimeInterval) -> EthernetHandoffCommandResult
     private let wifiProvider: (@Sendable () -> String?)?
     private let recoveryInterval: TimeInterval
@@ -200,6 +203,7 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         queue.async { [self] in
             guard isCurrent(session), prepare() else { return }
             do { try beginMonitoring() } catch {
+                publish(.blocked, "Could not start Ethernet monitoring.", session: session)
                 log("Could not start Ethernet monitoring")
                 if saved.wifiRestoreNeeded { armRecoveryOnly() }
             }
@@ -246,6 +250,20 @@ final class EthernetHandoffWorker: @unchecked Sendable {
     }
 
     private func isCurrent(_ session: UInt64) -> Bool { currentSession() == session }
+
+    func publish(_ phase: FeatureRuntime.Phase, _ message: String, finishingRecovery: Bool = false, session: UInt64? = nil) {
+        let status = FeatureRuntime(phase: phase, message: message, finishingRecovery: finishingRecovery)
+        stopLock.lock()
+        let token = session ?? generation
+        guard token == generation, status != lastStatus || token != lastStatusGeneration else { stopLock.unlock(); return }
+        lastStatus = status; lastStatusGeneration = token
+        stopLock.unlock()
+        onStatus?(status, token)
+    }
+
+    func acceptsStatus(_ token: UInt64) -> Bool {
+        stopLock.lock(); defer { stopLock.unlock() }; return generation == token
+    }
 
     func log(_ message: String) {
         let line = "\(ISO8601DateFormatter().string(from: Date())) \(message)\n"
@@ -378,18 +396,24 @@ final class EthernetHandoffWorker: @unchecked Sendable {
     @discardableResult
     func restoreWifiIfNeeded() -> Bool {
         guard saved.wifiRestoreNeeded else { return true }
-        guard let wifi = wifiInterface() else { log("Restore pending: Wi-Fi interface unavailable"); return false }
+        guard let wifi = wifiInterface() else { publish(.blocked, "Wi-Fi restoration pending; interface unavailable.", finishingRecovery: true); log("Restore pending: Wi-Fi interface unavailable"); return false }
         let result = runCommand("/usr/sbin/networksetup", ["-setairportpower", wifi, "on"])
-        guard result.status == 0 && wifiOn(wifi) else { log("Restore pending: could not restore Wi-Fi"); return false }
+        guard result.status == 0 && wifiOn(wifi) else { publish(.blocked, "Wi-Fi restoration pending; retry scheduled.", finishingRecovery: true); log("Restore pending: could not restore Wi-Fi"); return false }
         saved.wifiRestoreNeeded = false
         do { try persist() } catch { log("Could not save restored state") }
+        publish(.ready, "Wi-Fi restored.")
         log("Wi-Fi restored")
         return true
     }
 
     func inspect() {
         guard let session = currentSession(), restoreWifiIfNeeded() else { return }
+        let publish: (FeatureRuntime.Phase, String) -> Void = { [self] phase, message in
+            guard isCurrent(session) else { return }
+            self.publish(phase, message, session: session)
+        }
         guard let wired = wiredConnection() else {
+            publish(.waiting, "Waiting for usable dock Ethernet.")
             if wiredIdentity != nil { log("Dock Ethernet unavailable; waiting") }
             wiredIdentity = nil; readySince = nil; attempted = false
             return
@@ -397,6 +421,7 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         let identity = "\(wired.interface):\(wired.address):\(wired.router)"
         if wiredIdentity != identity {
             wiredIdentity = identity; readySince = Date(); attempted = false
+            publish(.working, "Dock Ethernet detected; allowing routes to settle.")
             log("Dock Ethernet detected; allowing DHCP and routes to settle")
             schedule(after: 4)
             return
@@ -404,17 +429,24 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         guard let readySince, Date().timeIntervalSince(readySince) >= 3,
               let wifi = wifiInterface() else { return }
         let defaultRoute = route("default")
-        guard let gatewayHost = configuredGatewayHost() else { return }
+        guard let gatewayHost = configuredGatewayHost() else { publish(.waiting, "Waiting for a configured GlobalProtect gateway."); return }
         let gatewayRoute = route(gatewayHost)
+        guard globalProtectOwnsDefaultRoute(defaultRoute) else {
+            publish(.waiting, "Waiting for a connected GlobalProtect VPN."); return
+        }
+        if gatewayRoute.interface == wired.interface {
+            publish(.ready, "GlobalProtect gateway uses Ethernet."); return
+        }
         guard EthernetHandoffPolicy.shouldHandoff(ethernetReady: true, wifiOn: wifiOn(wifi), attempted: attempted,
                                          secondsSinceAttempt: Date().timeIntervalSince1970 - saved.lastAttempt,
                                          defaultRoute: defaultRoute, gatewayRoute: gatewayRoute,
                                          wifiInterface: wifi,
-                                         globalProtectConnected: globalProtectOwnsDefaultRoute(defaultRoute)) else { return }
+                                         globalProtectConnected: true) else { publish(.ready, "Monitoring dock and VPN routes; no handoff is due."); return }
         // A live router on the wired address is required before touching Wi-Fi.
         let ping = runCommand("/sbin/ping", ["-b", wired.interface, "-S", wired.address, "-c", "1", "-W", "1000", wired.router], timeout: 3)
-        guard ping.status == 0, isCurrent(session) else { log("Handoff skipped: wired router not reachable"); return }
+        guard ping.status == 0, isCurrent(session) else { publish(.waiting, "Wired router is not reachable; handoff skipped."); log("Handoff skipped: wired router not reachable"); return }
         guard gatewayReachable(gatewayRoute.destination, on: wired.interface), isCurrent(session) else {
+            publish(.waiting, "VPN gateway is not reachable through Ethernet.")
             log("Handoff skipped: VPN gateway not reachable through Ethernet")
             return
         }
@@ -426,10 +458,11 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         saved.lastAttempt = Date().timeIntervalSince1970
         saved.wifiRestoreNeeded = true
         do { try persist() } catch { log("Handoff skipped: recovery state could not be saved"); saved.wifiRestoreNeeded = false; return }
+        publish(.working, "Moving the VPN to Ethernet; Wi-Fi will be restored.")
         log("VPN is still using Wi-Fi; starting one bounded Ethernet handoff")
         defer { _ = restoreWifiIfNeeded() }
         let result = runCommand("/usr/sbin/networksetup", ["-setairportpower", wifi, "off"])
-        guard result.status == 0 else { log("Handoff failed: macOS refused Wi-Fi power change"); return }
+        guard result.status == 0 else { publish(.blocked, "macOS refused the handoff; Wi-Fi recovery is checked."); log("Handoff failed: macOS refused Wi-Fi power change"); return }
         let deadline = Date().addingTimeInterval(12)
         var recovered = false
         while Date() < deadline && isCurrent(session) {
@@ -444,6 +477,7 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         }
         guard restoreWifiIfNeeded() else { log("Handoff incomplete: Wi-Fi restoration is pending"); return }
         guard recovered, isCurrent(session) else {
+            publish(.waiting, "Handoff did not complete; Wi-Fi restored. VPN sign-in may be needed.")
             log("Handoff wait ended; no retry and no authentication changes")
             return
         }
@@ -451,12 +485,15 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         guard pause(3, session) else { return }
         guard route(gatewayAddress).interface == wired.interface,
               globalProtectOwnsDefaultRoute(route("default")) else {
+            publish(.waiting, "VPN did not remain on Ethernet after Wi-Fi restoration.")
             log("Handoff incomplete: VPN did not remain on Ethernet after Wi-Fi restoration")
             return
         }
         guard isCurrent(session) else { return }
         let check = runCommand("/usr/bin/curl", ["--fail", "--silent", "--output", "/dev/null", "--connect-timeout", "3", "--max-time", "5", "https://www.apple.com/library/test/success.html"], timeout: 6)
-        guard check.status == 0 else { log("Ethernet route verified; HTTPS connectivity check did not complete"); return }
+        guard isCurrent(session) else { return }
+        guard check.status == 0 else { publish(.waiting, "Ethernet route verified; HTTPS check did not complete."); log("Ethernet route verified; HTTPS connectivity check did not complete"); return }
+        publish(.active, "Verified VPN on Ethernet, Wi-Fi restored, and HTTPS reachable.")
         log("Verified: VPN uses Ethernet, Wi-Fi is restored, HTTPS is reachable")
     }
 
@@ -497,11 +534,18 @@ final class EthernetHandoffWorker: @unchecked Sendable {
 @MainActor
 final class EthernetVPNHandoff {
     private let worker: EthernetHandoffWorker
+    var onStatus: ((FeatureRuntime) -> Void)?
 
     init(directory: URL? = nil) {
         let base = directory ?? FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/com.erole.Tweaks/EthernetHandoff")
         worker = EthernetHandoffWorker(directory: base)
+        worker.onStatus = { [weak self, weak worker] status, token in
+            Task { @MainActor in
+                guard let worker, worker.acceptsStatus(token) else { return }
+                self?.onStatus?(status)
+            }
+        }
     }
 
     func recoverPending() { worker.recoverPending() }

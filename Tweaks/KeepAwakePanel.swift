@@ -10,6 +10,7 @@ final class KeepAwakePanelController {
 
     private var panel: KeyablePanel?
     private var model: PanelModel?
+    private var clockTimer: Timer?
 
     static let durations: [(key: String, hours: Double)] = [("1", 1), ("2", 2), ("3", 4), ("4", 8), ("5", 12)]
 
@@ -48,9 +49,17 @@ final class KeepAwakePanelController {
         panel.onResignKey = { [weak self] in self?.close() }
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
+        keepAwake.refreshClock()
+        let clock = Timer(timeInterval: 15, repeats: true) { [weak keepAwake] _ in
+            MainActor.assumeIsolated { keepAwake?.refreshClock() }
+        }
+        clock.tolerance = 5
+        RunLoop.main.add(clock, forMode: .common)
+        clockTimer = clock
     }
 
     func close() {
+        clockTimer?.invalidate(); clockTimer = nil
         panel?.onResignKey = nil
         panel?.contentView = nil
         panel?.orderOut(nil)
@@ -81,6 +90,7 @@ struct PanelSection: Identifiable {
 @MainActor
 @Observable
 final class PanelModel {
+    let endControls = SessionEndControls()
     let keepAwake: KeepAwake
     private(set) var sections: [PanelSection] = []
     var selection: String
@@ -115,12 +125,17 @@ final class PanelModel {
     }
 
     func dimNow() {
-        keepAwake.sleepDisplayNow()
+        guard let until = endControls.resolve() else { return }
+        keepAwake.startAway(until: until, dimNow: true)
         onDone?()
     }
 
     func run(_ item: PanelItem) {
-        item.run(keepAwake)
+        if item.id == "away" || item.id == "screen-on" {
+            guard let until = endControls.resolve() else { return }
+            if item.id == "away" { keepAwake.startAway(until: until) }
+            else { keepAwake.startScreenOn(until: until) }
+        } else { item.run(keepAwake) }
         onDone?()
     }
 
@@ -188,7 +203,7 @@ final class KeyablePanel: NSPanel {
 /// cards never take the keyboard.
 @MainActor
 final class KeepAwakePanelRoot: NSView {
-    static let width: CGFloat = 380
+    static let width: CGFloat = 420
     static let inset: CGFloat = 16
     static let radius: CGFloat = 14
     static let orange = NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
@@ -231,7 +246,7 @@ final class KeepAwakePanelRoot: NSView {
     }
 
     private func render() {
-        subviews.forEach { $0.removeFromSuperview() }
+        subviews.filter { $0 !== model.endControls }.forEach { $0.removeFromSuperview() }
         let inset = Self.inset
         var y = inset
 
@@ -240,9 +255,11 @@ final class KeepAwakePanelRoot: NSView {
         addSubview(title)
         let status = label(model.keepAwake.session == nil ? "Off" : model.keepAwake.statusLine, size: 12,
                            color: model.keepAwake.session == nil ? .tertiaryLabelColor : Self.orange)
-        status.setFrameOrigin(NSPoint(x: Self.width - inset - status.frame.width, y: y + 1))
+        status.lineBreakMode = .byWordWrapping
+        status.maximumNumberOfLines = 2
+        status.frame = NSRect(x: inset, y: y + title.frame.height + 4, width: Self.width - inset * 2, height: 32)
         addSubview(status)
-        y += title.frame.height + 12
+        y += title.frame.height + 44
 
         let modes = model.sections.flatMap(\.items).filter { $0.id != "stop" }
         let gap: CGFloat = 10
@@ -258,6 +275,9 @@ final class KeepAwakePanelRoot: NSView {
             addSubview(card)
         }
         y += ModeCard.height + 12
+        model.endControls.frame = NSRect(x: inset, y: y, width: Self.width - inset * 2, height: 100)
+        if model.endControls.superview == nil { addSubview(model.endControls) }
+        y += 112
 
         let hint = label("⌥-click Away or press Z to dim now · esc", size: 10, color: .tertiaryLabelColor)
         hint.setFrameOrigin(NSPoint(x: inset, y: y + 3))

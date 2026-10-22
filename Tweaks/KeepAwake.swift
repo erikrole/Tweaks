@@ -26,7 +26,7 @@ final class KeepAwake {
     enum Until: Equatable {
         case indefinitely
         case date(Date)
-        case appQuits(pid: pid_t, name: String)
+        case appQuits(pid: pid_t, name: String, launched: Date? = nil)
         case done(JobCondition)
     }
 
@@ -41,16 +41,19 @@ final class KeepAwake {
         var pausedOnBattery = false
     }
 
+    @ObservationIgnored private let defaults: UserDefaults
+    private(set) var clockNow = Date()
     private(set) var session: Session?
+    var onAction: ((String) -> Void)?
     var keepsDisplayOnByDefault: Bool {
-        didSet { UserDefaults.standard.set(keepsDisplayOnByDefault, forKey: "keepAwakeDisplayOn") }
+        didSet { defaults.set(keepsDisplayOnByDefault, forKey: "keepAwakeDisplayOn") }
     }
     var onlyOnPowerByDefault: Bool {
-        didSet { UserDefaults.standard.set(onlyOnPowerByDefault, forKey: "keepAwakeOnlyOnPower") }
+        didSet { defaults.set(onlyOnPowerByDefault, forKey: "keepAwakeOnlyOnPower") }
     }
     var showsCountdown: Bool {
         didSet {
-            UserDefaults.standard.set(showsCountdown, forKey: "keepAwakeCountdown")
+            defaults.set(showsCountdown, forKey: "keepAwakeCountdown")
             updateStatusItem()
             armCountdown()
         }
@@ -105,8 +108,8 @@ final class KeepAwake {
     private var watcher = JobWatcher()
     @ObservationIgnored private let dimmer = IdleDimmer()
 
-    init() {
-        let defaults = UserDefaults.standard
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         keepsDisplayOnByDefault = defaults.bool(forKey: "keepAwakeDisplayOn")
         onlyOnPowerByDefault = defaults.bool(forKey: "keepAwakeOnlyOnPower")
         showsCountdown = defaults.object(forKey: "keepAwakeCountdown") as? Bool ?? true
@@ -135,6 +138,7 @@ final class KeepAwake {
         if dimsWhenIdle { dimmer.start() } else { dimmer.stop() }
         showStatusItem()
         if announce { HUD.show(statusLine, symbol: symbol) }
+        onAction?(statusLine)
         startWatching()
     }
 
@@ -160,14 +164,14 @@ final class KeepAwake {
 
     /// Away: the Mac stays awake and never locks, so you (and agents) can always get in.
     /// The built-in screen dims after a couple of idle minutes and wakes on any input.
-    func startAway(dimNow: Bool = false) {
-        start(.indefinitely, dimsWhenIdle: true, announce: !dimNow)
+    func startAway(until: Until = .indefinitely, dimNow: Bool = false) {
+        start(until, dimsWhenIdle: true, announce: !dimNow)
         dimmer.start(dimNow: dimNow)
     }
 
     /// Screen stays on, for renders and anything you want to watch.
-    func startScreenOn() {
-        start(.indefinitely, keepsDisplayOn: true)
+    func startScreenOn(until: Until = .indefinitely) {
+        start(until, keepsDisplayOn: true)
     }
 
     /// Dims the screen now and keeps the Mac awake and unlocked (Away mode).
@@ -182,6 +186,7 @@ final class KeepAwake {
         session = nil
         stopSessionTimers()
         hideStatusItem()
+        onAction?(reason.map { "Keep Awake stopped: \($0)" } ?? "Keep Awake stopped.")
         if let reason { HUD.show(reason == "Stopped." ? "Keep Awake off" : reason, symbol: "moon.zzz") }
     }
 
@@ -444,7 +449,8 @@ final class KeepAwake {
         let battery = Battery.current()
 
         var reason = Self.endReason(for: current.until, now: now,
-                                    isRunning: { NSRunningApplication(processIdentifier: $0) != nil }, battery: battery)
+                                    isRunning: { NSRunningApplication(processIdentifier: $0) != nil }, battery: battery,
+                                    launchDate: { NSRunningApplication(processIdentifier: $0)?.launchDate })
         if reason == nil, case let .done(job) = current.until, watcher.isDone(job, now: now) {
             reason = job.finishedMessage
         }
@@ -475,7 +481,7 @@ final class KeepAwake {
 
     /// Why a session should end now, or nil to keep going. Job conditions are judged
     /// separately by `JobWatcher`.
-    static func endReason(for until: Until, now: Date, isRunning: (pid_t) -> Bool, battery: Battery?) -> String? {
+    static func endReason(for until: Until, now: Date, isRunning: (pid_t) -> Bool, battery: Battery?, launchDate: (pid_t) -> Date? = { _ in nil }) -> String? {
         if let battery, !battery.pluggedIn, battery.percent <= batteryFloor {
             return "battery is at \(battery.percent)%."
         }
@@ -484,8 +490,8 @@ final class KeepAwake {
             return nil
         case let .date(end):
             return now >= end ? "the time you set is up." : nil
-        case let .appQuits(pid, name):
-            return isRunning(pid) ? nil : "\(name) quit."
+        case let .appQuits(pid, name, launched):
+            return isRunning(pid) && (launched == nil || launchDate(pid) == launched) ? nil : "\(name) quit."
         }
     }
 
@@ -496,7 +502,7 @@ final class KeepAwake {
         recents.insert(choice, at: 0)
         recents = Array(recents.prefix(3))
         if let data = try? JSONEncoder().encode(recents) {
-            UserDefaults.standard.set(data, forKey: "keepAwakeRecents")
+            defaults.set(data, forKey: "keepAwakeRecents")
         }
     }
 
@@ -513,13 +519,16 @@ final class KeepAwake {
             let mode = session.dimsWhenIdle ? "Away" : (session.keepsDisplayOn ? "Screen stays on" : "Awake")
             return session.pausedOnBattery ? "\(mode) · paused on battery" : mode
         }
+        let mode = session.dimsWhenIdle ? "Away" : (session.keepsDisplayOn ? "Screen on" : "Awake")
         let base: String = switch session.until {
         case .indefinitely: "Awake until you stop it"
-        case let .date(end): "Awake until \(end.formatted(date: .omitted, time: .shortened))"
-        case let .appQuits(_, name): "Awake until \(name) quits"
+        case let .date(end): "\(mode) until \(end.formatted(date: .omitted, time: .shortened))"
+        case let .appQuits(_, name, _): "\(mode) until \(name) quits"
         case let .done(job): "Awake until \(job.untilPhrase)"
         }
-        return session.pausedOnBattery ? "\(base) · paused on battery" : base
+        let remaining = Self.countdown(until: session.until, now: clockNow)
+        let text = remaining.map { "\(base) · \($0) remaining" } ?? base
+        return session.pausedOnBattery ? "\(text) · paused on battery" : text
     }
 
     private var symbol: String {
@@ -581,7 +590,13 @@ final class KeepAwake {
         updateStatusItem()
     }
 
+    /// Visible surfaces refresh this even when the menu-bar countdown is hidden.
+    func refreshClock(now: Date = Date()) {
+        if Int(now.timeIntervalSince1970 / 60) != Int(clockNow.timeIntervalSince1970 / 60) { clockNow = now }
+    }
+
     private func updateStatusItem() {
+        clockNow = Date()
         guard let button = statusItem?.button, let session else { return }
         let image = NSImage(systemSymbolName: session.pausedOnBattery ? "pause.circle" : symbol, accessibilityDescription: statusLine)
         image?.isTemplate = true
@@ -630,7 +645,7 @@ final class KeepAwake {
                 start(.done(job), keepsDisplayOn: display, onlyOnPower: power)
             } else if let bundleID = value("app"),
                       let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-                start(.appQuits(pid: app.processIdentifier, name: app.localizedName ?? bundleID), keepsDisplayOn: display, onlyOnPower: power)
+                start(.appQuits(pid: app.processIdentifier, name: app.localizedName ?? bundleID, launched: app.launchDate), keepsDisplayOn: display, onlyOnPower: power)
             } else {
                 start(.date(Date().addingTimeInterval(Self.defaultDuration)), keepsDisplayOn: display, onlyOnPower: power)
             }
@@ -676,7 +691,7 @@ enum Choice: Codable, Hashable, Sendable {
         case let .done(job): .done(job)
         case let .app(bundleID, name):
             NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
-                .map { .appQuits(pid: $0.processIdentifier, name: name) }
+                .map { .appQuits(pid: $0.processIdentifier, name: name, launched: $0.launchDate) }
         }
     }
 }

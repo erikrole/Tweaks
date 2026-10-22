@@ -55,8 +55,12 @@ and the explicit Quit command (⌘Q) quits through the normal recovery checks.
   domain and its subdomains. An optional global shortcut starts unassigned.
 
 **Automatic actions and history**
+- Feature controls show Ready, Working, Active, Waiting, Paused, Blocked or Off.
+  Activity highlights active and attention-needed features, with Show all features
+  for a complete overview. Manual Keep Awake and render holds are shown separately.
 - In **Activity**, pause Downloads processing, disk-image offers and automatic link
-  cleaning for 30 minutes, or resume early. Saved feature switches do not change;
+  cleaning for 15/30/60 minutes or until a chosen date/time, change a pause, or resume
+  early. An optional unassigned shortcut toggles a 30-minute pause. Saved feature switches do not change;
   the deadline survives relaunch and expires after sleep. Files received while
   paused remain untouched on resume. Already-started file transactions finish;
   pending disk-image offers are canceled. Manual actions remain available.
@@ -112,6 +116,10 @@ and the explicit Quit command (⌘Q) quits through the normal recovery checks.
 - Renders keep the Mac awake on their own with the "Awake while rendering" tweak.
 - A pill appears when a session starts or stops. Any session stops at 15% battery
   when unplugged.
+- Settings and the menu-bar panel offer 30 minutes, 1/2/4 hours, a chosen date/time,
+  or a chosen running app in addition to Until I stop it. These are session choices;
+  they do not change your existing shortcut behavior or saved defaults. Invalid
+  deadlines and apps that have exited leave the running session unchanged.
 - Links for scripts: `tweaks://awake/away`, `/screenon`, `/screenoff` (Dim now),
   `/stop`, `/toggle`, `/menu`. The older timed links (`?minutes=`, `?hours=`,
   `?until=`, `?app=`, `?done=render|downloads|upload|copy`) still work.

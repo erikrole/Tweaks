@@ -85,13 +85,16 @@ struct VolumeLimitEnforcer {
 /// Suppression must compare every channel: a second channel can rise above the
 /// cap without changing the maximum of a hardware-rounded first channel.
 struct ChannelVolumeLimitEnforcer {
+    private(set) var verifiedWithinLimit = false
     private var scalar = VolumeLimitEnforcer()
     private var lastReadback: [UInt32: Float]?
 
-    mutating func reset() { scalar.reset(); lastReadback = nil }
+    mutating func reset() { scalar.reset(); lastReadback = nil; verifiedWithinLimit = false }
 
     mutating func enforce(maximum: Float, read: () -> [UInt32: Float]?, write: (Float) -> Bool) -> VolumeLimitEnforcer.Result? {
+        verifiedWithinLimit = false
         guard let values = read(), let current = values.values.max() else { return .unverified }
+        verifiedWithinLimit = values.values.allSatisfy { $0.isFinite && $0 <= min(1, max(0, maximum)) }
         if values != lastReadback { scalar.reset() }
         var evaluated: [UInt32: Float]? = values
         defer { lastReadback = evaluated }
@@ -107,6 +110,8 @@ struct ChannelVolumeLimitEnforcer {
 final class DeviceVolumeLimits {
     private(set) var devices: [AudioOutputDevice] = []
     private(set) var rules: [String: DeviceVolumeRule]
+    private(set) var wakeStatus: FeatureRuntime?
+    private(set) var statusPhase = FeatureRuntime.Phase.ready
     private(set) var status = "Set a limit for each output device you use."
     private(set) var wakeMaximum: Float
     var onAction: ((String) -> Void)?
@@ -150,6 +155,8 @@ final class DeviceVolumeLimits {
         if let result = wakeEnforcer.enforce(maximum: limit, read: { OutputAudio.volumes(device: id) },
                                              write: { OutputAudio.capVolume($0, device: id) }) {
             report(result, name: device.name)
+        } else if wakeEnforcer.verifiedWithinLimit {
+            wakeStatus = .init(phase: .ready, message: "After wake, \(device.name) was already within the volume limit.")
         }
     }
 
@@ -201,8 +208,10 @@ final class DeviceVolumeLimits {
         let previous = current
         detach()
         refreshDevices()
-        guard let id = OutputAudio.defaultDevice(), let next = AudioDeviceAccess.describe(id) else { status = "Waiting for an output device."; return }
+        guard let id = OutputAudio.defaultDevice(), let next = AudioDeviceAccess.describe(id) else { statusPhase = .waiting; status = "Waiting for an output device."; return }
         current = next
+        statusPhase = rules[next.id] == nil ? .waiting : .ready
+        status = rules[next.id] == nil ? "No enabled device limit for \(next.name)." : "Checking \(next.name) against its limit."
         enforcer.reset()
         if let previous, previous.id != next.id, rules[previous.id]?.muteOnSwitchAway == true {
             OutputAudio.setMuted(true, device: id)
@@ -222,12 +231,20 @@ final class DeviceVolumeLimits {
         guard active, let current, OutputAudio.defaultDevice() == current.device,
               let rule = rules[current.id] else { return }
         guard current.supportsVolume else {
+            statusPhase = .blocked
             status = "\(current.name) uses its own hardware volume control."
             return
         }
         guard let result = enforcer.enforce(maximum: rule.maximum,
                                            read: { OutputAudio.volumes(device: current.device) },
-                                           write: { OutputAudio.capVolume($0, device: current.device) }) else { return }
+                                           write: { OutputAudio.capVolume($0, device: current.device) }) else {
+            if enforcer.verifiedWithinLimit {
+                statusPhase = .ready
+                status = "\(current.name) is within its volume limit; no change needed."
+            }
+            return
+        }
+        statusPhase = result.phase
         switch result {
         case .applied(let value): status = "Set \(current.name) to \(Int(value * 100))%, within its limit."
         case .rounded(let value): status = "\(current.name) reported \(Int(value * 100))%, above its limit. Use its hardware control."
@@ -238,12 +255,14 @@ final class DeviceVolumeLimits {
     }
 
     private func report(_ result: VolumeLimitEnforcer.Result, name: String) {
+        statusPhase = result.phase
         switch result {
         case .applied(let value): status = "After wake, limited \(name) to \(Int(value * 100))%."
         case .rounded: status = "After wake, \(name) rounded above its volume limit. Use its hardware control."
         case .failed: status = "Could not apply the wake volume limit to \(name)."
         case .unverified: status = "Could not verify the wake volume limit for \(name)."
         }
+        wakeStatus = .init(phase: result.phase, message: status)
         onAction?(status)
     }
 }

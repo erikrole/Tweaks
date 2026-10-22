@@ -2,6 +2,12 @@
 
 ## Current state
 
+Version 0.1.6 adds live feature status, a compact Activity overview, native Keep
+Awake duration/app/time controls, and expanded pause controls with an unassigned
+pause/resume shortcut. Existing settings and shortcuts are preserved. See
+[status and control verification](docs/status-controls-2026-10-22.md) for checks
+and the physical-device acceptance boundaries.
+
 Version 0.1.5 rebuilds Settings with a native source-list sidebar, nine focused
 pages, semantic system colors, grouped AppKit controls and a resizable window.
 Standard Settings/Edit/Window menus support keyboard navigation and text editing.

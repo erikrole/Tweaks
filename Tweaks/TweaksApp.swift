@@ -160,6 +160,8 @@ final class TweakController {
     var settings: TweakSettings?
     private(set) var hasAccessibility = AX.isTrusted
     private(set) var lastClearedCount: Int?
+    private(set) var runtimeStatuses: [Tweak: FeatureRuntime] = [:]
+    private var recordedRuntime: [Tweak: FeatureRuntime] = [:]
 
     private let mute = MuteIndicator()
     private let music = MusicLaunchBlocker()
@@ -188,17 +190,27 @@ final class TweakController {
     @ObservationIgnored private var hotKeys: [ShortcutAction: HotKey] = [:]
     private(set) var shortcutErrors: [ShortcutAction: String] = [:]
     @ObservationIgnored private var awakeTapOrHold: TapOrHold?
-    let keepAwake = KeepAwake()
+    let keepAwake: KeepAwake
     private var capsLockTimer: Timer?
     private var accessibilityTimer: Timer?
 
     init(defaults: UserDefaults = .standard) {
+        keepAwake = KeepAwake(defaults: defaults)
         shareSleep = ShareSleepManager(defaults: defaults)
         windowLayouts = WindowLayouts(defaults: defaults)
         volumeLimits = DeviceVolumeLimits(defaults: defaults)
         shortcuts = ShortcutStore(defaults: defaults)
         linkCleaner = LinkCleaner(defaults: defaults)
         automationPause = AutomationPause(defaults: defaults)
+        downloads.onStatus = { [weak self] status in
+            for tweak in [Tweak.lowercaseExtensions, .calendarInvites, .unzipDownloads, .duplicateDownloads] {
+                self?.updateRuntime(tweak, status: status, record: tweak == Self.pausableTweaks.first(where: { self?.settings?.isOn($0) == true }))
+            }
+        }
+        shareConnect.onStatus = { [weak self] in self?.updateRuntime(.autoConnectShares, status: $0) }
+        shareSleep.onStatus = { [weak self] in self?.updateRuntime(.unmountSharesBeforeSleep, status: $0) }
+        ethernetHandoff.onStatus = { [weak self] in self?.updateRuntime(.preferEthernetForVPN, status: $0) }
+        keepAwake.onAction = { [weak self] in self?.recentActions.record($0) }
         linkCleaner.onAction = { [weak self] in self?.recentActions.record($0) }
         volumeLimits.onAction = { [weak self] in self?.recentActions.record($0) }
         downloads.onAction = { [weak self] in self?.recentActions.record($0) }
@@ -210,6 +222,22 @@ final class TweakController {
             self.recentActions.record(self.automationPause.isPaused ? "Paused automatic file and link actions." : "Resumed automatic file and link actions.")
             Self.pausableTweaks.forEach(self.apply)
         }
+    }
+
+    func updateRuntime(_ tweak: Tweak, status: FeatureRuntime, record: Bool = true) {
+        guard runtimeStatuses[tweak] != status else { return }
+        runtimeStatuses[tweak] = status
+        // Poll/check progress is visible, but never fills the action history.
+        guard record, settings?.isOn(tweak) == true || status.finishingRecovery,
+              [.active, .ready, .waiting, .blocked].contains(status.phase),
+              recordedRuntime[tweak] != status else { return }
+        recordedRuntime[tweak] = status
+        recentActions.record("\(tweak.title): \(status.text)")
+    }
+
+    func toggleAutomationPause() {
+        if automationPause.isPaused { automationPause.resume() }
+        else { automationPause.pause(for: 1800) }
     }
 
     static let pausableTweaks: [Tweak] = [.lowercaseExtensions, .calendarInvites, .unzipDownloads, .duplicateDownloads, .dmgInstaller, .cleanCopiedLinks]
@@ -228,6 +256,7 @@ final class TweakController {
         }
         Tweak.allCases.forEach(apply)
         register(.cleanLink)
+        register(.toggleAutomationPause)
         // If any tweak needs Accessibility and it's missing, ask once at launch so the
         // system adds a fresh, correctly signed Tweaks entry to the list.
         if !AX.isTrusted, Tweak.allCases.contains(where: { $0.needsAccessibility && settings?.isOn($0) == true }) {
@@ -367,6 +396,11 @@ final class TweakController {
         shortcutErrors[action] = nil
         let tweak: Tweak
         switch action {
+        case .toggleAutomationPause:
+            guard let shortcut = shortcuts.shortcut(for: action) else { return }
+            hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.toggleAutomationPause() }
+            shortcutErrors[action] = hotKeys[action].flatMap { HotKey.failureMessage(status: $0.registrationStatus) }
+            return
         case .cleanLink:
             guard let shortcut = shortcuts.shortcut(for: action) else { return }
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.cleanLink() }
@@ -408,7 +442,7 @@ final class TweakController {
             }
         case .clearNotifications:
             hotKeys[action] = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in self?.clearNotifications() }
-        case .cleanLink: break // Registered above; manual actions work even while automatic cleaning is off.
+        case .cleanLink, .toggleAutomationPause: break // Registered above; manual actions work even while automatic cleaning is off.
         }
         if let hotKey = hotKeys[action] {
             shortcutErrors[action] = HotKey.failureMessage(status: hotKey.registrationStatus)

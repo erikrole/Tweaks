@@ -56,6 +56,7 @@ final class WorkCancellation: @unchecked Sendable {
 @MainActor
 @Observable
 final class WindowLayouts {
+    private(set) var statusPhase = FeatureRuntime.Phase.waiting
     private(set) var status = "Save the windows you want restored for this display setup."
     private(set) var busy = false
     private(set) var layouts: [SavedLayout]
@@ -116,11 +117,12 @@ final class WindowLayouts {
         defer { busy = false; operation = nil }
         let windows = (try? await FileWork.run(on: queue) { LayoutAccess.capture(apps: apps, displays: displays, token: token) }) ?? []
         guard !token.isCancelled, LayoutDisplay.key(Self.displays()) == LayoutDisplay.key(displays) else { return }
-        guard !windows.isEmpty else { status = "No uniquely identifiable standard windows were available to save."; return }
+        guard !windows.isEmpty else { statusPhase = .waiting; status = "No uniquely identifiable standard windows were available to save."; return }
         let layout = SavedLayout(key: LayoutDisplay.key(displays), displays: displays.count, windows: windows)
         layouts.removeAll { $0.key == layout.key }
         layouts.append(layout)
         persist()
+        statusPhase = .ready
         status = "Saved \(windows.count) windows for \(displays.count) display(s)."
     }
 
@@ -128,6 +130,7 @@ final class WindowLayouts {
         guard !busy, AX.isTrusted else { return }
         let displays = Self.displays()
         guard let layout = layouts.first(where: { $0.key == LayoutDisplay.key(displays) }) else {
+            statusPhase = .waiting
             status = "No saved layout for this display setup. Arrange your windows, then save it."
             return
         }
@@ -137,13 +140,14 @@ final class WindowLayouts {
         busy = true
         defer { busy = false; operation = nil }
         let count = (try? await FileWork.run(on: queue) { LayoutAccess.restore(layout, apps: apps, displays: displays, token: token) }) ?? 0
-        if !token.isCancelled { status = "Restored \(count) of \(layout.windows.count) saved windows. Closed or ambiguous windows are left alone." }
+        if !token.isCancelled { statusPhase = count > 0 ? .ready : .waiting; status = "Restored \(count) of \(layout.windows.count) saved windows. Closed or ambiguous windows are left alone." }
     }
 
     func forgetCurrent() {
         operation?.cancel()
         layouts.removeAll { $0.key == LayoutDisplay.key(Self.displays()) }
         persist()
+        statusPhase = .waiting
         status = "Forgot the saved layout for this display setup."
     }
 

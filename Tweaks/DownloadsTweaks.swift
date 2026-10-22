@@ -12,6 +12,8 @@ final class DownloadsWatcher {
     var onDuplicate: (@MainActor @Sendable (DuplicateMatch) -> Void)?
     var onAction: (@MainActor @Sendable (String) -> Void)?
 
+    var onStatus: ((FeatureRuntime) -> Void)?
+
     private let folder: URL
     private let queue: DispatchQueue?
     private let fileIsOpen: @Sendable (String) -> Bool
@@ -44,9 +46,14 @@ final class DownloadsWatcher {
                                      queue: queue ?? DispatchQueue(label: "com.erole.Tweaks.downloads.\(UUID().uuidString)", qos: .utility),
                                      options: options, fileIsOpen: fileIsOpen, onDuplicate: onDuplicate, onAction: onAction)
         session = worker
-        worker.start { [weak self, weak worker] in
+        onStatus?(.init(phase: .working, message: "Preparing the Downloads watcher."))
+        worker.start(onReady: { [weak self, weak worker] in
+            guard let self, let worker, self.session === worker else { return }
+            self.onStatus?(.init(phase: .ready, message: "Watching new arrivals in Downloads."))
+        }) { [weak self, weak worker] in
             guard let self, let worker, self.session === worker else { return }
             self.session = nil
+            self.onStatus?(.init(phase: .blocked, message: "Downloads could not be watched. Check folder access."))
             DownloadsAccessAlert.showOnce()
         }
     }
@@ -259,7 +266,7 @@ private final class DownloadSession: @unchecked Sendable {
         candidates.removeAll()
     }
 
-    func start(onFailure: @escaping @Sendable @MainActor () -> Void) {
+    func start(onReady: @escaping @Sendable @MainActor () -> Void = {}, onFailure: @escaping @Sendable @MainActor () -> Void) {
         queue.async { [self] in
             guard self.options != nil else { return }
             let descriptor = open(self.folder.path, O_EVTONLY)
@@ -281,6 +288,7 @@ private final class DownloadSession: @unchecked Sendable {
             }
             self.seen = Set(names)
             self.lock.withLock { self.ready = self.configuration != nil }
+            Task { @MainActor in onReady() }
         }
     }
 

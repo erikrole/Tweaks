@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.6 — 2026-10-22
+
+- Show live feature status and a compact Activity overview, including network
+  reconnects, pending recovery, permissions, shortcuts, volume and render holds.
+- Add Keep Awake durations, a chosen end time and a chosen running app to Settings
+  and the menu-bar panel, preserving existing shortcut behavior and defaults.
+- Add 15/30/60-minute and chosen-time automation pauses, plus an optional unassigned
+  pause/resume shortcut. Saved switches and existing assignments are unchanged.
+- Guard late network status callbacks, retain chosen-app launch identity, and
+  update visible countdowns independently of the menu-bar countdown preference.
+
+See [verification and release status](docs/status-controls-2026-10-22.md).
+
 ## 0.1.5 — 2026-10-22
 
 - Rebuild Settings with native sidebar navigation, grouped controls, system

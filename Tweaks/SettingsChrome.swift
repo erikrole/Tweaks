@@ -58,8 +58,8 @@ extension SettingsWindowController {
             toggle.setAccessibilityHelp(tweak.detail)
             toggles[tweak] = toggle
             let detail = wrappingLabel(tweak.detail, size: 11, color: .secondaryLabelColor, reserve: 20)
-            let note = wrappingLabel("Waiting for Accessibility permission", size: 11, color: .systemOrange, reserve: 20)
-            note.isHidden = true
+            let note = wrappingLabel("", size: 11, color: .secondaryLabelColor, reserve: 20)
+            note.isHidden = false
             accessNotes[tweak] = note
             let help = NSStackView(views: [detail, note])
             help.orientation = .vertical

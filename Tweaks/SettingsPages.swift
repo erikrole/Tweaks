@@ -166,15 +166,13 @@ extension SettingsWindowController {
         pauseStatus.maximumNumberOfLines = 0
         measured.append((pauseStatus, 24))
         content?.addArrangedSubview(pauseStatus)
-        pauseButton.title = "Pause for 30 Minutes"
-        pauseButton.bezelStyle = .rounded
-        pauseButton.target = self
-        pauseButton.action = #selector(toggleAutomationPause)
-        content?.addArrangedSubview(pauseButton)
+        buildPauseControls()
         content?.addArrangedSubview(note("Pauses Downloads actions, disk-image offers, and automatic link cleaning without changing your switches. Files received during the pause stay untouched after resuming. Manual actions remain available."))
 
+        buildFeatureStatuses()
+
         addSection("Recent actions")
-        content?.addArrangedSubview(note("The latest 100 file, link, volume and pause actions from this session. History is cleared when Tweaks quits and is never saved to disk."))
+        content?.addArrangedSubview(note("The latest 100 file, link, volume, network, Keep Awake and pause actions from this session. History is cleared when Tweaks quits and is never saved to disk."))
         boxed(recentActionsBox)
         content?.addArrangedSubview(button("Clear Recent Actions", #selector(clearRecentActions)))
     }
@@ -182,6 +180,7 @@ extension SettingsWindowController {
     private func buildSleep() {
         addSection("Keep Awake")
         addToggles([.keepAwakeHotKey])
+        buildAwakeControls()
         sessionLabel.font = .systemFont(ofSize: 12)
         sessionLabel.textColor = .secondaryLabelColor
         sessionLabel.lineBreakMode = .byTruncatingTail

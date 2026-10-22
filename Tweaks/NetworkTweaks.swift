@@ -124,6 +124,10 @@ final class ShareSleepManager {
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
     private let recovery: ShareRemountQueue
+    var onStatus: ((FeatureRuntime) -> Void)? {
+        get { recovery.onStatus }
+        set { recovery.onStatus = newValue }
+    }
 
     init(defaults: UserDefaults = .standard) {
         recovery = ShareRemountQueue(defaults: defaults)
@@ -197,6 +201,7 @@ final class ShareSleepManager {
 @MainActor
 final class ShareRemountQueue {
     private(set) var pending: Set<URL>
+    var onStatus: ((FeatureRuntime) -> Void)?
     private let defaults: UserDefaults
     private let mounted: @MainActor () -> [URL]
     private let reachable: @MainActor (URL) async -> Bool
@@ -259,6 +264,7 @@ final class ShareRemountQueue {
 
     func resume() {
         sleeping = false
+        onStatus?(.init(phase: pending.isEmpty ? .ready : .waiting, message: pending.isEmpty ? "Watching sleep; no share restores pending." : "Waiting to restore \(pending.count) shares after sleep.", finishingRecovery: !pending.isEmpty))
         guard !pending.isEmpty, task == nil else { return }
         if watchConnectivity, monitor == nil {
             let monitor = ShareConnectivityWatcher { [weak self] in self?.retryNow() }
@@ -298,15 +304,18 @@ final class ShareRemountQueue {
                     guard !Task.isCancelled, self.generation == token else { return }
                     self.busy = true
                     let isReachable = await self.reachable(url)
+                    guard !Task.isCancelled, self.generation == token else { return }
                     self.busy = false
                     guard isReachable else { continue }
                     guard !Task.isCancelled, self.generation == token else { return }
                     self.busy = true
+                    self.onStatus?(.init(phase: .working, message: "Restoring a share after sleep.", finishingRecovery: true))
                     let restored = await self.mount(url)
-                    self.busy = false
                     guard !Task.isCancelled, self.generation == token else { return }
+                    self.busy = false
                     if restored { self.pending.remove(url); self.save() }
                 }
+                self.onStatus?(.init(phase: self.pending.isEmpty ? .ready : .waiting, message: self.pending.isEmpty ? "Sleep restores complete." : "Waiting for \(self.pending.count) share restores; retry scheduled.", finishingRecovery: !self.pending.isEmpty))
                 attempt += 1
             }
             if self.generation == token {
@@ -327,6 +336,7 @@ final class ShareRemountQueue {
 @MainActor
 final class ShareAutoConnect {
     var shares: [URL] = []
+    var onStatus: ((FeatureRuntime) -> Void)?
     static let pollInterval: TimeInterval = 5 * 60
     private let mounted: @MainActor () -> [URL]
     private let reachable: @MainActor (URL) async -> Bool
@@ -395,12 +405,23 @@ final class ShareAutoConnect {
                 do { try await self.wait(delay) } catch { break }
                 guard !Task.isCancelled, self.running, self.generation == token else { break }
                 let missing = Self.sharesToMount(wanted: wanted, mounted: self.mounted())
-                if missing.isEmpty { break }
+                if missing.isEmpty {
+                    self.onStatus?(.init(phase: wanted.isEmpty ? .waiting : .ready, message: wanted.isEmpty ? "Add a work share." : "All \(wanted.count) work shares are connected."))
+                    break
+                }
                 for url in missing {
                     guard !Task.isCancelled, self.running, self.generation == token else { break }
-                    guard await self.reachable(url) else { continue }
+                    let reachable = await self.reachable(url)
                     guard !Task.isCancelled, self.running, self.generation == token else { break }
-                    _ = await self.mount(url)
+                    guard reachable else {
+                        self.onStatus?(.init(phase: .waiting, message: "Share server unavailable; check the network or VPN. Retry scheduled."))
+                        continue
+                    }
+                    guard !Task.isCancelled, self.running, self.generation == token else { break }
+                    self.onStatus?(.init(phase: .working, message: "Connecting a missing work share."))
+                    let connected = await self.mount(url)
+                    guard !Task.isCancelled, self.running, self.generation == token else { break }
+                    self.onStatus?(.init(phase: connected ? .active : .blocked, message: connected ? "A missing work share reconnected." : "Share connection did not complete; retry scheduled. VPN sign-in may be needed."))
                 }
             }
             guard self.generation == token else { return }
