@@ -34,20 +34,35 @@ Quit still uses the guarded Wi-Fi recovery and shutdown path.
   3.86/4.75 ms for an existing 10,000-item scan, and 4.46/4.53 ms for 1,000 link
   cleanups. Compilation and other benchmarks did not overlap the timed runs.
 
-The first signed candidate passed notarization, stapling, strict signature
-verification and Gatekeeper assessment. Installed checks confirmed native sidebar
-selection, grouped controls, standard text editing, all nine pages, shortcut
-recording cancellation on navigation, and the Settings keyboard shortcut. Closing
-Settings retained the same background process. Away mode was restored and verified
-in the UI and with both power assertions. Accessibility remained trusted.
+## Installed release
 
-The complete live preference export after installation matched the pre-work
-snapshot exactly. Installed review found and corrected one stale Activity label
-that referred to controls "below" after they moved to other pages. The final
-candidate is being revalidated and packaged with that wording correction.
+[Tweaks 0.1.5](https://github.com/erikrole/Tweaks/releases/tag/v0.1.5) is published,
+Developer ID-signed, notarized, stapled and installed at `/Applications/Tweaks.app`.
+The app and tag contain source revision
+`030ac9ac025119d24eee20f201543693b093baac`. Strict signature verification (including
+the Finder extension), Gatekeeper assessment and stapled-ticket validation passed.
+Apple accepted notarization submission `c490c339-8bfd-4999-9987-02b95cd874c0`.
 
-Twelve geometry warnings during native capture were symbolized against the live
-process. Every stack contained AppKit's `NSThemeFrame._positionSharingIndicator`
+Installed checks confirmed native sidebar selection, grouped controls, standard
+text editing, all nine pages, shortcut recording cancellation on navigation, and
+the Settings keyboard shortcut. Closing Settings retained the same background
+process; the native Quit command completed graceful shutdown. Away mode was
+restored and verified in the UI and with both power assertions. Accessibility
+remained trusted. The final installed Activity page displays the corrected label,
+"Automatic actions follow your saved settings."
+
+The complete live preference export after final installation matched the pre-work
+snapshot exactly: zero changed keys. Both unrelated local handoff files also
+retained their original SHA-256 hashes. Private exports and bundles stay outside
+version control.
+
+The published ZIP and checksum asset sizes and SHA-256 digests match the local
+artifacts. The app ZIP digest is
+`4710f296f7b006e8b1f6d6db0342b4a0439bd3de24ed240acd8b6d6437d19e38`.
+
+Each installed capture session logged twelve geometry warnings, symbolized
+against its live process. Every stack contained AppKit's
+`NSThemeFrame._positionSharingIndicator`
 and window-sharing indicator code; no app constraint failure was recorded. macOS
 also logged CoreAudio device/factory messages and a denied WindowServer task-port
 lookup. These do not establish hardware audio or unrelated network acceptance.
