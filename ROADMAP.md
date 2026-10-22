@@ -11,6 +11,10 @@ WindowServer fence timeout after Tweaks died, and a Bluetooth watchdog restart.
 A manual bounded diagnostic collector is prepared and checked against the stable
 session. Reconnection remains deferred at the user's instruction; no additional
 app behavior or saved preferences changed during the follow-up.
+Independent Astra review found matching graphics warnings in the usable
+post-reboot session, so they are not a unique full-freeze signature. The confirmed
+Tweaks crash remains the only precisely identified defect; later server-side
+scene cleanup is a possible contributor, not a demonstrated cause.
 
 Version 0.1.6 adds live feature status, a compact Activity overview, native Keep
 Awake duration/app/time controls, and expanded pause controls with an unassigned
@@ -97,7 +101,9 @@ installation boundary.
   separately authorized test. Compare with Tweaks quit, then isolate the LG
   USB-C-to-DisplayPort path. Review main-thread event-tap/AX, dimming/ColorSync and
   audio discovery work as hardening candidates without assigning causality from
-  the existing logs. Protected WindowServer capture remains an access boundary.
+  the existing logs. First clarify whether only the clock stopped or all visible
+  interaction failed. Protected WindowServer capture remains an access boundary;
+  repeated stable-session samples cannot reconstruct the earlier failure.
 - On the updated signed app, verify monitor disconnect/reconnect and matching AX
   windows, USB/Bluetooth audio transitions and rounded volume controls, Finder-to-
   host image requests, and safe eject with both idle and busy multi-volume drives.
