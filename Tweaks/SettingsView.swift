@@ -275,7 +275,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         rebuildDuplicates()
         let until = tweaks.automationPause.until
         let pauseText = until.map { "Automatic file and link actions paused until \(DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short))." }
-        pauseStatus.stringValue = pauseText ?? "Automatic actions follow your switches below."
+        pauseStatus.stringValue = pauseText ?? "Automatic actions follow your saved settings."
         pauseNotice.stringValue = pauseText ?? ""
         pauseNotice.isHidden = until == nil
         pauseButton.title = until == nil ? "Pause for 30 Minutes" : "Resume Automatic Actions"

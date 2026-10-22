@@ -34,7 +34,24 @@ Quit still uses the guarded Wi-Fi recovery and shutdown path.
   3.86/4.75 ms for an existing 10,000-item scan, and 4.46/4.53 ms for 1,000 link
   cleanups. Compilation and other benchmarks did not overlap the timed runs.
 
-Packaging and installed verification are in progress.
+The first signed candidate passed notarization, stapling, strict signature
+verification and Gatekeeper assessment. Installed checks confirmed native sidebar
+selection, grouped controls, standard text editing, all nine pages, shortcut
+recording cancellation on navigation, and the Settings keyboard shortcut. Closing
+Settings retained the same background process. Away mode was restored and verified
+in the UI and with both power assertions. Accessibility remained trusted.
+
+The complete live preference export after installation matched the pre-work
+snapshot exactly. Installed review found and corrected one stale Activity label
+that referred to controls "below" after they moved to other pages. The final
+candidate is being revalidated and packaged with that wording correction.
+
+Twelve geometry warnings during native capture were symbolized against the live
+process. Every stack contained AppKit's `NSThemeFrame._positionSharingIndicator`
+and window-sharing indicator code; no app constraint failure was recorded. macOS
+also logged CoreAudio device/factory messages and a denied WindowServer task-port
+lookup. These do not establish hardware audio or unrelated network acceptance.
+
 The installed app, preferences and unrelated file hashes were backed up privately
 outside the repository. No production files, output volume, shares, authentication
 or feature switches are changed by the UI fixture checks.

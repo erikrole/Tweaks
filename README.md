@@ -169,10 +169,12 @@ they come back.
 
 ## Build and run
 
-[Version 0.1.4](docs/audio-actions-2026-10-22.md) is Developer ID-signed, notarized,
-stapled and installed locally as build 7. Audio consolidation, immediate link
-actions, temporary pause and session history retain the existing preferences.
-Debug and Release each pass 170 tests with two expected skips; the Finder package
+[Version 0.1.5](docs/native-settings-2026-10-22.md) is Developer ID-signed, notarized,
+stapled and installed locally as build 8. The native Settings rebuild preserves
+every feature, shortcut and saved preference. The [0.1.4 audio and actions release](docs/audio-actions-2026-10-22.md)
+introduced consolidated audio limits, immediate link actions, temporary pause and
+session history.
+Debug and Release each pass 171 tests with two expected skips; the Finder package
 passes 19 tests and all required Release benchmarks pass.
 
 The [0.1.3 share recovery report](docs/share-recovery-2026-10-20.md) records bounded
