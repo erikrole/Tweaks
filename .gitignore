@@ -8,7 +8,7 @@ xcuserdata/
 # Swift Package Manager
 .build/
 .swiftpm/
-Package.resolved
+# Keep reviewed Xcode package pins.
 .release/
 
 # Local Xcode workspace state

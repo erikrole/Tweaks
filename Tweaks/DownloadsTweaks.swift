@@ -18,6 +18,7 @@ final class DownloadsWatcher {
     private let queue: DispatchQueue?
     private let fileIsOpen: @Sendable (String) -> Bool
     private var session: DownloadSession?
+    private let activity = DownloadActivity()
     nonisolated static let settleTime: TimeInterval = 2
     nonisolated static let fantasticalBundleID = "com.flexibits.fantastical2.mac"
 
@@ -31,6 +32,7 @@ final class DownloadsWatcher {
 
     /// Startup is asynchronous: watching begins after the existing-file snapshot.
     var isRunning: Bool { session?.isReady == true }
+    var isBusy: Bool { activity.isBusy }
 
     private var options: DownloadSession.Options {
         .init(lowercase: lowercaseExtensions, invites: openCalendarInvites, archives: unzipArchives, duplicates: detectDuplicates)
@@ -44,7 +46,7 @@ final class DownloadsWatcher {
         // initial snapshot. Discovery and extraction use independent serial queues.
         let worker = DownloadSession(folder: folder,
                                      queue: queue ?? DispatchQueue(label: "com.erole.Tweaks.downloads.\(UUID().uuidString)", qos: .utility),
-                                     options: options, fileIsOpen: fileIsOpen, onDuplicate: onDuplicate, onAction: onAction)
+                                     options: options, fileIsOpen: fileIsOpen, activity: activity, onDuplicate: onDuplicate, onAction: onAction)
         session = worker
         onStatus?(.init(phase: .working, message: "Preparing the Downloads watcher."))
         worker.start(onReady: { [weak self, weak worker] in
@@ -214,6 +216,15 @@ final class DownloadsWatcher {
 }
 
 
+/// Shared by current and draining sessions, so pause/restart cannot hide an active file transaction.
+private final class DownloadActivity: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var isBusy: Bool { lock.withLock { count > 0 } }
+    func begin() { lock.withLock { count += 1 } }
+    func end() { lock.withLock { count -= 1 } }
+}
+
 /// Mutable directory state is confined to `queue`. Only options/cancellation cross
 /// queues, protected by `lock`; no filesystem operation runs while that lock is held.
 private final class DownloadSession: @unchecked Sendable {
@@ -232,6 +243,7 @@ private final class DownloadSession: @unchecked Sendable {
     private let lock = NSLock()
     private var configuration: Options?
     private var ready = false
+    private let activity: DownloadActivity
     private var source: DispatchSourceFileSystemObject?
     private var pendingScan: DispatchWorkItem?
     private var seen: Set<String> = []
@@ -239,8 +251,10 @@ private final class DownloadSession: @unchecked Sendable {
 
     init(folder: URL, queue: DispatchQueue, options: Options,
          fileIsOpen: @escaping @Sendable (String) -> Bool,
+         activity: DownloadActivity,
          onDuplicate: (@MainActor @Sendable (DuplicateMatch) -> Void)?,
          onAction: (@MainActor @Sendable (String) -> Void)?) {
+        self.activity = activity
         self.onDuplicate = onDuplicate
         self.onAction = onAction
         self.folder = folder
@@ -251,6 +265,8 @@ private final class DownloadSession: @unchecked Sendable {
 
     private var options: Options? { lock.withLock { configuration } }
     var isReady: Bool { lock.withLock { ready && configuration != nil } }
+    private func beginWork() { activity.begin() }
+    private func endWork() { activity.end() }
     func update(_ options: Options) { lock.withLock { if configuration != nil { configuration = options } } }
 
     func cancel() {
@@ -311,6 +327,8 @@ private final class DownloadSession: @unchecked Sendable {
         dispatchPrecondition(condition: .onQueue(queue))
         dispatchPrecondition(condition: .notOnQueue(.main))
         guard options != nil, source != nil, let listed = currentNames() else { return }
+        beginWork()
+        defer { endWork() }
         let names = Set(listed)
         seen.formIntersection(names)
         candidates = candidates.filter { names.contains($0.key) }
@@ -365,7 +383,9 @@ private final class DownloadSession: @unchecked Sendable {
         }
         if options?.archives == true, url.pathExtension.lowercased() == "zip" {
             let archive = url
+            beginWork()
             Task { @MainActor in
+                defer { self.endWork() }
                 await DownloadsWatcher.unzip(archive, expectedVersion: currentVersion,
                                              shouldContinue: { self.options?.archives == true },
                                              onDeferred: { self.retryArchive(archive) },
@@ -397,15 +417,17 @@ private final class DownloadSession: @unchecked Sendable {
             try? FileManager.default.removeItem(at: directory)
             return
         }
+        beginWork()
         // The unique directory prevents simultaneous same-named invites from colliding.
         queue.asyncAfter(deadline: .now() + 60) { try? FileManager.default.removeItem(at: directory) }
         Task { @MainActor in
             guard self.options?.invites == true,
                   let fantastical = NSWorkspace.shared.urlForApplication(withBundleIdentifier: DownloadsWatcher.fantasticalBundleID)
-            else { return }
+            else { self.endWork(); return }
             NSWorkspace.shared.open([copy], withApplicationAt: fantastical, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-                guard error == nil else { return }
+                guard error == nil else { self.endWork(); return }
                 self.queue.async {
+                    defer { self.endWork() }
                     guard self.options?.invites == true, version.matches(original) else { return }
                     do {
                         try FileManager.default.trashItem(at: original, resultingItemURL: nil)

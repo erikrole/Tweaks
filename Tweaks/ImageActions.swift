@@ -119,7 +119,7 @@ final class ImageActions {
     func show(_ files: [URL]) {
         guard !files.isEmpty, files.count <= ImageActionRequest.maximumFiles else { return }
         // Keep an in-progress export visible; another request must not replace its UI.
-        if let window, window.isVisible { window.makeKeyAndOrderFront(nil); return }
+        if let window, window.isVisible || isExporting { window.makeKeyAndOrderFront(nil); return }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 500),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Quick Image Actions"
@@ -134,12 +134,14 @@ final class ImageActions {
         self.panel = panel
     }
 
+    var isExporting: Bool { panel?.isExporting == true }
     private var panel: ImageActionsPanel?
 }
 
 /// AppKit only, like the rest of Tweaks: SwiftUI is never mapped for this panel.
 @MainActor
 private final class ImageActionsPanel: NSObject {
+    private(set) var isExporting = false
     var onAction: ((String) -> Void)?
     let view = NSView()
     private let files: [URL]
@@ -226,6 +228,8 @@ private final class ImageActionsPanel: NSObject {
         let longest = edges[max(0, min(edge.indexOfSelectedItem, edges.count - 1))]
         let options = ImageExportOptions(format: chosen, longestEdge: longest == 0 ? nil : longest,
                                          removeMetadata: metadata.state == .on)
+        guard !isExporting else { return }
+        isExporting = true
         save.isEnabled = false
         showCopiesButton.isHidden = true
         spinner.startAnimation(nil)
@@ -243,6 +247,7 @@ private final class ImageActionsPanel: NSObject {
             showCopiesButton.isHidden = outputs.isEmpty
             spinner.stopAnimation(nil)
             save.isEnabled = true
+            isExporting = false
         }
     }
 }

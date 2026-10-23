@@ -14,7 +14,7 @@
 		0F19222B1C6FD40B28593148 /* SettingsMenus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57A0656FC89BC5C8BB066297 /* SettingsMenus.swift */; };
 		13E8DF7EB0B9E1613316984E /* MediaReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6529D5EF39EDC973E8F09C64 /* MediaReader.swift */; };
 		1508C2BE4F8895A18F783900 /* AudioActionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9A66277A10A3BC8DB07E0B /* AudioActionsTests.swift */; };
-		1B640C0C290CAF710B6A3889 /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */; };
+		1B640C0C290CAF710B6A3889 /* AppUpdater in Frameworks */ = {isa = PBXBuildFile; productRef = 6266F03DD52FC3E025D759DF /* AppUpdater */; };
 		1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E331E81854D32C0B5583B639 /* MoreTweaks.swift */; };
 		1DAA204BD278AAE2E4E1CDD1 /* EthernetHandoffTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5DFADA5703E67A9940351B /* EthernetHandoffTests.swift */; };
 		2770CBE529C7FB11CF9E1013 /* KeepAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97347D2AD675A4B3B0CF966 /* KeepAwake.swift */; };
@@ -26,6 +26,7 @@
 		351D993A29E1C7C51965CD08 /* RecentActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CCDE285DFD1F40E90B9C16 /* RecentActions.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
 		415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */; };
+		44ABBC8B35F80D4BAA65E71A /* AppUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52F0486774DCFB8EF18A2C /* AppUpdate.swift */; };
 		4DFCB8C814030C62E6CF0134 /* BundledMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FBBFB6B0508737DB126C6C /* BundledMedia.swift */; };
 		56A1877977FD5F2E0742F856 /* ShareConnectionRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4437269ADC4A1BDE79462983 /* ShareConnectionRecoveryTests.swift */; };
 		591127B1B673B1D25A23A9DB /* ImageActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */; };
@@ -47,6 +48,7 @@
 		8F4700A6A72F6F69C334405D /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */; };
 		93A10AD82DC5655B6CE0961D /* DuplicateDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */; };
 		9C04DAA6D923E407A116A683 /* HardeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B27B5F7E0DFA2B3A1FBF45 /* HardeningTests.swift */; };
+		9CE5736504D005ECC0072B20 /* FinderUtilitiesKit in Frameworks */ = {isa = PBXBuildFile; productRef = B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */; };
 		AB45EF17DA63928A08C82A34 /* TweakSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669558E8002E222EB08AA36 /* TweakSettings.swift */; };
 		B1366F2517E4005E0FAA3E65 /* FileWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9816CFB9221F42C12C38D8B0 /* FileWork.swift */; };
 		B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */; };
@@ -163,6 +165,7 @@
 		F90BB2070E38C524774DE6DD /* Safety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Safety.swift; sourceTree = "<group>"; };
 		FC839332AEC88CB20A0C87D2 /* ShareConnectionRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareConnectionRecovery.swift; sourceTree = "<group>"; };
 		FCC2C3EAA930416669BA42E0 /* DuplicateDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDownloads.swift; sourceTree = "<group>"; };
+		FD52F0486774DCFB8EF18A2C /* AppUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,7 +181,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1B640C0C290CAF710B6A3889 /* FinderUtilitiesKit in Frameworks */,
+				1B640C0C290CAF710B6A3889 /* AppUpdater in Frameworks */,
+				9CE5736504D005ECC0072B20 /* FinderUtilitiesKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -260,6 +264,7 @@
 			children = (
 				57E8276F9F907090FA4302AD /* AccessibilityTweaks.swift */,
 				95088360DF10A9B9311768E8 /* AppIcon.icns */,
+				FD52F0486774DCFB8EF18A2C /* AppUpdate.swift */,
 				A74EE40D5EAF2E275336729E /* DeviceVolumeLimits.swift */,
 				168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */,
 				E010D32B4322DC676182A1FD /* DownloadsTweaks.swift */,
@@ -318,6 +323,7 @@
 			);
 			name = Tweaks;
 			packageProductDependencies = (
+				6266F03DD52FC3E025D759DF /* AppUpdater */,
 				B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */,
 			);
 			productName = Tweaks;
@@ -414,6 +420,7 @@
 			mainGroup = 3D2FB6853B8C63FE18C9F290;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				08AB5A2E51005A4459ADE6AF /* XCRemoteSwiftPackageReference "AppUpdater" */,
 				0A11E49E758CABA193850C95 /* XCLocalSwiftPackageReference "Packages/FinderUtilitiesKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -497,6 +504,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				88A41AF4E7C9DA8F60C88B1E /* AccessibilityTweaks.swift in Sources */,
+				44ABBC8B35F80D4BAA65E71A /* AppUpdate.swift in Sources */,
 				3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */,
 				0EBB14037392855A61DA1198 /* DeviceVolumeLimits.swift in Sources */,
 				3198F86D625E1AB959BF7A17 /* DownloadsTweaks.swift in Sources */,
@@ -925,10 +933,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		08AB5A2E51005A4459ADE6AF /* XCRemoteSwiftPackageReference "AppUpdater" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/erikrole/AppUpdater.git";
+			requirement = {
+				kind = revision;
+				revision = 5b5a9411078b79ad92e36bf9d965ecd94b66b420;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		06BFA5B96A8A94EBCFCD2D7F /* FinderUtilitiesKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FinderUtilitiesKit;
+		};
+		6266F03DD52FC3E025D759DF /* AppUpdater */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 08AB5A2E51005A4459ADE6AF /* XCRemoteSwiftPackageReference "AppUpdater" */;
+			productName = AppUpdater;
 		};
 		B685EB8D06C68C5C953F335C /* FinderUtilitiesKit */ = {
 			isa = XCSwiftPackageProductDependency;

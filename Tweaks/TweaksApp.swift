@@ -48,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         controller.start()
         started = true
+        AppUpdate.busyReason = { [weak self] in self?.controller.updateBusyReason }
+        AppUpdate.checkOnLaunch()
 
         let firstLaunch = UserDefaults.standard.object(forKey: "hasLaunched") == nil
         UserDefaults.standard.set(true, forKey: "hasLaunched")
@@ -79,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if !hasSettingsMenu {
-            NSApp.mainMenu = SettingsMenus.make(target: self, settings: #selector(showSettings), quit: #selector(quitFromMenu))
+            NSApp.mainMenu = SettingsMenus.make(target: self, settings: #selector(showSettings), quit: #selector(quitFromMenu), updates: #selector(checkForUpdates))
             hasSettingsMenu = true
         }
         if settingsWindow == nil {
@@ -98,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.showWindow(nil)
     }
 
+    @objc private func checkForUpdates() { AppUpdate.checkNow() }
+
     @objc private func quitFromMenu() {
         Self.reallyQuit = true
         NSApp.terminate(nil)
@@ -113,13 +117,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard started else { return .terminateNow }
-        if !Self.reallyQuit, let window = settingsWindow?.window, window.isVisible {
+        let systemQuit = Self.isSystemQuit()
+        guard systemQuit || !AppUpdate.isPreparing else { return .terminateCancel }
+        if !systemQuit, AppUpdate.updater.isAwaitingRelaunch, controller.updateBusyReason != nil { return .terminateCancel }
+        if !systemQuit, !Self.reallyQuit, !AppUpdate.updater.isAwaitingRelaunch, let window = settingsWindow?.window, window.isVisible {
             window.close()
             return .terminateCancel
         }
         // Logout, restart and shutdown must never be held up: Wi-Fi restore is attempted once
         // and the saved state finishes the job at the next launch.
-        let systemQuit = Self.isSystemQuit()
         var replied = false
         let reply: @MainActor (Bool) -> Void = { restored in
             guard !replied else { return }
@@ -185,6 +191,14 @@ final class TweakController {
     let safeEject = SafeEject()
     let imageActions = ImageActions()
     let duplicates = DuplicateReview()
+
+    var updateBusyReason: String? {
+        if dmg.activeOperations > 0 { return "Wait for the app installer to finish before updating Tweaks." }
+        if downloads.isBusy { return "Wait for Downloads processing to finish before updating Tweaks." }
+        if imageActions.isExporting { return "Wait for image exports to finish before updating Tweaks." }
+        if safeEject.busy { return "Wait for drive ejection to finish before updating Tweaks." }
+        return nil
+    }
 
     let shortcuts: ShortcutStore
     @ObservationIgnored private var hotKeys: [ShortcutAction: HotKey] = [:]

@@ -279,3 +279,11 @@ hardware and installed-extension checks still outstanding.
 ## License
 
 Tweaks is released under the MIT License.
+
+## App updates
+
+AppUpdater checks [erikrole/Tweaks](https://github.com/erikrole/Tweaks/releases) for signed ZIP releases. Normal Release launches check automatically; tests and helper/command launches skip automatic checks. Use **Check for Updates…** in the Tweaks app menu while Settings is open.
+
+`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `5b5a9411078b79ad92e36bf9d965ecd94b66b420`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
+
+Integration prepared on October 23, 2026. This source change needs a new app release before installed copies adopt it.

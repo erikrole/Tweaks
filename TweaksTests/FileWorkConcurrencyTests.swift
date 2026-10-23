@@ -26,11 +26,15 @@ final class FileWorkConcurrencyTests: XCTestCase {
         await watcher.scan(now: now)
         let scan = Task { await watcher.scan(now: now.addingTimeInterval(2)) }
         await fulfillment(of: [entered], timeout: 3)
+        XCTAssertTrue(watcher.isBusy)
         watcher.stop()
+        XCTAssertTrue(watcher.isBusy, "stopped sessions can still be draining file work")
         watcher.start()
+        await watcher.waitUntilReady()
+        XCTAssertTrue(watcher.isBusy, "a new watcher must not hide the old transaction")
         gate.signal()
         await scan.value
-        await watcher.waitUntilReady()
+        XCTAssertFalse(watcher.isBusy)
         XCTAssertEqual(try names(in: folder), ["Old.JPG"])
 
         try Data("new".utf8).write(to: folder.appending(path: "New.JPG"))

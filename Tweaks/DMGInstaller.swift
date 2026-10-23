@@ -17,6 +17,7 @@ struct InstallerSession {
 /// .dmg and open the new app.
 @MainActor
 final class DMGInstaller {
+    private(set) var activeOperations = 0
     private var observer: NSObjectProtocol?
     private var session = InstallerSession()
     var onAction: ((String) -> Void)?
@@ -42,6 +43,8 @@ final class DMGInstaller {
 
     private func handleMount(_ volume: URL, session: UUID) async {
         guard accepts(session) else { return }
+        activeOperations += 1
+        defer { activeOperations -= 1 }
         guard let image = await Self.diskImagePath(for: volume),
               let app = try? await FileWork.run({ Self.singleApp(in: volume) })
         else { return }

@@ -139,3 +139,5 @@ installation boundary.
   it does not by itself establish physical-input acceptance.
 - Continue the existing Finder plan's host-app Inspector and share robustness work
   after these measurements; this pass does not change entitlements or distribution.
+
+- October 23: AppUpdater ZIP integration is prepared against package `5b5a941`, retaining macOS 27 and existing save/busy/quit safeguards. A new host release is still required; see README App updates.

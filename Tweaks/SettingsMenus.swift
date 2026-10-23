@@ -3,7 +3,7 @@ import AppKit
 /// Standard responder-chain menus, created only when Settings is opened.
 @MainActor
 enum SettingsMenus {
-    static func make(target: AnyObject, settings: Selector, quit: Selector) -> NSMenu {
+    static func make(target: AnyObject, settings: Selector, quit: Selector, updates: Selector? = nil) -> NSMenu {
         let root = NSMenu()
         func menu(_ title: String) -> NSMenu {
             let item = NSMenuItem()
@@ -21,6 +21,7 @@ enum SettingsMenus {
         add("About Tweaks", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), "", to: app, target: NSApp)
         app.addItem(.separator())
         add("Settings…", settings, ",", to: app, target: target)
+        if let updates { add("Check for Updates…", updates, "", to: app, target: target) }
         app.addItem(.separator())
         add("Hide Tweaks", #selector(NSApplication.hide(_:)), "h", to: app, target: NSApp)
         add("Show All", #selector(NSApplication.unhideAllApplications(_:)), "", to: app, target: NSApp)

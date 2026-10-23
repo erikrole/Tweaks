@@ -162,3 +162,5 @@ ZIP. A 2 ms main-queue timer measures scheduling delay, alongside elapsed time a
 main-thread CPU. Its setup/drain are outside elapsed/CPU timing; delay includes the
 20 ms drain needed to catch a final synchronous stall. These profiles are skipped
 in ordinary test runs. Do not overlap compilation or other benchmarks with them.
+
+AppUpdater integration: `AppUpdate.swift` owns the pinned package instance. Keep automatic checks Release-only and exclude tests/CLI helpers. Permit updater termination only after `isAwaitingRelaunch`, then retain host save/busy/restore guards. Never add a forced-exit fallback for these guards.
