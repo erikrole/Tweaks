@@ -202,7 +202,7 @@ Build 3 (source `8ff89bc`) was signed, notarized and installed locally; final De
 and Release checks each passed 121 tests with three expected skips and no failures.
 Hardware, network and physical-input acceptance remain separate from fixture tests.
 
-Requirements: macOS 14 or later, Xcode, and XcodeGen.
+Requirements: macOS 27 or later, Xcode 27 or later, and XcodeGen.
 
 ```sh
 xcodegen generate

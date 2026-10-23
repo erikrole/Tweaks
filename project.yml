@@ -2,11 +2,11 @@ name: Tweaks
 options:
   bundleIdPrefix: com.erole
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "27.0"
 settings:
   base:
     SWIFT_VERSION: 6.0
-    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MACOSX_DEPLOYMENT_TARGET: "27.0"
     DEVELOPMENT_TEAM: ""
     TWEAKS_SOURCE_REVISION: local-development
 packages:
@@ -73,7 +73,7 @@ targets:
         SKIP_INSTALL: YES
         DEVELOPMENT_TEAM: T26T3G8C7Q
         ENABLE_HARDENED_RUNTIME: YES
-        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        MACOSX_DEPLOYMENT_TARGET: "27.0"
         SWIFT_VERSION: "6.0"
       configs:
         Debug:

@@ -1,6 +1,6 @@
 # Tweaks development
 
-Native macOS 14+ Swift 6 app with an embedded Finder Sync extension. Follow the
+Native macOS 27+ Swift 6 app with an embedded Finder Sync extension. Follow the
 parent workspace instructions. `project.yml` is the XcodeGen source of truth;
 run `xcodegen generate` after changing project settings or file membership.
 

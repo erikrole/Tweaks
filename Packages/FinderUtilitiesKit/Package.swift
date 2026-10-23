@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "FinderUtilitiesKit",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS("27.0")],
     products: [.library(name: "FinderUtilitiesKit", targets: ["FinderUtilitiesKit"])],
     targets: [
         .target(name: "FinderUtilitiesKit"),
