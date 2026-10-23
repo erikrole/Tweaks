@@ -30,8 +30,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks
         PRODUCT_NAME: Tweaks
-        MARKETING_VERSION: "0.1.7"
-        CURRENT_PROJECT_VERSION: "10"
+        MARKETING_VERSION: "0.1.8"
+        CURRENT_PROJECT_VERSION: "11"
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Tweaks/Info.plist
@@ -124,8 +124,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks.FinderSync
         PRODUCT_NAME: TweaksFinderSync
-        MARKETING_VERSION: "0.1.7"
-        CURRENT_PROJECT_VERSION: "10"
+        MARKETING_VERSION: "0.1.8"
+        CURRENT_PROJECT_VERSION: "11"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: FinderSync/FinderSync.entitlements
         ENABLE_HARDENED_RUNTIME: YES
