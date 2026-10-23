@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8 - 2026-10-23
+
+- Add signed ZIP self-updates through AppUpdater, preserving save and busy safeguards.
+- Publish a notarized Apple Silicon release requiring macOS 27 or later.
+
 ## 0.1.6 — 2026-10-22
 
 - Show live feature status and a compact Activity overview, including network

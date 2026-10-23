@@ -140,4 +140,4 @@ installation boundary.
 - Continue the existing Finder plan's host-app Inspector and share robustness work
   after these measurements; this pass does not change entitlements or distribution.
 
-- October 23: AppUpdater ZIP integration is prepared against package `5b5a941`, retaining macOS 27 and existing save/busy/quit safeguards. A new host release is still required; see README App updates.
+- October 23: [Tweaks 0.1.8](https://github.com/erikrole/Tweaks/releases/tag/v0.1.8) is published with AppUpdater ZIP support. macOS 27, signing, notarization, fresh-extraction Gatekeeper checks, and the public update feed are verified. Installed update/relaunch acceptance remains a separate check.

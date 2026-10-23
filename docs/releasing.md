@@ -75,3 +75,7 @@ credentials.
 Release builds embed `TweaksSourceRevision` in the app's Info.plist. The release
 script uses the current Git commit and appends `-dirty` for tracked local changes.
 Use a clean source commit for the installed release so its provenance is explicit.
+
+## Verified updater release: 0.1.8 (build 11)
+
+Published October 23, 2026 at [Tweaks 0.1.8](https://github.com/erikrole/Tweaks/releases/tag/v0.1.8). Source commit: `21062a918cbd33cdc8ce52151ce8f34bb2f47fbb`. The app and its owned extensions/helpers require macOS 27.0 in Info.plist and Mach-O. The arm64 ZIP is Developer ID signed with Team `T26T3G8C7Q`, accepted by Apple notarization, stapled, and accepted by Gatekeeper after fresh extraction. ZIP/checksum/provenance digests match GitHub. Host tests: 190 reported, 2 skipped, zero failures. AppUpdater’s live download/verification path also passed for this public release.

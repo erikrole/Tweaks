@@ -286,4 +286,4 @@ AppUpdater checks [erikrole/Tweaks](https://github.com/erikrole/Tweaks/releases)
 
 `project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `5b5a9411078b79ad92e36bf9d965ecd94b66b420`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
 
-Integration prepared on October 23, 2026. This source change needs a new app release before installed copies adopt it.
+Published on October 23, 2026 as [Tweaks 0.1.8](https://github.com/erikrole/Tweaks/releases/tag/v0.1.8), build 11, from source `21062a918cbd33cdc8ce52151ce8f34bb2f47fbb`. The Apple Silicon ZIP requires macOS 27 or later and is Developer ID signed, notarized, and stapled. A SHA-256 checksum and provenance manifest are attached to the release.
