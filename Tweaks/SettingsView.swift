@@ -33,6 +33,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let addShareButton = NSButton()
     let finderLabel = NSTextField(labelWithString: "")
     let loginSwitch = NSSwitch()
+    let autoUpdateSwitch = NSSwitch()
     let loginError = NSTextField(labelWithString: "")
     private let accessRow = NSStackView()
     var measured: [(NSTextField, CGFloat)] = []
@@ -602,6 +603,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     @objc func tweakToggled(_ sender: NSButton) {
         guard let id = sender.identifier?.rawValue, let tweak = Tweak(rawValue: id) else { return }
         settings.set(tweak, on: sender.state == .on)
+    }
+
+    @objc func autoUpdateChanged(_ sender: NSSwitch) {
+        UserDefaults.standard.set(sender.state == .on, forKey: AppUpdate.autoUpdateKey)
     }
 
     @objc func loginChanged(_ sender: NSSwitch) {

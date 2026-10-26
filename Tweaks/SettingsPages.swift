@@ -75,6 +75,11 @@ extension SettingsWindowController {
         loginSwitch.target = self
         loginSwitch.action = #selector(loginChanged(_:))
         content?.addArrangedSubview(labeledRow("Launch at login", trailing: loginSwitch))
+        autoUpdateSwitch.state = (UserDefaults.standard.object(forKey: AppUpdate.autoUpdateKey) as? Bool ?? true) ? .on : .off
+        autoUpdateSwitch.target = self
+        autoUpdateSwitch.action = #selector(autoUpdateChanged(_:))
+        autoUpdateSwitch.setAccessibilityLabel("Update automatically")
+        content?.addArrangedSubview(labeledRow("Update automatically", trailing: autoUpdateSwitch))
         loginError.font = .systemFont(ofSize: 11)
         loginError.textColor = .secondaryLabelColor
         loginError.lineBreakMode = .byWordWrapping

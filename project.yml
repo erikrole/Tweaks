@@ -12,7 +12,7 @@ settings:
 packages:
   AppUpdater:
     url: https://github.com/erikrole/AppUpdater.git
-    revision: 5b5a9411078b79ad92e36bf9d965ecd94b66b420
+    revision: 9ada219929d278da23a003382ed599d4590f78ec
   FinderUtilitiesKit:
     path: Packages/FinderUtilitiesKit
 targets:
@@ -30,8 +30,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks
         PRODUCT_NAME: Tweaks
-        MARKETING_VERSION: "0.1.8"
-        CURRENT_PROJECT_VERSION: "11"
+        MARKETING_VERSION: "0.1.9"
+        CURRENT_PROJECT_VERSION: "12"
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Tweaks/Info.plist
@@ -124,8 +124,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.Tweaks.FinderSync
         PRODUCT_NAME: TweaksFinderSync
-        MARKETING_VERSION: "0.1.8"
-        CURRENT_PROJECT_VERSION: "11"
+        MARKETING_VERSION: "0.1.9"
+        CURRENT_PROJECT_VERSION: "12"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: FinderSync/FinderSync.entitlements
         ENABLE_HARDENED_RUNTIME: YES
