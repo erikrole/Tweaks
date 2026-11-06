@@ -939,7 +939,7 @@
 			repositoryURL = "https://github.com/erikrole/AppUpdater.git";
 			requirement = {
 				kind = revision;
-				revision = 9ada219929d278da23a003382ed599d4590f78ec;
+				revision = be0d006ed0899cc4e661791c41dbc5c23999f261;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

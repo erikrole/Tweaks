@@ -12,7 +12,7 @@ settings:
 packages:
   AppUpdater:
     url: https://github.com/erikrole/AppUpdater.git
-    revision: 0aa1720c5bfdf4372256f3909c68b55fbf091849
+    revision: be0d006ed0899cc4e661791c41dbc5c23999f261
   FinderUtilitiesKit:
     path: Packages/FinderUtilitiesKit
 targets:
