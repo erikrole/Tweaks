@@ -8,6 +8,11 @@ private let log = Logger(subsystem: "com.erole.Tweaks.FinderSync", category: "me
 /// Thin Finder Sync adapter. `menu(for:)` does no file I/O: it only builds strings.
 final class FinderSyncExtension: FIFinderSync {
     private var selection: [URL] = []
+    // Finder proxies menu items across processes. Carry only an integer tag in
+    // that copy; retain the selected-file URL in this extension's memory.
+    private var requests: [Int: URL] = [:]
+    private var requestOrder: [Int] = []
+    private var nextRequestTag = 1000
     /// File attributes always; AVFoundation and ImageIO only after the first real inspect,
     /// via a bundle that is not linked into this process.
     private let metadata = MetadataService(providers: [FileAttributeProvider(), BundledMediaProvider()])
@@ -48,13 +53,13 @@ final class FinderSyncExtension: FIFinderSync {
         if let request = ImageActionRequest.url(for: selection) {
             let images = NSMenuItem(title: "Quick Image Actions…", action: #selector(openImageActions(_:)), keyEquivalent: "")
             images.target = self
-            images.representedObject = request
+            images.tag = remember(request)
             menu.addItem(images)
         }
         if let request = OvercastUploadRequest.url(for: selection) {
             let audio = NSMenuItem(title: "Send to Overcast…", action: #selector(openOvercast(_:)), keyEquivalent: "")
             audio.target = self
-            audio.representedObject = request
+            audio.tag = remember(request)
             menu.addItem(audio)
         }
         return menu
@@ -101,13 +106,27 @@ final class FinderSyncExtension: FIFinderSync {
     }
 
     @objc private func openImageActions(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? URL else { return }
+        guard let request = requests[sender.tag] else { return }
         NSWorkspace.shared.open(request)
     }
 
     @objc private func openOvercast(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? URL else { return }
+        guard let request = requests[sender.tag] else { return }
         NSWorkspace.shared.open(request)
+    }
+
+    private func remember(_ request: URL) -> Int {
+        if nextRequestTag == Int.max {
+            nextRequestTag = 1000
+            requests.removeAll()
+            requestOrder.removeAll()
+        }
+        let tag = nextRequestTag
+        nextRequestTag += 1
+        requests[tag] = request
+        requestOrder.append(tag)
+        if requestOrder.count > 64 { requests.removeValue(forKey: requestOrder.removeFirst()) }
+        return tag
     }
 
     private func write(_ text: String) {

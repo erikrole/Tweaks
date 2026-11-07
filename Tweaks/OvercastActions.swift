@@ -363,7 +363,15 @@ final class OvercastUploadPanel: NSWindowController, NSWindowDelegate, WKNavigat
         loadUploads(webView)
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { checkPage() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // QR/app authentication lands on Podcasts rather than honoring the
+        // original uploads destination. Bring this upload window back there.
+        if !isUploading, terminalMessage == nil, OvercastPage.isTrusted(webView.url), webView.url?.path == "/podcasts" {
+            loadUploads(webView)
+            return
+        }
+        checkPage()
+    }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         guard (error as NSError).code != NSURLErrorCancelled else { return }

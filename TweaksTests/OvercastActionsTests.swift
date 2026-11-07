@@ -161,4 +161,16 @@ final class OvercastActionsTests: XCTestCase {
         XCTAssertFalse(panel.isUploading)
         XCTAssertTrue(panel.status.hasPrefix("Stopped"), panel.status)
     }
+
+    func testQRSignInLandingReturnsToUploads() async throws {
+        var returnsToUploads = 0
+        let panel = OvercastUploadPanel(files: [try audio()], loadPage: false, persistent: false, loadUploads: { [fixture] view in
+            returnsToUploads += 1
+            view.loadHTMLString(fixture, baseURL: OvercastPage.uploads)
+        })
+        defer { panel.close() }
+        panel.webView.loadHTMLString(fixture, baseURL: URL(string: "https://overcast.fm/podcasts"))
+        try await waitFor { panel.ready }
+        XCTAssertEqual(returnsToUploads, 1)
+    }
 }

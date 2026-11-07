@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.11 — 2026-11-07 (local build)
+
+- Add Send to Overcast to Finder and Files & Finder. Review downloaded MP3/M4A
+  files, sign in once using Overcast's QR or email flow, and upload from Tweaks.
+- Send batches sequentially, confirm new uploaded items, and guard quit and
+  updates while uploading. Stop/failed batches require review before retrying.
+- Preserve Finder action file selections with menu tags across Finder's process
+  boundary. The local Run helper installs cleanly signed builds with backups.
+
+See [verification and remaining acceptance checks](docs/overcast-2026-11-07.md).
+
 ## 0.1.9 - 2026-10-26
 
 - Install stable updates automatically at launch (Settings > General > Update automatically, on by default). A failed update stops retrying after two tries.

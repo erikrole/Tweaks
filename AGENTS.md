@@ -94,6 +94,8 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   Keep originals intact, reject multi-frame input, and test metadata/orientation.
   The Finder extension keeps its existing read-only sandbox entitlement.
 - Overcast requests (`tweaks://overcast?file=…`) only open a file review window.
+  Finder menu callbacks must use integer tags mapped to bounded in-memory request
+  snapshots; Finder's proxied items do not preserve `representedObject` URLs.
   The user must click Upload before any file is handed to WebKit. Keep Finder's
   menu construction free of filesystem work. Only MP3/M4A selections (up to 20)
   are accepted; validate downloaded regular files off-main and revalidate before
