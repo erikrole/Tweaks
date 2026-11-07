@@ -197,6 +197,8 @@ Developer ID-signed Release, preserve the installed copy under
 first so it can release any manual Keep Awake session and restore owned state.
 The script checks the existing signing requirement before installation. Use
 `--build-only` to build without restarting or replacing the installed app.
+After a clean committed build, `--install-built` installs that verified result
+without rebuilding; its embedded source revision must match the current commit.
 
 [Version 0.1.7](docs/dock-hang-2026-10-22.md) is Developer ID-signed, notarized,
 stapled and installed locally as build 10, from source `7222203`. It repairs a
