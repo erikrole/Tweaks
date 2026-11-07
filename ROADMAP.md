@@ -2,6 +2,13 @@
 
 ## Current state
 
+[0.1.11](https://github.com/erikrole/Tweaks/releases/tag/v0.1.11) is published as
+the latest stable updater release, from source
+`105d1c94bda92e016da80327364d90a58f69de13`. The arm64 ZIP is Developer ID-signed,
+notarized and stapled. The exact pinned updater selected the public release over
+0.1.10, downloaded it and passed its signature/version/Gatekeeper preparation in
+an isolated temporary destination, without swapping the running app.
+
 0.1.11 (build 15) adds Send to Overcast to the existing Finder menu and Files &
 Finder page. The host reviews MP3/M4A selections, uses a dedicated Overcast web
 session, and sends only after the user's Upload click. It confirms new episode

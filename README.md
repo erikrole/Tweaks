@@ -191,6 +191,12 @@ they come back.
 
 ## Build and run
 
+[Tweaks 0.1.11](https://github.com/erikrole/Tweaks/releases/tag/v0.1.11), build 15,
+was published November 7, 2026 as the latest stable updater release. The Apple
+Silicon ZIP is Developer ID-signed, notarized and stapled, from source
+`105d1c94bda92e016da80327364d90a58f69de13`. The existing updater's public download
+and verification path passed. See [release verification](docs/overcast-2026-11-07.md).
+
 The local **Run** action uses `./script/build_and_run.sh --verify`: build a
 Developer ID-signed Release, preserve the installed copy under
 `~/Code Support/Tweaks/local-builds/`, install and launch. Quit Tweaks normally

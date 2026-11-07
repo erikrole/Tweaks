@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.11 — 2026-11-07 (local build)
+## 0.1.11 — 2026-11-07
 
 - Add Send to Overcast to Finder and Files & Finder. Review downloaded MP3/M4A
   files, sign in once using Overcast's QR or email flow, and upload from Tweaks.
@@ -8,6 +8,7 @@
   updates while uploading. Stop/failed batches require review before retrying.
 - Preserve Finder action file selections with menu tags across Finder's process
   boundary. The local Run helper installs cleanly signed builds with backups.
+- Publish the signed, notarized Apple Silicon update through the existing updater.
 
 See [verification and remaining acceptance checks](docs/overcast-2026-11-07.md).
 
