@@ -7,8 +7,10 @@ Finder page. The host reviews MP3/M4A selections, uses a dedicated Overcast web
 session, and sends only after the user's Upload click. It confirms new episode
 links, supports sequential batches, and guards quit/updates while uploading.
 Debug and Release app suites pass 199 tests (2 expected skips); the Finder package
-passes its request/path/metadata checks. Live account upload and iPhone appearance
-remain separate acceptance steps. Sign-in through the iPhone QR flow is verified.
+passes its request/path/metadata checks. Installed build 15 passes the live Finder
+handoff and retains its QR-authenticated account session after relaunch. A live
+two-file batch uploaded both MP3 and M4A test tones and confirmed each item in
+Overcast. iPhone appearance/playback has not been observed.
 See [verification](docs/overcast-2026-11-07.md).
 
 Version 0.1.7 repairs the confirmed SystemConfiguration context-release crash found
