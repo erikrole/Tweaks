@@ -2,6 +2,14 @@
 
 ## Current state
 
+0.1.11 (build 14) adds Send to Overcast to the existing Finder menu and Files &
+Finder page. The host reviews MP3/M4A selections, uses a dedicated Overcast web
+session, and sends only after the user's Upload click. It confirms new episode
+links, supports sequential batches, and guards quit/updates while uploading.
+Debug and Release app suites pass 198 tests (2 expected skips); the Finder package
+passes its request/path/metadata checks. Live account upload and iPhone appearance
+remain separate acceptance steps. See [verification](docs/overcast-2026-11-07.md).
+
 Version 0.1.7 repairs the confirmed SystemConfiguration context-release crash found
 during investigation of the CalDigit TS5 Plus incident. The reported system freeze
 and earlier WindowServer display timeouts remain unattributed; physical dock

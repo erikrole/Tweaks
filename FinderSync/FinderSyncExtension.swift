@@ -51,6 +51,12 @@ final class FinderSyncExtension: FIFinderSync {
             images.representedObject = request
             menu.addItem(images)
         }
+        if let request = OvercastUploadRequest.url(for: selection) {
+            let audio = NSMenuItem(title: "Send to Overcast…", action: #selector(openOvercast(_:)), keyEquivalent: "")
+            audio.target = self
+            audio.representedObject = request
+            menu.addItem(audio)
+        }
         return menu
     }
 
@@ -95,6 +101,11 @@ final class FinderSyncExtension: FIFinderSync {
     }
 
     @objc private func openImageActions(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(request)
+    }
+
+    @objc private func openOvercast(_ sender: NSMenuItem) {
         guard let request = sender.representedObject as? URL else { return }
         NSWorkspace.shared.open(request)
     }

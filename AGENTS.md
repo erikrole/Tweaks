@@ -93,6 +93,17 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   ImageIO off-main, a private staging directory, and atomic no-overwrite publishing.
   Keep originals intact, reject multi-frame input, and test metadata/orientation.
   The Finder extension keeps its existing read-only sandbox entitlement.
+- Overcast requests (`tweaks://overcast?file=…`) only open a file review window.
+  The user must click Upload before any file is handed to WebKit. Keep Finder's
+  menu construction free of filesystem work. Only MP3/M4A selections (up to 20)
+  are accepted; validate downloaded regular files off-main and revalidate before
+  chooser delivery. Limit the chooser to the main HTTPS overcast.fm/uploads frame
+  and the selected file. Credentials and signed upload fields stay in the
+  dedicated persistent WebKit store; never read/log/export them or reuse browser
+  cookies. Confirm each item from a new matching Overcast episode link. Uncertain
+  or stopped batches require review/reselection, never automatic retries. Quit
+  and updates wait for active uploads; Stop Upload permits recovery. Offline
+  fixtures establish chooser/byte delivery, not live Overcast or iPhone sync.
 - Safe eject resolves APFS containers to physical disks before grouping all mounted
   siblings. Unknown/multi-store mappings fail closed. Revalidate identities and
   render activity after querying open files; never use force. Tests inject the

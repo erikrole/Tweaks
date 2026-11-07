@@ -626,6 +626,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         tweaks.imageActions.choose()
     }
 
+    @objc func chooseOvercastAudio() {
+        tweaks.overcastActions.choose()
+    }
+
     @objc func ejectIdleDrives() {
         Task { await tweaks.safeEject.ejectIdleDrives() }
     }

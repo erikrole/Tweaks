@@ -129,6 +129,8 @@ extension SettingsWindowController {
         addSection("Finder")
         content?.addArrangedSubview(button("Quick Image Actions…", #selector(chooseImages)))
         content?.addArrangedSubview(note("Convert or resize selected images and optionally remove metadata. Originals are kept. Also available from Finder's right-click menu."))
+        content?.addArrangedSubview(button("Send to Overcast…", #selector(chooseOvercastAudio)))
+        content?.addArrangedSubview(note("Upload MP3 or M4A audio to your Overcast account. Also available when you right-click audio in Finder. Sign in once in the upload window."))
         content?.addArrangedSubview(note("Copy Path shortens NAS, Box and Google Drive roots. Copy Original Path and Inspect Media are on the same menu. Turn the extension on under Finder Extensions."))
         finderLabel.font = .systemFont(ofSize: 12)
         finderLabel.textColor = .secondaryLabelColor

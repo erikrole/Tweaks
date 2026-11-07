@@ -26,8 +26,10 @@
 		351D993A29E1C7C51965CD08 /* RecentActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CCDE285DFD1F40E90B9C16 /* RecentActions.swift */; };
 		3FD0A1151AD889D705F13C18 /* DMGInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168C7F39A45DE7988CD26A81 /* DMGInstaller.swift */; };
 		415844A3BDDF1DAB2A99B157 /* FileWorkConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */; };
+		448CF37AD4604CD8E4CC4E5C /* OvercastActionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37A9C38C269DC3CE1B9FA9E /* OvercastActionsTests.swift */; };
 		44ABBC8B35F80D4BAA65E71A /* AppUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52F0486774DCFB8EF18A2C /* AppUpdate.swift */; };
 		4DFCB8C814030C62E6CF0134 /* BundledMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FBBFB6B0508737DB126C6C /* BundledMedia.swift */; };
+		546AF80ADAB685C308098398 /* OvercastActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF50DB7F8A09FD16962FD044 /* OvercastActions.swift */; };
 		56A1877977FD5F2E0742F856 /* ShareConnectionRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4437269ADC4A1BDE79462983 /* ShareConnectionRecoveryTests.swift */; };
 		591127B1B673B1D25A23A9DB /* ImageActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65593DCDCEE0B2DE1F9E5E2C /* ImageActions.swift */; };
 		62AA3AFD7D7D545FE35EFC44 /* SystemTweaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099D00C0E2F7403AE4EEB8CB /* SystemTweaks.swift */; };
@@ -160,6 +162,8 @@
 		E331E81854D32C0B5583B639 /* MoreTweaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreTweaks.swift; sourceTree = "<group>"; };
 		E440A339CCECC09BC6DAD362 /* FeatureStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureStatus.swift; sourceTree = "<group>"; };
 		ED622B020DC2A82821215B2B /* EthernetRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EthernetRecoveryTests.swift; sourceTree = "<group>"; };
+		EF50DB7F8A09FD16962FD044 /* OvercastActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OvercastActions.swift; sourceTree = "<group>"; };
+		F37A9C38C269DC3CE1B9FA9E /* OvercastActionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OvercastActionsTests.swift; sourceTree = "<group>"; };
 		F635E28C8BA73956FF610E36 /* ScopeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScopeController.swift; sourceTree = "<group>"; };
 		F7B4F94249DF62392F290F04 /* FileWorkConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkConcurrencyTests.swift; sourceTree = "<group>"; };
 		F90BB2070E38C524774DE6DD /* Safety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Safety.swift; sourceTree = "<group>"; };
@@ -199,6 +203,7 @@
 				7B2F864F6FB97DB16D6CCCB0 /* FileWorkProfileTests.swift */,
 				D6B27B5F7E0DFA2B3A1FBF45 /* HardeningTests.swift */,
 				296B1A2CE476FD1B61F9EE8F /* NewTweakTests.swift */,
+				F37A9C38C269DC3CE1B9FA9E /* OvercastActionsTests.swift */,
 				1C3459226D31B8F11A25AABD /* RepairTests.swift */,
 				4437269ADC4A1BDE79462983 /* ShareConnectionRecoveryTests.swift */,
 				8DE237258F644FF57F4734C1 /* StatusControlsTests.swift */,
@@ -283,6 +288,7 @@
 				5323A230C90C7821F9ED6EA0 /* LaunchAtLoginController.swift */,
 				E331E81854D32C0B5583B639 /* MoreTweaks.swift */,
 				35FDD3F33FA658704EB253EC /* NetworkTweaks.swift */,
+				EF50DB7F8A09FD16962FD044 /* OvercastActions.swift */,
 				53CCDE285DFD1F40E90B9C16 /* RecentActions.swift */,
 				7F8A3E13EFE73FC5264FBD64 /* SafeEject.swift */,
 				F90BB2070E38C524774DE6DD /* Safety.swift */,
@@ -491,6 +497,7 @@
 				2FD8EC43873788B91DC2D2E2 /* FileWorkProfileTests.swift in Sources */,
 				9C04DAA6D923E407A116A683 /* HardeningTests.swift in Sources */,
 				86DDBE1EF4B24FB96E9B7B3B /* NewTweakTests.swift in Sources */,
+				448CF37AD4604CD8E4CC4E5C /* OvercastActionsTests.swift in Sources */,
 				78342B62466CCD9792D1DB96 /* RepairTests.swift in Sources */,
 				56A1877977FD5F2E0742F856 /* ShareConnectionRecoveryTests.swift in Sources */,
 				DD243C361A8CD4EA65A25F9B /* StatusControlsTests.swift in Sources */,
@@ -522,6 +529,7 @@
 				B3B3627475A72CBF14D2413E /* LaunchAtLoginController.swift in Sources */,
 				1C4B13BB318D832522BDB46B /* MoreTweaks.swift in Sources */,
 				B858E24E535001D8540AE246 /* NetworkTweaks.swift in Sources */,
+				546AF80ADAB685C308098398 /* OvercastActions.swift in Sources */,
 				351D993A29E1C7C51965CD08 /* RecentActions.swift in Sources */,
 				72B7F68BE99F37AFC4052D1E /* SafeEject.swift in Sources */,
 				DC0878FAF6024DD7BE9ADCB4 /* Safety.swift in Sources */,
@@ -602,7 +610,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -611,7 +619,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.11;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks;
 				PRODUCT_NAME = Tweaks;
 				SDKROOT = macosx;
@@ -791,7 +799,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -801,7 +809,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.11;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.FinderSync;
 				PRODUCT_NAME = TweaksFinderSync;
 				SDKROOT = macosx;
@@ -836,7 +844,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -845,7 +853,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.11;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks;
 				PRODUCT_NAME = Tweaks;
 				SDKROOT = macosx;
@@ -859,7 +867,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -869,7 +877,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.11;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.Tweaks.FinderSync;
 				PRODUCT_NAME = TweaksFinderSync;
 				SDKROOT = macosx;

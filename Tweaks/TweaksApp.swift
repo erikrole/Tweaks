@@ -71,6 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.imageActions.show(files)
             return
         }
+        if let files = OvercastUploadRequest.files(from: url) {
+            controller.overcastActions.show(files)
+            return
+        }
         controller.keepAwake.handle(url)
     }
 
@@ -119,6 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard started else { return .terminateNow }
         let systemQuit = Self.isSystemQuit()
         guard systemQuit || !AppUpdate.isPreparing else { return .terminateCancel }
+        if !systemQuit, controller.overcastActions.isUploading {
+            HUD.show("Wait for the Overcast upload to finish before quitting Tweaks.", symbol: "arrow.up.circle", duration: 4)
+            return .terminateCancel
+        }
         if !systemQuit, AppUpdate.updater.isAwaitingRelaunch, controller.updateBusyReason != nil { return .terminateCancel }
         if !systemQuit, !Self.reallyQuit, !AppUpdate.updater.isAwaitingRelaunch, let window = settingsWindow?.window, window.isVisible {
             window.close()
@@ -190,12 +198,14 @@ final class TweakController {
     let volumeLimits: DeviceVolumeLimits
     let safeEject = SafeEject()
     let imageActions = ImageActions()
+    let overcastActions = OvercastActions()
     let duplicates = DuplicateReview()
 
     var updateBusyReason: String? {
         if dmg.activeOperations > 0 { return "Wait for the app installer to finish before updating Tweaks." }
         if downloads.isBusy { return "Wait for Downloads processing to finish before updating Tweaks." }
         if imageActions.isExporting { return "Wait for image exports to finish before updating Tweaks." }
+        if overcastActions.isUploading { return "Wait for the Overcast upload to finish before updating Tweaks." }
         if safeEject.busy { return "Wait for drive ejection to finish before updating Tweaks." }
         return nil
     }
@@ -231,6 +241,7 @@ final class TweakController {
         dmg.onAction = { [weak self] in self?.recentActions.record($0) }
         duplicates.onAction = { [weak self] in self?.recentActions.record($0) }
         imageActions.onAction = { [weak self] in self?.recentActions.record($0) }
+        overcastActions.onAction = { [weak self] in self?.recentActions.record($0) }
         automationPause.onChange = { [weak self] in
             guard let self else { return }
             self.recentActions.record(self.automationPause.isPaused ? "Paused automatic file and link actions." : "Resumed automatic file and link actions.")

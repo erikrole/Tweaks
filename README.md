@@ -11,6 +11,20 @@ and grouped sections follow system light/dark appearance and accent colors. The
 window is resizable. ⌘, opens Settings, ⌘W closes it while Tweaks keeps running,
 and the explicit Quit command (⌘Q) quits through the normal recovery checks.
 
+**Send to Overcast**
+- Right-click downloaded MP3 or M4A audio in Finder and choose **Send to Overcast…**.
+  Review the selected files, sign in to Overcast in Tweaks once, then click
+  **Upload to Overcast**. The same action is in **Files & Finder**.
+- Up to 20 files are uploaded one at a time through Overcast's website. Tweaks
+  confirms each new item in the Uploads list. Originals stay in place. Overcast's
+  account/storage requirements still apply; each file must be downloaded and no
+  larger than 1 GB. Open Uploads in the iOS app to listen after synchronization.
+- If interrupted, review Overcast's list and select only missing files again.
+  **Stop Upload** stops further work; an item already accepted by the server may
+  remain. Sign-in uses a separate persistent web session inside Tweaks.
+- [Implementation and verification](docs/overcast-2026-11-07.md) distinguish local
+  fixture tests from the live account and iPhone checks still needed.
+
 **Keyboard and sound**
 - Caps Lock with no delay: a normal tap toggles it instantly (the HID
   `CapsLockDelayOverride` property, reapplied on wake and every fifteen minutes). Turning it
@@ -176,6 +190,13 @@ shares unmounted for sleep are still remounted if that switch is turned off befo
 they come back.
 
 ## Build and run
+
+The local **Run** action uses `./script/build_and_run.sh --verify`: build a
+Developer ID-signed Release, preserve the installed copy under
+`~/Code Support/Tweaks/local-builds/`, install and launch. Quit Tweaks normally
+first so it can release any manual Keep Awake session and restore owned state.
+The script checks the existing signing requirement before installation. Use
+`--build-only` to build without restarting or replacing the installed app.
 
 [Version 0.1.7](docs/dock-hang-2026-10-22.md) is Developer ID-signed, notarized,
 stapled and installed locally as build 10, from source `7222203`. It repairs a
