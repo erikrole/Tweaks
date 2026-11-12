@@ -1,12 +1,12 @@
 {
-  "originHash" : "89c9fa1dcfb724508acd0d9dd68a1bb52e9c9c600db862555ae40e6286e29bb4",
+  "originHash" : "81b7be30dcd150c0c2c07d67c773b6f7b8401b0d4773ce9fc759c5e49f6dfa26",
   "pins" : [
     {
       "identity" : "appupdater",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/erikrole/AppUpdater.git",
       "state" : {
-        "revision" : "be0d006ed0899cc4e661791c41dbc5c23999f261"
+        "revision" : "3c10ddd4e91de8d6f18b5ac6f244d6f50e857bce"
       }
     }
   ],

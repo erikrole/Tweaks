@@ -21,7 +21,7 @@ enum TweaksMain {
 /// Spotlight or Raycast) shows its settings window. AppKit only: SwiftUI stays unmapped
 /// while Tweaks is idle.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     // The XCTest host returns before touching any user preference model, including
     // migrations performed by initializers.
@@ -102,9 +102,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         settingsWindow?.showWindow(nil)
+        AppUpdate.updater.hostWindow = settingsWindow?.window
     }
 
-    @objc private func checkForUpdates() { AppUpdate.checkNow() }
+    @objc private func checkForUpdates() { AppUpdate.updater.performMenuAction() }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdates) {
+            menuItem.title = AppUpdate.updater.menuTitle ?? "Check for Updates…"
+        }
+        return true
+    }
 
     @objc private func quitFromMenu() {
         Self.reallyQuit = true
