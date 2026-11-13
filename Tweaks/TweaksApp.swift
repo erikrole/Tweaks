@@ -34,13 +34,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (which would undo the running copy's saved screen and keyboard levels).
     private var started = false
 
+    /// Links that launched Tweaks arrive before `applicationDidFinishLaunching`; they wait here.
+    private var pendingURLs: [URL] = []
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        installURLHandler()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         guard InstanceGuard.mayRun else {
+            pendingURLs = []
             NSApp.terminate(nil)
             return
         }
-        installURLHandler()
         controller.settings = settings
         settings.onChange = { [weak self] tweak in
             self?.controller.apply(tweak)
@@ -49,6 +57,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.start()
         started = true
         controller.keepAwake.resumeSavedSession()
+        // After resuming, so a launching tweaks://awake/stop wins over the saved session.
+        let launchURLs = pendingURLs
+        pendingURLs = []
+        launchURLs.forEach(route)
         AppUpdate.busyReason = { [weak self] in self?.controller.updateBusyReason }
         AppUpdate.checkOnLaunch()
 
@@ -68,6 +80,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleURLEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
         guard let text = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
               let url = URL(string: text) else { return }
+        guard started else { return pendingURLs.append(url) }
+        route(url)
+    }
+
+    private func route(_ url: URL) {
         if let files = ImageActionRequest.files(from: url) {
             controller.imageActions.show(files)
             return

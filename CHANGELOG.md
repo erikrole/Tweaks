@@ -11,6 +11,7 @@
 - Keep Awake sessions survive a Tweaks relaunch (reinstall, update, crash, restart).
   Stopping it, or an end condition, forgets the session; expired ones don't resume.
 - Turning off "keep display on" during Away no longer lets the screen sleep and lock.
+- A tweaks:// link that launches Tweaks is no longer dropped.
 
 ## 0.1.11 — 2026-11-07
 
