@@ -119,7 +119,9 @@ and the explicit Quit command (⌘Q) quits through the normal recovery checks.
   - **Away** (A): the Mac stays awake and never reaches the lock
     screen, so you and remote agents can always get in. The display never sleeps;
     instead the built-in screen fades to 0 (external displays fade to black) after
-    two idle minutes and comes back on any key or mouse input. **Dim now** (Z) starts Away already dimmed. The Mac
+    two idle minutes and comes back on any key or mouse input. It doesn't dim while
+    another app holds the display on for video (Safari, Chrome, QuickTime, IINA); a
+    `caffeinate -d` hold doesn't count. **Dim now** (Z) starts Away already dimmed. The Mac
     stays unlocked while Away runs.
   - **Screen stays on** (O): no dimming, no sleep, for renders or anything you
     want to watch.

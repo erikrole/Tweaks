@@ -34,6 +34,17 @@ final class StatusControlsTests: XCTestCase {
         XCTAssertEqual(FeatureRuntime.resolve(enabled: false, runtime: .init(phase: .ready, message: "Restored")).phase, .off)
     }
 
+    func testAwayDoesNotDimWhileAnotherAppShowsVideo() {
+        let video: [String: Any] = ["AssertType": "PreventUserIdleDisplaySleep", "AssertLevel": 255, "Process Name": "Safari"]
+        XCTAssertTrue(IdleDimmer.holdsDisplayOn([42: [video]], excluding: 7))
+        XCTAssertFalse(IdleDimmer.holdsDisplayOn([7: [video]], excluding: 7), "Tweaks' own Keep Awake hold")
+        XCTAssertFalse(IdleDimmer.holdsDisplayOn([42: [["AssertType": "PreventUserIdleSystemSleep", "AssertLevel": 255]]], excluding: 7))
+        XCTAssertFalse(IdleDimmer.holdsDisplayOn([120: [["AssertType": "InternalPreventDisplaySleep", "AssertLevel": 255]]], excluding: 7))
+        XCTAssertFalse(IdleDimmer.holdsDisplayOn([42: [["AssertType": "PreventUserIdleDisplaySleep", "AssertLevel": 0]]], excluding: 7))
+        XCTAssertFalse(IdleDimmer.holdsDisplayOn([42: [["AssertType": "PreventUserIdleDisplaySleep", "AssertLevel": 255, "Process Name": "caffeinate"]]], excluding: 7))
+        XCTAssertTrue(IdleDimmer.holdsDisplayOn([42: [["AssertType": "NoDisplaySleepAssertion", "AssertLevel": 255]]], excluding: 7))
+    }
+
     func testChosenAppSessionEndsWhenPIDIsReused() {
         let launched = Date().addingTimeInterval(-100)
         let until = KeepAwake.Until.appQuits(pid: 42, name: "Selected", launched: launched)

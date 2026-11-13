@@ -129,8 +129,41 @@ final class IdleDimmer {
         if isDimmed {
             if userRaisedBrightness() { inputArrived(); return }
             reapplyDim() // auto-brightness or a new display
-        } else if idle >= Self.dimAfter {
+        } else if idle >= Self.dimAfter, !Self.otherAppKeepsDisplayOn() {
             dim()
+        }
+    }
+
+    // MARK: - Video playing
+
+    /// Display-on assertion types an app takes while it shows video (Safari, Chrome,
+    /// QuickTime, IINA, Zoom). `NoDisplaySleepAssertion` is the older name for the same hold.
+    nonisolated static let displayHoldTypes: Set<String> = ["PreventUserIdleDisplaySleep", "NoDisplaySleepAssertion"]
+    /// `caffeinate -d` from a script or agent is not someone watching, so Away still dims.
+    nonisolated static let ignoredDisplayHolders: Set<String> = ["caffeinate"]
+
+    /// True while another process holds a display-on assertion, which is how video players
+    /// say something is being watched. Tweaks' own Keep Awake hold is excluded.
+    static func otherAppKeepsDisplayOn() -> Bool {
+        var unmanaged: Unmanaged<CFDictionary>?
+        guard IOPMCopyAssertionsByProcess(&unmanaged) == kIOReturnSuccess,
+              let byProcess = unmanaged?.takeRetainedValue() as NSDictionary? else { return false }
+        var assertions: [pid_t: [[String: Any]]] = [:]
+        for case let (pid as NSNumber, list as [[String: Any]]) in byProcess {
+            assertions[pid.int32Value] = list
+        }
+        return holdsDisplayOn(assertions, excluding: getpid())
+    }
+
+    /// Pure filter over `IOPMCopyAssertionsByProcess` output, for tests.
+    nonisolated static func holdsDisplayOn(_ byProcess: [pid_t: [[String: Any]]], excluding me: pid_t) -> Bool {
+        byProcess.contains { pid, list in
+            pid != me && list.contains { assertion in
+                guard let type = assertion["AssertType"] as? String, displayHoldTypes.contains(type) else { return false }
+                if let level = assertion["AssertLevel"] as? Int, level == 0 { return false }
+                if let name = assertion["Process Name"] as? String, ignoredDisplayHolders.contains(name) { return false }
+                return true
+            }
         }
     }
 

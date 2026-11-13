@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Away no longer dims the screen while another app keeps the display on for video.
+  `caffeinate -d` holds and Tweaks' own hold are ignored; Dim now still dims.
+
 ## 0.1.11 — 2026-11-07
 
 - Add Send to Overcast to Finder and Files & Finder. Review downloaded MP3/M4A
