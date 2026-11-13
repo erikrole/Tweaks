@@ -45,6 +45,34 @@ final class StatusControlsTests: XCTestCase {
         XCTAssertTrue(IdleDimmer.holdsDisplayOn([42: [["AssertType": "NoDisplaySleepAssertion", "AssertLevel": 255]]], excluding: 7))
     }
 
+    func testVideoStartingWhileDimmedWakesButDimNowDuringPlaybackHolds() {
+        XCTAssertTrue(IdleDimmer.videoShouldWake(heldAtDim: false, heldNow: true))
+        XCTAssertFalse(IdleDimmer.videoShouldWake(heldAtDim: true, heldNow: true))
+        XCTAssertFalse(IdleDimmer.videoShouldWake(heldAtDim: false, heldNow: false))
+    }
+
+    func testAwayLetsTheLockScreenSleepButKeepsTheMacAwake() {
+        let display = "PreventUserIdleDisplaySleep", system = "PreventUserIdleSystemSleep"
+        XCTAssertEqual(KeepAwake.assertionType(keepsDisplayOn: true, dimsWhenIdle: true, locked: false), display)
+        XCTAssertEqual(KeepAwake.assertionType(keepsDisplayOn: true, dimsWhenIdle: true, locked: true), system)
+        XCTAssertEqual(KeepAwake.assertionType(keepsDisplayOn: true, dimsWhenIdle: false, locked: true), display, "Screen on is explicit")
+        XCTAssertEqual(KeepAwake.assertionType(keepsDisplayOn: false, dimsWhenIdle: false, locked: false), system)
+    }
+
+    func testSavedSessionResumesOnlyWhileStillValid() throws {
+        let now = Date()
+        let away = KeepAwake.Saved(until: .indefinitely, keepsDisplayOn: true, onlyOnPower: false, dimsWhenIdle: true)
+        let data = try JSONEncoder().encode(away)
+        XCTAssertEqual(try JSONDecoder().decode(KeepAwake.Saved.self, from: data), away)
+        XCTAssertNotNil(KeepAwake.resumable(away, now: now, isRunning: { _ in true }, launchDate: { _ in nil }))
+        var timed = away; timed.until = .date(now.addingTimeInterval(-1))
+        XCTAssertNil(KeepAwake.resumable(timed, now: now, isRunning: { _ in true }, launchDate: { _ in nil }))
+        let launched = Date(timeIntervalSince1970: 1_000)
+        var app = away; app.until = .appQuits(pid: 42, name: "Media Encoder", launched: launched)
+        XCTAssertNotNil(KeepAwake.resumable(app, now: now, isRunning: { _ in true }, launchDate: { _ in launched }))
+        XCTAssertNil(KeepAwake.resumable(app, now: now, isRunning: { _ in true }, launchDate: { _ in launched.addingTimeInterval(5) }))
+    }
+
     func testChosenAppSessionEndsWhenPIDIsReused() {
         let launched = Date().addingTimeInterval(-100)
         let until = KeepAwake.Until.appQuits(pid: 42, name: "Selected", launched: launched)

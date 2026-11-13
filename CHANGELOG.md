@@ -4,6 +4,13 @@
 
 - Away no longer dims the screen while another app keeps the display on for video.
   `caffeinate -d` holds and Tweaks' own hold are ignored; Dim now still dims.
+- A video that starts while Away is dark brings the screen back. Dim now during
+  playback stays dark.
+- Away at the lock screen holds only the Mac awake, so the lock screen can sleep
+  instead of staying lit all night. Unlocking takes the display hold back.
+- Keep Awake sessions survive a Tweaks relaunch (reinstall, update, crash, restart).
+  Stopping it, or an end condition, forgets the session; expired ones don't resume.
+- Turning off "keep display on" during Away no longer lets the screen sleep and lock.
 
 ## 0.1.11 — 2026-11-07
 

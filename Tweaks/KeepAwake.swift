@@ -23,7 +23,7 @@ private func keepAwakePowerChanged(_ context: UnsafeMutableRawPointer?) {
 @MainActor
 @Observable
 final class KeepAwake {
-    enum Until: Equatable {
+    enum Until: Equatable, Codable {
         case indefinitely
         case date(Date)
         case appQuits(pid: pid_t, name: String, launched: Date? = nil)
@@ -107,6 +107,18 @@ final class KeepAwake {
     private var terminateObserver: NSObjectProtocol?
     private var watcher = JobWatcher()
     @ObservationIgnored private let dimmer = IdleDimmer()
+    /// Locked or switched away: Away lets the display sleep but keeps the Mac awake.
+    private var screenLocked = false
+    private var lockObservers: [(NotificationCenter, NSObjectProtocol)] = []
+
+    /// What a relaunch (reinstall, update, crash) needs to pick a session back up.
+    struct Saved: Codable, Equatable {
+        var until: Until
+        var keepsDisplayOn: Bool
+        var onlyOnPower: Bool
+        var dimsWhenIdle: Bool
+    }
+    static let savedSessionKey = "keepAwakeSavedSession"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -134,8 +146,10 @@ final class KeepAwake {
         let power = onlyOnPower ?? onlyOnPowerByDefault
         session = Session(until: until, keepsDisplayOn: display, onlyOnPower: power, dimsWhenIdle: dimsWhenIdle, startedAt: Date())
         if case .done = until { watcher = JobWatcher() }
+        observeLock()
         applyAssertion()
         if dimsWhenIdle { dimmer.start() } else { dimmer.stop() }
+        save()
         showStatusItem()
         if announce { HUD.show(statusLine, symbol: symbol) }
         onAction?(statusLine)
@@ -179,9 +193,11 @@ final class KeepAwake {
         if session?.dimsWhenIdle == true { dimmer.start(dimNow: true) } else { startAway(dimNow: true) }
     }
 
-    func stop(reason: String? = nil) {
+    /// `forget` is false only when Tweaks quits, so the next launch can resume the session.
+    func stop(reason: String? = nil, forget: Bool = true) {
         dimmer.stop()
         guard session != nil else { return }
+        if forget { defaults.removeObject(forKey: Self.savedSessionKey) }
         releaseAssertion()
         session = nil
         stopSessionTimers()
@@ -200,8 +216,10 @@ final class KeepAwake {
     func setKeepsDisplayOn(_ on: Bool) {
         keepsDisplayOnByDefault = on
         guard session != nil else { return }
-        session?.keepsDisplayOn = on
+        // Away always holds the display: without it the screen sleeps and the Mac locks.
+        session?.keepsDisplayOn = on || session?.dimsWhenIdle == true
         applyAssertion()
+        save()
         updateStatusItem()
     }
 
@@ -209,6 +227,7 @@ final class KeepAwake {
         onlyOnPowerByDefault = on
         guard session != nil else { return }
         session?.onlyOnPower = on
+        save()
         check()
     }
 
@@ -217,7 +236,7 @@ final class KeepAwake {
     private func applyAssertion() {
         releaseAssertion()
         guard let session, !session.pausedOnBattery else { return }
-        let type = session.keepsDisplayOn ? kIOPMAssertPreventUserIdleDisplaySleep : kIOPMAssertPreventUserIdleSystemSleep
+        let type = Self.assertionType(keepsDisplayOn: session.keepsDisplayOn, dimsWhenIdle: session.dimsWhenIdle, locked: screenLocked)
         if IOPMAssertionCreateWithName(type as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn),
                                        "Keep Awake (Tweaks)" as CFString, &assertion) != kIOReturnSuccess {
             assertion = 0
@@ -227,6 +246,74 @@ final class KeepAwake {
     private func releaseAssertion() {
         if assertion != 0 { IOPMAssertionRelease(assertion) }
         assertion = 0
+    }
+
+    /// Away at the lock screen holds only the Mac awake, so the lit lock screen can go
+    /// dark instead of burning all night. Agents keep running; unlocking takes the display back.
+    static func assertionType(keepsDisplayOn: Bool, dimsWhenIdle: Bool, locked: Bool) -> String {
+        guard keepsDisplayOn, !(dimsWhenIdle && locked) else { return kIOPMAssertPreventUserIdleSystemSleep }
+        return kIOPMAssertPreventUserIdleDisplaySleep
+    }
+
+    private func observeLock() {
+        if lockObservers.isEmpty {
+            let distributed = DistributedNotificationCenter.default()
+            let workspace = NSWorkspace.shared.notificationCenter
+            for (center, name, locked) in [
+                (distributed as NotificationCenter, Notification.Name("com.apple.screenIsLocked"), true),
+                (distributed, Notification.Name("com.apple.screenIsUnlocked"), false),
+                (workspace, NSWorkspace.sessionDidResignActiveNotification, true),
+                (workspace, NSWorkspace.sessionDidBecomeActiveNotification, false),
+            ] {
+                let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.setScreenLocked(locked) }
+                }
+                lockObservers.append((center, token))
+            }
+        }
+        // Away can start (or resume after a relaunch) while the screen is already locked.
+        screenLocked = Self.isScreenLocked()
+    }
+
+    private func setScreenLocked(_ locked: Bool) {
+        guard locked != screenLocked else { return }
+        screenLocked = locked
+        if session?.dimsWhenIdle == true { applyAssertion() }
+    }
+
+    static func isScreenLocked() -> Bool {
+        guard let info = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return info["CGSSessionScreenIsLocked"] as? Bool == true || info[kCGSessionOnConsoleKey] as? Bool == false
+    }
+
+    // MARK: - Relaunch
+
+    private func save() {
+        guard let session else { return }
+        let saved = Saved(until: session.until, keepsDisplayOn: session.keepsDisplayOn, onlyOnPower: session.onlyOnPower,
+                          dimsWhenIdle: session.dimsWhenIdle)
+        if let data = try? JSONEncoder().encode(saved) { defaults.set(data, forKey: Self.savedSessionKey) }
+    }
+
+    /// The saved session if it should still be running, or nil (an elapsed time, an app that
+    /// quit or relaunched). Never resumes dimmed.
+    static func resumable(_ saved: Saved, now: Date, isRunning: (pid_t) -> Bool, launchDate: (pid_t) -> Date?) -> Saved? {
+        endReason(for: saved.until, now: now, isRunning: isRunning, battery: nil, launchDate: launchDate) == nil ? saved : nil
+    }
+
+    /// Called once from app launch (never from tests or a second copy).
+    func resumeSavedSession() {
+        guard session == nil, let data = defaults.data(forKey: Self.savedSessionKey) else { return }
+        guard let saved = try? JSONDecoder().decode(Saved.self, from: data),
+              let resume = Self.resumable(saved, now: Date(), isRunning: { NSRunningApplication(processIdentifier: $0) != nil },
+                                          launchDate: { NSRunningApplication(processIdentifier: $0)?.launchDate })
+        else {
+            defaults.removeObject(forKey: Self.savedSessionKey)
+            return
+        }
+        start(resume.until, keepsDisplayOn: resume.keepsDisplayOn, onlyOnPower: resume.onlyOnPower,
+              dimsWhenIdle: resume.dimsWhenIdle, announce: false)
+        onAction?("Keep Awake resumed after Tweaks relaunched.")
     }
 
     // MARK: - Watching

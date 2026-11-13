@@ -132,6 +132,11 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   status delivery with the originating generation, and deduplicate per generation.
   Keep pending recovery visible while disabled; never call an unverified/failed
   audio write Ready. History excludes repeated progress and identical failures.
+- Away never dims while another process (not Tweaks, not `caffeinate`) holds
+  `PreventUserIdleDisplaySleep`/`NoDisplaySleepAssertion`; Chromium uses the latter.
+  At the lock screen Away downgrades to a system-sleep hold. The running session is
+  saved under `keepAwakeSavedSession`; only app termination keeps it
+  (`stop(forget: false)`), and it resumes from app launch, never from `KeepAwake.init`.
 - Keep Awake duration/mode and pause pickers are session-only until explicitly
   started. Reject invalid deadlines and stale app launch identities without replacing
   a session. Visible countdowns work with the menu-bar countdown disabled. Dynamic

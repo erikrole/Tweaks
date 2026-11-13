@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         controller.start()
         started = true
+        controller.keepAwake.resumeSavedSession()
         AppUpdate.busyReason = { [weak self] in self?.controller.updateBusyReason }
         AppUpdate.checkOnLaunch()
 
@@ -116,7 +117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Put the screen and keyboard light back if Away had them dimmed.
     func applicationWillTerminate(_ notification: Notification) {
         guard started else { return }
-        controller.keepAwake.stop()
+        // Keep the saved session so a reinstall, update or restart picks Away back up.
+        controller.keepAwake.stop(forget: false)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

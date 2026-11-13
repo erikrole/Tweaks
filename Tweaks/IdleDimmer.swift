@@ -28,6 +28,9 @@ final class IdleDimmer {
     private var fadeStep = 0
     private var dimmedAt = Date.distantPast
     private var lastInput = Date()
+    /// A video hold present when the screen went dark (Dim now during playback). Only a
+    /// hold that appears later, like autoplay, brings the screen back.
+    private var videoHeldAtDim = false
     /// Original built-in levels, by display. Persisted until each one is back.
     private var savedBrightness: [CGDirectDisplayID: Float] = [:] {
         didSet { Self.persist(savedBrightness) }
@@ -128,6 +131,13 @@ final class IdleDimmer {
         declareActivity() // keeps the screen saver, and its lock, from starting
         if isDimmed {
             if userRaisedBrightness() { inputArrived(); return }
+            let videoHeld = Self.otherAppKeepsDisplayOn()
+            if Self.videoShouldWake(heldAtDim: videoHeldAtDim, heldNow: videoHeld) {
+                lastInput = Date()
+                undim()
+                return
+            }
+            if !videoHeld { videoHeldAtDim = false }
             reapplyDim() // auto-brightness or a new display
         } else if idle >= Self.dimAfter, !Self.otherAppKeepsDisplayOn() {
             dim()
@@ -135,6 +145,8 @@ final class IdleDimmer {
     }
 
     // MARK: - Video playing
+
+    static func videoShouldWake(heldAtDim: Bool, heldNow: Bool) -> Bool { heldNow && !heldAtDim }
 
     /// Display-on assertion types an app takes while it shows video (Safari, Chrome,
     /// QuickTime, IINA, Zoom). `NoDisplaySleepAssertion` is the older name for the same hold.
@@ -275,6 +287,7 @@ final class IdleDimmer {
         guard !isDimmed, !isPaused else { return }
         for id in Self.builtInDisplays { _ = saveLevel(id) }
         dimmedAt = Date()
+        videoHeldAtDim = Self.otherAppKeepsDisplayOn()
         isDimmed = true
         keyboard.turnOff()
         fadeStep = 0
