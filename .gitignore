@@ -17,3 +17,6 @@ xcuserdata/
 # Test and coverage artifacts
 *.xccovarchive
 *.xcresult
+
+# Claude Code local state
+.claude/
