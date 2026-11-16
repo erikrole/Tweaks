@@ -51,6 +51,28 @@ final class StatusControlsTests: XCTestCase {
         XCTAssertFalse(IdleDimmer.videoShouldWake(heldAtDim: false, heldNow: false))
     }
 
+    func testLegacyKeyboardRestoreOnlyWritesToMatchingDarkKeyboard() {
+        var current: [UInt64: Float] = [1: 0, 2: 0.7]
+        var written: [UInt64: Float] = [:]
+        let remaining = LegacyKeyboardBacklightRestore.recover(
+            ["1": 0.4, "2": 0.3, "3": 0.6, "invalid": 0.8], present: [1, 2]
+        ) { current[$0] ?? .nan } restore: { id, level in
+            written[id] = level
+            current[id] = level
+            return true
+        }
+        XCTAssertEqual(written, [1: 0.4])
+        XCTAssertEqual(remaining, ["3": 0.6])
+    }
+
+    func testLegacyKeyboardRestoreKeepsFailedAndUnverifiedWritesPending() {
+        let levels: [String: Float] = ["1": 0.4, "2": 0.5]
+        let remaining = LegacyKeyboardBacklightRestore.recover(
+            levels, present: [1, 2], brightness: { _ in 0 }, restore: { id, _ in id == 2 }
+        )
+        XCTAssertEqual(remaining, levels)
+    }
+
     func testAwayLetsTheLockScreenSleepButKeepsTheMacAwake() {
         let display = "PreventUserIdleDisplaySleep", system = "PreventUserIdleSystemSleep"
         XCTAssertEqual(KeepAwake.assertionType(keepsDisplayOn: true, dimsWhenIdle: true, locked: false), display)

@@ -122,7 +122,7 @@ and the explicit Quit command (⌘Q) quits through the normal recovery checks.
     two idle minutes and comes back on any key or mouse input. It doesn't dim while
     another app holds the display on for video (Safari, Chrome, QuickTime, IINA); a
     `caffeinate -d` hold doesn't count. **Dim now** (Z) starts Away already dimmed. The Mac
-    stays unlocked while Away runs.
+    stays unlocked while Away runs. macOS manages keyboard backlighting.
   - **Screen stays on** (O): no dimming, no sleep, for renders or anything you
     want to watch.
 - Tap Hyper+/ (⌃⌥⇧⌘/) for Screen stays on; hold it for Away. Tap or hold again to

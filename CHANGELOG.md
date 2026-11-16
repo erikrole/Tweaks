@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Away leaves keyboard backlighting to macOS. Pending brightness restores from older builds still work.
 - Away no longer dims the screen while another app keeps the display on for video.
   `caffeinate -d` holds and Tweaks' own hold are ignored; Dim now still dims.
 - A video that starts while Away is dark brings the screen back. Dim now during

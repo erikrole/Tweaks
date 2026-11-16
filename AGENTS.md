@@ -132,6 +132,8 @@ access to their normal caches/test services; a sandbox denial is not a test resu
   status delivery with the originating generation, and deduplicate per generation.
   Keep pending recovery visible while disabled; never call an unverified/failed
   audio write Ready. History excludes repeated progress and identical failures.
+- Away dims displays only. Legacy keyboard recovery runs separately and writes
+  only to a matching, currently dark keyboard with a saved level.
 - Away never dims while another process (not Tweaks, not `caffeinate`) holds
   `PreventUserIdleDisplaySleep`/`NoDisplaySleepAssertion`; Chromium uses the latter.
   At the lock screen Away downgrades to a system-sleep hold. The running session is

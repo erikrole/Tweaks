@@ -4,8 +4,8 @@ import Darwin
 import IOKit.pwr_mgt
 
 /// Away mode's screen: the display never sleeps (so macOS never locks), but the built-in
-/// panel fades to 0, external displays fade to black and the keyboard light goes off after
-/// a short idle. Any input brings it back, including remote or agent control. Nothing
+/// panel fades to 0 and external displays fade to black after a short idle. Any input
+/// brings the displays back, including remote or agent control. Nothing
 /// covers the screen, so screenshots still show the real desktop. The Mac stays unlocked
 /// while this runs.
 ///
@@ -37,7 +37,6 @@ final class IdleDimmer {
     }
     /// What Tweaks last set, so a higher reading means the user raised it.
     private var lastSet: [CGDirectDisplayID: Float] = [:]
-    private let keyboard = KeyboardBacklight()
 
     private static let restoreKey = "darkScreenRestoreBrightness"
     /// Idle this long before the screen dims.
@@ -50,11 +49,10 @@ final class IdleDimmer {
     private static let fadeSteps = 16
 
     /// `recover` is false for a second copy that's about to quit, so it can't undo the
-    /// running copy's saved levels.
+    /// running copy's saved display levels.
     init(recover: Bool = true) {
         guard recover else { return }
         restorePending(Self.loadPersisted())
-        KeyboardBacklight.recover()
     }
 
     // MARK: - Lifecycle
@@ -289,7 +287,6 @@ final class IdleDimmer {
         dimmedAt = Date()
         videoHeldAtDim = Self.otherAppKeepsDisplayOn()
         isDimmed = true
-        keyboard.turnOff()
         fadeStep = 0
         let fade = Timer(timeInterval: Self.fadeDuration / Double(Self.fadeSteps), repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.advanceFade() }
@@ -321,7 +318,6 @@ final class IdleDimmer {
         for id in Self.onlineDisplays where CGDisplayIsBuiltin(id) == 0 {
             CGSetDisplayTransferByFormula(id, 0, 0, 1, 0, 0, 1, 0, 0, 1)
         }
-        keyboard.turnOff()
     }
 
     /// Brightness keys or the Control Center slider moved a panel up while dark.
@@ -359,7 +355,6 @@ final class IdleDimmer {
         lastSet = [:]
         restorePending(savedBrightness)
         if wasDimmed { CGDisplayRestoreColorSyncSettings() }
-        keyboard.restore()
     }
 
     // MARK: - Restore and recovery
@@ -398,72 +393,72 @@ final class IdleDimmer {
     }
 }
 
-/// The keyboard backlight, through CoreBrightness's KeyboardBrightnessClient (private but
-/// long-stable). Changes aren't committed, so the saved preference stays as you set it.
+/// Finishes restores recorded by versions that dimmed the keyboard in Away.
 @MainActor
-private final class KeyboardBacklight {
+enum LegacyKeyboardBacklightRestore {
     private typealias Get = @convention(c) (AnyObject, Selector, UInt64) -> Float
-    private typealias Set = @convention(c) (AnyObject, Selector, Float, Int32, Bool, UInt64) -> Bool
+    private typealias Write = @convention(c) (AnyObject, Selector, Float, Int32, Bool, UInt64) -> Bool
 
     private static let getSelector = NSSelectorFromString("brightnessForKeyboard:")
     private static let setSelector = NSSelectorFromString("setBrightness:fadeSpeed:commit:forKeyboard:")
     private static let idsSelector = NSSelectorFromString("copyKeyboardBacklightIDs")
-
-    private lazy var client: NSObject? = {
-        _ = dlopen("/System/Library/PrivateFrameworks/CoreBrightness.framework/CoreBrightness", RTLD_LAZY)
-        guard let type = NSClassFromString("KeyboardBrightnessClient") as? NSObject.Type else { return nil }
-        let client = type.init()
-        let needed = [Self.getSelector, Self.setSelector, Self.idsSelector]
-        return needed.allSatisfy { client.responds(to: $0) } ? client : nil
-    }()
-
-    private var saved: [UInt64: Float] = [:] {
-        didSet { Self.persist(saved) }
-    }
-
-    /// Saved so a quit, crash or reinstall while dimmed doesn't leave the keyboard dark.
     private static let restoreKey = "darkScreenRestoreKeyboard"
 
-    private static func persist(_ levels: [UInt64: Float]) {
-        if levels.isEmpty { UserDefaults.standard.removeObject(forKey: restoreKey); return }
-        UserDefaults.standard.set(Dictionary(uniqueKeysWithValues: levels.map { (String($0.key), $0.value) }), forKey: restoreKey)
+    private static let coreBrightness =
+        dlopen("/System/Library/PrivateFrameworks/CoreBrightness.framework/CoreBrightness", RTLD_LAZY)
+
+    static var hasPendingRecovery: Bool {
+        !(UserDefaults.standard.dictionary(forKey: restoreKey)?.isEmpty ?? true)
     }
 
-    /// Restores levels left behind by a previous run.
     static func recover() {
-        guard let stored = UserDefaults.standard.dictionary(forKey: restoreKey) as? [String: Float], !stored.isEmpty else { return }
-        let backlight = KeyboardBacklight()
-        backlight.saved = Dictionary(uniqueKeysWithValues: stored.compactMap { key, level in UInt64(key).map { ($0, level) } })
-        backlight.restore()
+        let defaults = UserDefaults.standard
+        guard let stored = defaults.dictionary(forKey: restoreKey) as? [String: Float],
+              !stored.isEmpty else { return }
+
+        guard coreBrightness != nil,
+              let type = NSClassFromString("KeyboardBrightnessClient") as? NSObject.Type else { return }
+        let client = type.init()
+        guard [getSelector, setSelector, idsSelector].allSatisfy({ client.responds(to: $0) }),
+              let ids = client.perform(idsSelector)?.takeRetainedValue() as? [NSNumber] else { return }
+
+        let get = unsafeBitCast(client.method(for: getSelector), to: Get.self)
+        let set = unsafeBitCast(client.method(for: setSelector), to: Write.self)
+        let remaining = recover(stored, present: Set(ids.map(\.uint64Value))) { id in
+            get(client, getSelector, id)
+        } restore: { id, level in
+            set(client, setSelector, level, 0, false, id)
+        }
+        if remaining.isEmpty {
+            defaults.removeObject(forKey: restoreKey)
+        } else if remaining != stored {
+            defaults.set(remaining, forKey: restoreKey)
+        }
     }
 
-    private var ids: [UInt64] {
-        guard let client else { return [] }
-        let list = client.perform(Self.idsSelector)?.takeRetainedValue() as? [NSNumber]
-        return list?.map(\.uint64Value) ?? []
-    }
-
-    func turnOff() {
-        guard let client else { return }
-        let get = unsafeBitCast(client.method(for: Self.getSelector), to: Get.self)
-        let set = unsafeBitCast(client.method(for: Self.setSelector), to: Set.self)
-        for id in ids {
-            if saved[id] == nil {
-                let level = get(client, Self.getSelector, id)
-                if level > 0.01 { saved[id] = level }
+    static func recover(
+        _ levels: [String: Float],
+        present: Set<UInt64>,
+        brightness: (UInt64) -> Float,
+        restore: (UInt64, Float) -> Bool
+    ) -> [String: Float] {
+        var remaining = levels
+        for (key, level) in levels {
+            guard let id = UInt64(key), level.isFinite, level > 0, level <= 1 else {
+                remaining[key] = nil
+                continue
             }
-            _ = set(client, Self.setSelector, 0, 500, false, id)
+            guard present.contains(id) else { continue }
+            let current = brightness(id)
+            guard current.isFinite, current >= 0 else { continue }
+            if current > 0 {
+                // A newer brightness setting takes precedence over the legacy record.
+                remaining[key] = nil
+            } else if restore(id, level) {
+                let restored = brightness(id)
+                if restored > 0, abs(restored - level) <= 0.01 { remaining[key] = nil }
+            }
         }
-    }
-
-    func restore() {
-        guard let client, !saved.isEmpty else { return }
-        let set = unsafeBitCast(client.method(for: Self.setSelector), to: Set.self)
-        let present = Swift.Set(ids)
-        var remaining = saved
-        for (id, level) in saved where present.contains(id) && set(client, Self.setSelector, level, 0, false, id) {
-            remaining[id] = nil
-        }
-        saved = remaining
+        return remaining
     }
 }

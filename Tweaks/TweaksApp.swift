@@ -131,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Closing Settings leaves background work running. Explicit Quit commands
     /// and the Quit Tweaks button use the guarded app termination path.
-    /// Put the screen and keyboard light back if Away had them dimmed.
+    /// Restore the display if Away had dimmed it.
     func applicationWillTerminate(_ notification: Notification) {
         guard started else { return }
         // Keep the saved session so a reinstall, update or restart picks Away back up.
@@ -208,6 +208,7 @@ final class TweakController {
     let recentActions = RecentActions()
     let automationPause: AutomationPause
     private let quitter = LastWindowQuitter()
+    private var keyboardRecoveryTimer: Timer?
     private let shareSleep: ShareSleepManager
     private let shareConnect = ShareAutoConnect()
     let ethernetHandoff = EthernetVPNHandoff()
@@ -293,10 +294,23 @@ final class TweakController {
     func start() {
         shareSleep.recoverPending()
         ethernetHandoff.recoverPending()
+        LegacyKeyboardBacklightRestore.recover()
+        if LegacyKeyboardBacklightRestore.hasPendingRecovery {
+            // A keyboard can reconnect without a wake or a display change.
+            let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.recoverLegacyKeyboardBacklight() }
+            }
+            keyboardRecoveryTimer = timer
+            timer.tolerance = 5
+            RunLoop.main.add(timer, forMode: .common)
+        }
         shortcuts.onChange = { [weak self] action in self?.register(action) }
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.didWake() }
+            MainActor.assumeIsolated {
+                self?.recoverLegacyKeyboardBacklight()
+                self?.didWake()
+            }
         }
         Tweak.allCases.forEach(apply)
         register(.cleanLink)
@@ -316,6 +330,14 @@ final class TweakController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 MainActor.assumeIsolated { self?.refreshAccessibility() }
             }
+        }
+    }
+
+    private func recoverLegacyKeyboardBacklight() {
+        LegacyKeyboardBacklightRestore.recover()
+        if !LegacyKeyboardBacklightRestore.hasPendingRecovery {
+            keyboardRecoveryTimer?.invalidate()
+            keyboardRecoveryTimer = nil
         }
     }
 
