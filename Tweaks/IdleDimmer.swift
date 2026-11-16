@@ -70,7 +70,7 @@ final class IdleDimmer {
             timer.tolerance = 5
             RunLoop.main.add(timer, forMode: .common)
             self.timer = timer
-            declareActivity()
+            updateActivityAssertion()
         }
         if dimNow {
             // Let the panel or pill fade first, and don't count the key that asked for it.
@@ -106,7 +106,7 @@ final class IdleDimmer {
         guard isActive, isPaused else { return }
         isPaused = false
         lastInput = Date()
-        declareActivity()
+        updateActivityAssertion()
     }
 
     // MARK: - Idle
@@ -126,7 +126,7 @@ final class IdleDimmer {
         guard isActive else { return }
         retryPendingRestores()
         guard !isPaused else { return }
-        declareActivity() // keeps the screen saver, and its lock, from starting
+        updateActivityAssertion()
         if isDimmed {
             if userRaisedBrightness() { inputArrived(); return }
             let videoHeld = Self.otherAppKeepsDisplayOn()
@@ -177,7 +177,18 @@ final class IdleDimmer {
         }
     }
 
-    private func declareActivity() {
+    private func updateActivityAssertion() {
+        // A user-activity assertion also keeps the keyboard backlight awake. The
+        // display-sleep hold is enough when the screen saver is explicitly off.
+        let domain = "com.apple.screensaver" as CFString
+        let key = "idleTime" as CFString
+        let idleTime = CFPreferencesAppValueIsForced(key, domain)
+            ? CFPreferencesCopyAppValue(key, domain)
+            : CFPreferencesCopyValue(key, domain, kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
+        if (idleTime as? NSNumber)?.doubleValue == 0 {
+            releaseActivity()
+            return
+        }
         var id = activityAssertion
         if IOPMAssertionDeclareUserActivity("Away mode (Tweaks)" as CFString, kIOPMUserActiveLocal, &id) == kIOReturnSuccess {
             activityAssertion = id

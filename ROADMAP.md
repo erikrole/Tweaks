@@ -3,7 +3,8 @@
 ## Current state
 
 Unreleased Away changes leave keyboard backlighting to macOS and retain recovery
-for pending keyboard brightness saved by older builds.
+for pending keyboard brightness saved by older builds. With the screen saver set
+to Never, Away relies on its display-sleep hold and lets macOS track inactivity.
 [0.1.11](https://github.com/erikrole/Tweaks/releases/tag/v0.1.11) is published as
 the latest stable updater release, from source
 `105d1c94bda92e016da80327364d90a58f69de13`. The arm64 ZIP is Developer ID-signed,

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- When the screen saver is set to Never, Away stops declaring synthetic user activity so the macOS keyboard backlight can time out.
 - Away leaves keyboard backlighting to macOS. Pending brightness restores from older builds still work.
 - Away no longer dims the screen while another app keeps the display on for video.
   `caffeinate -d` holds and Tweaks' own hold are ignored; Dim now still dims.
