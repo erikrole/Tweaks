@@ -77,12 +77,12 @@ final class ShareRetryCoalescingTests: XCTestCase {
     private var domain = ""
 
     override func setUp() async throws {
-        domain = "ShareRetryCoalescingTests.\(UUID().uuidString)"
+        domain = TestDefaults.domain("ShareRetryCoalescingTests")
         defaults = UserDefaults(suiteName: domain)!
     }
 
     override func tearDown() async throws {
-        defaults.removePersistentDomain(forName: domain)
+        TestDefaults.remove(domain)
         defaults = nil
     }
 

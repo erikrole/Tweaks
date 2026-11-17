@@ -259,7 +259,7 @@ final class AccessibilityTweakTests: XCTestCase {
 @MainActor
 final class SettingsTests: XCTestCase {
     func testDefaultsOnAndPersist() {
-        let defaults = UserDefaults(suiteName: "TweaksTests-\(UUID().uuidString)")!
+        let defaults = makeTestDefaults("TweaksTests")
         let settings = TweakSettings(defaults: defaults)
         XCTAssertTrue(Tweak.allCases.allSatisfy { settings.isOn($0) == $0.defaultEnabled })
         var changed: [Tweak] = []
@@ -737,7 +737,7 @@ final class KeepAwakeEnhancementTests: XCTestCase {
 @MainActor
 final class ShortcutTests: XCTestCase {
     private func store() -> ShortcutStore {
-        ShortcutStore(defaults: UserDefaults(suiteName: "ShortcutTests-\(UUID().uuidString)")!)
+        ShortcutStore(defaults: makeTestDefaults("ShortcutTests"))
     }
 
     func testDefaultsAndLabels() {
@@ -769,7 +769,7 @@ final class ShortcutTests: XCTestCase {
         XCTAssertEqual(CapsLockDelay.restoreNanoseconds(saved: nil), CapsLockDelay.systemDefaultNanoseconds)
         XCTAssertEqual(CapsLockDelay.restoreNanoseconds(saved: 0), CapsLockDelay.systemDefaultNanoseconds)
 
-        let defaults = UserDefaults(suiteName: "CapsLock-\(UUID().uuidString)")!
+        let defaults = makeTestDefaults("CapsLock")
         var written: [Int] = []
         CapsLockTweak.apply(current: ["keyboard": 100_000_000], boot: "test", defaults: defaults, write: { _, value in written.append(value); return true })
         CapsLockTweak.apply(current: ["keyboard": 0], boot: "test", defaults: defaults, write: { _, value in written.append(value); return true })
@@ -851,7 +851,7 @@ final class ShortcutTests: XCTestCase {
     }
 
     func testClearedShortcutStaysCleared() {
-        let defaults = UserDefaults(suiteName: "ShortcutTests-\(UUID().uuidString)")!
+        let defaults = makeTestDefaults("ShortcutTests")
         ShortcutStore(defaults: defaults).set(nil, for: .clearNotifications)
         XCTAssertNil(ShortcutStore(defaults: defaults).shortcut(for: .clearNotifications), "removing a default sticks")
     }

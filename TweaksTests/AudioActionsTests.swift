@@ -9,14 +9,14 @@ final class AudioActionsTests: XCTestCase {
     private var pasteboard: NSPasteboard!
 
     override func setUp() async throws {
-        domain = "TweaksAudioActions-\(UUID().uuidString)"
+        domain = TestDefaults.domain("TweaksAudioActions")
         defaults = UserDefaults(suiteName: domain)!
         defaults.set([String](), forKey: TweakSettings.shareURLsKey)
         pasteboard = NSPasteboard.withUniqueName()
     }
 
     override func tearDown() async throws {
-        defaults.removePersistentDomain(forName: domain)
+        TestDefaults.remove(domain)
         pasteboard.releaseGlobally()
     }
 

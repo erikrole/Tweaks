@@ -7,10 +7,10 @@ import XCTest
 @MainActor
 final class VerificationRegressionTests: XCTestCase {
     private func withDefaults(_ body: (UserDefaults) -> Void) {
-        let domain = "TweaksVerification-\(UUID().uuidString)"
+        let domain = TestDefaults.domain("TweaksVerification")
         let defaults = UserDefaults(suiteName: domain)!
         defaults.set([String](), forKey: "autoConnectShares")
-        defer { defaults.removePersistentDomain(forName: domain) }
+        defer { TestDefaults.remove(domain) }
         body(defaults)
     }
 
@@ -68,10 +68,10 @@ final class VerificationRegressionTests: XCTestCase {
     }
 
     func testNativeSettingsPreserveAllChoicesAndExposeEveryTweakAndShortcut() {
-        let domain = "NativeSettings-\(UUID().uuidString)"
+        let domain = TestDefaults.domain("NativeSettings")
         let defaults = UserDefaults(suiteName: domain)!
         defaults.set([String](), forKey: TweakSettings.shareURLsKey)
-        defer { defaults.removePersistentDomain(forName: domain) }
+        defer { TestDefaults.remove(domain) }
         do {
             let settings = TweakSettings(defaults: defaults)
             settings.set(.calendarInvites, on: false)
