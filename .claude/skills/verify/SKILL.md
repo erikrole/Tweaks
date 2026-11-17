@@ -21,7 +21,7 @@ network and real Finder behavior are not proven by anything here; say so in the 
 mkdir -p build/verify
 defaults export com.erole.Tweaks - > build/verify/prefs-before.plist   # the only domain the app writes (plus test suites)
 ps -axo pid=,comm= | grep -E '/Tweaks$|/TweaksFinderSync$' | tee build/verify/running-before.txt   # usually the installed app: leave it alone
-ls ~/Library/Preferences | grep -E '^(NativeSettings|Tweaks[A-Za-z]+)-[0-9A-F-]{36}\.plist$' > build/verify/prefs-files-before.txt
+ls ~/Library/Preferences | grep -E '^((NativeSettings|Tweaks[A-Za-z]+|ShortcutTests|CapsLock|new-features|volume-rules)-|ShareRetryCoalescingTests\.)[0-9A-F-]{36}\.plist$' > build/verify/prefs-files-before.txt
 pluginkit -m -A -D -v -i com.erole.Tweaks.FinderSync > build/verify/pluginkit-before.txt   # -A -D: every copy, not just the elected one
 ```
 
@@ -96,8 +96,9 @@ Pick what matches the change:
   The variable must be in the environment with the `TEST_RUNNER_` prefix; as an xcodebuild
   argument it is silently dropped. Files are `NSAppearanceName{Aqua,DarkAqua}-<n>.png` at 960x760,
   n = 0 General, 1 Audio, 2 Files & Finder, 3 Copied Links, 4 Keep Awake, 5 Windows, 6 Network,
-  7 Shortcuts, 8 Activity. Open the pages you changed in both schemes and look. Known: in light
-  captures the selected sidebar row is a black pill with no visible label (unconfirmed in a live window).
+  7 Shortcuts, 8 Activity. Open the pages you changed in both schemes and look. Known artifact: in light
+  captures the selected sidebar row is a black pill with no visible label. `cacheDisplay` drops the source-list
+  material; a real light-mode window shows the blue accent pill with a white label (checked 2026-11-17).
   Status lines show the test host's state ("Accessibility permission needed"), not Erik's.
 - **A background tweak, file work, network, audio, power, disks, Finder menu, Overcast, updater:**
   run that area's test class (`-only-testing:TweaksTests/<Class>`) and read its assertions for the
@@ -116,9 +117,10 @@ for b in build/verify/DerivedData/Build/Products/Debug/Tweaks.app{/Contents/Plug
   [ -e "$b" ] && $LSR -u "$PWD/$b"; done
 $LSR -dump | grep -c "$PWD"                       # want 0; "failed to scan ... -10814 from spotlight" for the appex is noise
 pluginkit -m -A -D -v -i com.erole.Tweaks.FinderSync | diff build/verify/pluginkit-before.txt - && echo "Finder extension unchanged"
-# Tests leave empty suite-domain plists behind; remove only the ones this run added.
+# Test suites used to leave empty plists here (fixed in Tweaks PR #9: suites now live in $TMPDIR/TweaksTestDefaults);
+# on a branch without that fix, remove only the ones this run added.
 # cfprefsd can write one back seconds after rm, so sweep until a check finds none (up to 30 s).
-added() { ls ~/Library/Preferences | grep -E '^(NativeSettings|Tweaks[A-Za-z]+)-[0-9A-F-]{36}\.plist$' | comm -13 build/verify/prefs-files-before.txt -; }
+added() { ls ~/Library/Preferences | grep -E '^((NativeSettings|Tweaks[A-Za-z]+|ShortcutTests|CapsLock|new-features|volume-rules)-|ShareRetryCoalescingTests\.)[0-9A-F-]{36}\.plist$' | comm -13 build/verify/prefs-files-before.txt -; }
 for n in $(seq 10); do added | while read f; do rm -f ~/Library/Preferences/"$f"; done; sleep 3; [ -z "$(added)" ] && break; done
 [ -z "$(added)" ] && echo "no test plists left" || echo "WARN: test plists left: $(added | tr '\n' ' ')"
 defaults export com.erole.Tweaks - | diff build/verify/prefs-before.plist - && echo "prefs unchanged"
