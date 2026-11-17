@@ -8,9 +8,9 @@ import XCTest
 @MainActor
 final class NewTweakTests: XCTestCase {
     func testNewAutomaticFeaturesAreOptInAndPersist() {
-        let domain = "new-features-\(UUID().uuidString)"
+        let domain = TestDefaults.domain("new-features")
         let defaults = UserDefaults(suiteName: domain)!
-        defer { defaults.removePersistentDomain(forName: domain) }
+        defer { TestDefaults.remove(domain) }
         let settings = TweakSettings(defaults: defaults)
         for tweak in [Tweak.windowLayouts, .deviceVolumeLimits, .duplicateDownloads, .safeEjectHotKey, .preferEthernetForVPN] {
             XCTAssertFalse(settings.isOn(tweak))
@@ -52,9 +52,9 @@ final class NewTweakTests: XCTestCase {
         XCTAssertEqual(DeviceVolumeRule.target(current: 0.9, maximum: 0.4), 0.4)
         XCTAssertEqual(DeviceVolumeRule.target(current: 0.9, maximum: -2), 0)
         XCTAssertNil(DeviceVolumeRule.target(current: .nan, maximum: 0.4))
-        let domain = "volume-rules-\(UUID().uuidString)"
+        let domain = TestDefaults.domain("volume-rules")
         let defaults = UserDefaults(suiteName: domain)!
-        defer { defaults.removePersistentDomain(forName: domain) }
+        defer { TestDefaults.remove(domain) }
         let limits = DeviceVolumeLimits(defaults: defaults)
         limits.setRule(.init(name: "Same name", maximum: 0.3, muteOnSwitchAway: true), for: "UID-A")
         limits.setRule(.init(name: "Same name", maximum: 0.7), for: "UID-B")

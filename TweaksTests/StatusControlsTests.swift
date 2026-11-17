@@ -14,11 +14,11 @@ final class StatusControlsTests: XCTestCase {
     private var domain: String!
     private var defaults: UserDefaults!
     override func setUp() async throws {
-        domain = "TweaksStatusControls-\(UUID().uuidString)"
+        domain = TestDefaults.domain("TweaksStatusControls")
         defaults = UserDefaults(suiteName: domain)!
         defaults.set([String](), forKey: TweakSettings.shareURLsKey)
     }
-    override func tearDown() async throws { defaults.removePersistentDomain(forName: domain) }
+    override func tearDown() async throws { TestDefaults.remove(domain) }
 
     func testStatusSeparatesIntentPausePermissionAndObservedActivity() {
         let active = FeatureRuntime(phase: .active, message: "Rendering")

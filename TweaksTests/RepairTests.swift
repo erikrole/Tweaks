@@ -9,12 +9,12 @@ final class RepairTests: XCTestCase {
     private var defaults: UserDefaults!
 
     override func setUp() async throws {
-        domain = "TweaksRepair-\(UUID().uuidString)"
+        domain = TestDefaults.domain("TweaksRepair")
         defaults = UserDefaults(suiteName: domain)!
     }
 
     override func tearDown() async throws {
-        defaults.removePersistentDomain(forName: domain)
+        TestDefaults.remove(domain)
         defaults = nil
     }
 
