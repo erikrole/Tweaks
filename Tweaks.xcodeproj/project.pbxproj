@@ -944,7 +944,7 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		08AB5A2E51005A4459ADE6AF /* XCRemoteSwiftPackageReference "AppUpdater" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/erikrole/AppUpdater.git";
+			repositoryURL = "https://github.com/erikrole/app-updater.git";
 			requirement = {
 				kind = revision;
 				revision = e40e410da1362a5fd4b88f5b479b34af9c530d5b;

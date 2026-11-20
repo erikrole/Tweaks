@@ -316,6 +316,6 @@ Tweaks is released under the MIT License.
 
 AppUpdater checks [erikrole/Tweaks](https://github.com/erikrole/Tweaks/releases) for signed ZIP releases. Normal Release launches check automatically; tests and helper/command launches skip automatic checks. Use **Check for Updates…** in the Tweaks app menu or under **General → Updates** in Settings, where you can also toggle **Update automatically** and **Install updates on quit**.
 
-`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
+`project.yml` pins the public [AppUpdater](https://github.com/erikrole/app-updater) package to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
 
 Published on November 7, 2026 as [Tweaks 0.1.11](https://github.com/erikrole/Tweaks/releases/tag/v0.1.11), build 15, from source `105d1c94bda92e016da80327364d90a58f69de13`. The Apple Silicon ZIP requires macOS 27 or later and is Developer ID signed, notarized, and stapled. A SHA-256 checksum is attached to the release.
