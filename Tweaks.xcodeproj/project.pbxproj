@@ -399,7 +399,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					15E97068B15B6160EF4D1B48 = {
 						DevelopmentTeam = T26T3G8C7Q;
@@ -947,7 +947,7 @@
 			repositoryURL = "https://github.com/erikrole/AppUpdater.git";
 			requirement = {
 				kind = revision;
-				revision = be0d006ed0899cc4e661791c41dbc5c23999f261;
+				revision = e40e410da1362a5fd4b88f5b479b34af9c530d5b;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

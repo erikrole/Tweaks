@@ -5,11 +5,11 @@ things, chosen from the Supercharge features actually in use on one Mac. It has 
 menu bar icon; open it again from Finder, Spotlight or Raycast to see its settings,
 where every tweak has its own control.
 
-Settings uses a native macOS sidebar with General, Audio, Files & Finder, Copied
-Links, Keep Awake, Windows, Network, Shortcuts and Activity pages. Standard controls
-and grouped sections follow system light/dark appearance and accent colors. The
-window is resizable. ⌘, opens Settings, ⌘W closes it while Tweaks keeps running,
-and the explicit Quit command (⌘Q) quits through the normal recovery checks.
+Settings uses a native macOS sidebar with a keyword filter and General, Audio, Files &
+Finder, Copied Links, Keep Awake, Windows, Network, Shortcuts and Activity pages.
+Standard controls and grouped sections follow system light/dark appearance and accent
+colors. The window is resizable. ⌘, opens Settings, ⌘W closes it while Tweaks keeps
+running, and the explicit Quit command (⌘Q) quits through the normal recovery checks.
 
 **Send to Overcast**
 - Right-click downloaded MP3 or M4A audio in Finder and choose **Send to Overcast…**.
@@ -314,8 +314,8 @@ Tweaks is released under the MIT License.
 
 ## App updates
 
-AppUpdater checks [erikrole/Tweaks](https://github.com/erikrole/Tweaks/releases) for signed ZIP releases. Normal Release launches check automatically; tests and helper/command launches skip automatic checks. Use **Check for Updates…** in the Tweaks app menu while Settings is open.
+AppUpdater checks [erikrole/Tweaks](https://github.com/erikrole/Tweaks/releases) for signed ZIP releases. Normal Release launches check automatically; tests and helper/command launches skip automatic checks. Use **Check for Updates…** in the Tweaks app menu or under **General → Updates** in Settings, where you can also toggle **Update automatically** and **Install updates on quit**.
 
-`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `5b5a9411078b79ad92e36bf9d965ecd94b66b420`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
+`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
 
-Published on October 23, 2026 as [Tweaks 0.1.8](https://github.com/erikrole/Tweaks/releases/tag/v0.1.8), build 11, from source `21062a918cbd33cdc8ce52151ce8f34bb2f47fbb`. The Apple Silicon ZIP requires macOS 27 or later and is Developer ID signed, notarized, and stapled. A SHA-256 checksum and provenance manifest are attached to the release.
+Published on November 7, 2026 as [Tweaks 0.1.11](https://github.com/erikrole/Tweaks/releases/tag/v0.1.11), build 15, from source `105d1c94bda92e016da80327364d90a58f69de13`. The Apple Silicon ZIP requires macOS 27 or later and is Developer ID signed, notarized, and stapled. A SHA-256 checksum is attached to the release.

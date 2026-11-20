@@ -45,6 +45,38 @@ enum SettingsTab: Int, CaseIterable {
         case .activity: "Pause automatic actions and review this session’s history."
         }
     }
+
+    var tweaks: [Tweak] {
+        switch self {
+        case .general: [.capsLockNoDelay]
+        case .audio: [.muteIcon, .blockMusicLaunch, .wakeVolumeLimit, .deviceVolumeLimits]
+        case .files: [.lowercaseExtensions, .calendarInvites, .dmgInstaller, .unzipDownloads, .duplicateDownloads]
+        case .links: [.cleanCopiedLinks]
+        case .sleep: [.keepAwakeHotKey, .ejectBeforeSleep, .safeEjectHotKey, .awakeWhileRendering]
+        case .windows: [.clearNotificationsHotKey, .dismissShortcutNotifications, .greenButtonFills, .windowLayouts, .quitOnLastWindow]
+        case .network: [.preferEthernetForVPN, .vpnReconnectReminder, .unmountSharesBeforeSleep, .autoConnectShares]
+        case .shortcuts, .activity: []
+        }
+    }
+
+    func matches(_ rawQuery: String) -> Bool {
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return true }
+        if title.lowercased().contains(query) || summary.lowercased().contains(query) { return true }
+        if tweaks.contains(where: { $0.title.lowercased().contains(query) || $0.detail.lowercased().contains(query) }) { return true }
+        let extraKeywords: [String] = switch self {
+        case .general: ["launch", "login", "update", "version", "quit", "caps lock"]
+        case .audio: ["sound", "speaker", "music", "output", "device", "volume"]
+        case .files: ["overcast", "image", "resize", "jpeg", "png", "heic", "copy path", "inspect media", "finder", "zip", "dmg", "fantastical"]
+        case .links: ["clipboard", "utm", "tracking", "url", "restore", "exclude"]
+        case .sleep: ["away", "dim", "caffeinate", "eject", "external", "drive", "render", "after effects", "premiere", "media encoder"]
+        case .windows: ["notification", "green button", "zoom", "full screen", "layout", "monitor", "display", "preview", "textedit"]
+        case .network: ["smb", "nas", "share", "ethernet", "vpn", "globalprotect", "wifi", "wi-fi", "dock"]
+        case .shortcuts: ShortcutAction.allCases.map { $0.title.lowercased() } + ["hotkey", "hyper", "key"]
+        case .activity: ["pause", "resume", "history", "recent", "status"]
+        }
+        return extraKeywords.contains { $0.contains(query) }
+    }
 }
 
 extension SettingsWindowController {
@@ -75,17 +107,45 @@ extension SettingsWindowController {
         loginSwitch.target = self
         loginSwitch.action = #selector(loginChanged(_:))
         content?.addArrangedSubview(labeledRow("Launch at login", trailing: loginSwitch))
-        autoUpdateSwitch.state = (UserDefaults.standard.object(forKey: AppUpdate.autoUpdateKey) as? Bool ?? true) ? .on : .off
-        autoUpdateSwitch.target = self
-        autoUpdateSwitch.action = #selector(autoUpdateChanged(_:))
-        autoUpdateSwitch.setAccessibilityLabel("Update automatically")
-        content?.addArrangedSubview(labeledRow("Update automatically", trailing: autoUpdateSwitch))
         loginError.font = .systemFont(ofSize: 11)
         loginError.textColor = .secondaryLabelColor
         loginError.lineBreakMode = .byWordWrapping
         loginError.maximumNumberOfLines = 0
         measured.append((loginError, 24))
         content?.addArrangedSubview(loginError)
+        openLoginItemsButton.title = "Open Login Items…"
+        openLoginItemsButton.bezelStyle = .rounded
+        openLoginItemsButton.target = self
+        openLoginItemsButton.action = #selector(openLoginItems)
+        openLoginItemsButton.isHidden = true
+        content?.addArrangedSubview(openLoginItemsButton)
+        addSection("Updates")
+        autoUpdateSwitch.state = (UserDefaults.standard.object(forKey: AppUpdate.autoUpdateKey) as? Bool ?? true) ? .on : .off
+        autoUpdateSwitch.target = self
+        autoUpdateSwitch.action = #selector(autoUpdateChanged(_:))
+        autoUpdateSwitch.setAccessibilityLabel("Update automatically")
+        content?.addArrangedSubview(labeledRow("Update automatically", trailing: autoUpdateSwitch))
+        installOnQuitSwitch.state = UserDefaults.standard.bool(forKey: AppUpdate.installOnQuitKey) ? .on : .off
+        installOnQuitSwitch.target = self
+        installOnQuitSwitch.action = #selector(installOnQuitChanged(_:))
+        installOnQuitSwitch.setAccessibilityLabel("Install updates on quit")
+        content?.addArrangedSubview(labeledRow("Install updates on quit", trailing: installOnQuitSwitch))
+        versionLabel.stringValue = AppUpdate.currentVersionText
+        versionLabel.font = .systemFont(ofSize: 13)
+        versionLabel.textColor = .labelColor
+        updateActionButton.title = AppUpdate.menuTitle
+        updateActionButton.bezelStyle = .rounded
+        updateActionButton.target = self
+        updateActionButton.action = #selector(performUpdateAction)
+        updateActionButton.setContentHuggingPriority(.required, for: .horizontal)
+        content?.addArrangedSubview(labeledRowView(versionLabel, trailing: updateActionButton))
+        updateStatusLabel.font = .systemFont(ofSize: 11)
+        updateStatusLabel.textColor = .secondaryLabelColor
+        updateStatusLabel.lineBreakMode = .byWordWrapping
+        updateStatusLabel.maximumNumberOfLines = 0
+        updateStatusLabel.isHidden = true
+        measured.append((updateStatusLabel, 24))
+        content?.addArrangedSubview(updateStatusLabel)
         content?.addArrangedSubview(note("Closing this window leaves Tweaks running, with no Dock icon. Open it again from Finder or Spotlight."))
         content?.addArrangedSubview(button("Quit Tweaks", #selector(quitTweaks)))
     }
@@ -115,7 +175,9 @@ extension SettingsWindowController {
                 self?.tweaks.shortcuts.set(shortcut, for: action)
             }
             recorders[action] = recorder
-            content?.addArrangedSubview(labeledRow(action.title, trailing: recorder, reserve: 156))
+            let row = labeledRow(action.title, trailing: recorder, reserve: 156)
+            recorderRows[action] = row
+            content?.addArrangedSubview(row)
         }
         content?.addArrangedSubview(note("Click a shortcut, then press the new keys. Delete clears it, Esc cancels. Hyper is ⌃⌥⇧⌘."))
 

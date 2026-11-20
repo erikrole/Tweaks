@@ -71,6 +71,7 @@ extension SettingsWindowController {
             row.orientation = .vertical
             row.alignment = .leading
             row.spacing = 4
+            toggleRows[tweak] = row
             content.addArrangedSubview(row)
             pin(row)
         }

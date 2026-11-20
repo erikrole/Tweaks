@@ -2,7 +2,13 @@
 
 ## Current state
 
-Unreleased Away changes leave keyboard backlighting to macOS and retain recovery
+Unreleased hardening and Settings polish:
+- `EthernetHandoffWorker` and `VPNReminder` use retain/release `SCDynamicStoreContext` boxes so background SystemConfiguration callbacks cannot outlive their owners.
+- Subprocess invocations in `SafeEjectEngine` (`diskutil`), `DownloadsWatcher` (`ditto`), and `DMGInstaller` (`ditto`, `hdiutil`, `spctl`) use bounded deadlines via `FileWork.runProcess`.
+- `SleepEjector` groups mounted external volumes by physical disk/APFS container via `SafeEjectEngine.inventory()` before ejecting so multi-partition drives are never left half-mounted.
+- Settings adds a keyword search filter in the sidebar, refreshes Launch at Login on activation with an **Open Login Items…** button when approval is needed, and shows the current version, live update status/action button, and **Install updates on quit** toggle under General (`AppUpdater` pinned to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`).
+- `ImageActions.show` reloads the Quick Image Actions window with new Finder selections whenever an export is not actively running.
+- Unreleased Away changes leave keyboard backlighting to macOS and retain recovery
 for pending keyboard brightness saved by older builds. With the screen saver set
 to Never, Away relies on its display-sleep hold and lets macOS track inactivity.
 [0.1.11](https://github.com/erikrole/Tweaks/releases/tag/v0.1.11) is published as

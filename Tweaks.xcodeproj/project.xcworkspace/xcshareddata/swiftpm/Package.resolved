@@ -6,7 +6,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/erikrole/AppUpdater.git",
       "state" : {
-        "revision" : "be0d006ed0899cc4e661791c41dbc5c23999f261"
+        "revision" : "e40e410da1362a5fd4b88f5b479b34af9c530d5b"
       }
     }
   ],

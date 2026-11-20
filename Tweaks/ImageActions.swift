@@ -119,7 +119,8 @@ final class ImageActions {
     func show(_ files: [URL]) {
         guard !files.isEmpty, files.count <= ImageActionRequest.maximumFiles else { return }
         // Keep an in-progress export visible; another request must not replace its UI.
-        if let window, window.isVisible || isExporting { window.makeKeyAndOrderFront(nil); return }
+        if let window, isExporting { window.makeKeyAndOrderFront(nil); return }
+        window?.close()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 500),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Quick Image Actions"

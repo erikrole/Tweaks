@@ -22,16 +22,21 @@ final class VPNReminder {
     private var store: SCDynamicStore?
     private var state = VPNReminderState()
     private var pending: DispatchWorkItem?
+    private var generation: UInt64 = 0
     static let globalProtect = "/Applications/GlobalProtect.app"
 
     func start() {
         guard store == nil, FileManager.default.fileExists(atPath: Self.globalProtect) else { return }
-        var context = SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
-                                            retain: nil, release: nil, copyDescription: nil)
-        store = SCDynamicStoreCreate(nil, "Tweaks.vpn-reminder" as CFString, { _, _, info in
-            guard let info else { return }
-            MainActor.assumeIsolated { Unmanaged<VPNReminder>.fromOpaque(info).takeUnretainedValue().changed() }
-        }, &context)
+        generation &+= 1
+        let session = generation
+        let owner = ShareConnectivityContext { [weak self] in
+            guard let self, self.generation == session, self.store != nil else { return }
+            self.changed()
+        }
+        var context = owner.makeContext()
+        store = withExtendedLifetime(owner) {
+            SCDynamicStoreCreate(nil, "Tweaks.vpn-reminder" as CFString, shareConnectivityNotify, &context)
+        }
         guard let store else { return }
         SCDynamicStoreSetNotificationKeys(store, ["State:/Network/Global/IPv4"] as CFArray,
                                           ["State:/Network/Interface/en[0-9]+/Link", "State:/Network/Service/.*/IPv4"] as CFArray)
@@ -41,6 +46,7 @@ final class VPNReminder {
     }
 
     func stop() {
+        generation &+= 1
         pending?.cancel(); pending = nil
         if let store { SCDynamicStoreSetDispatchQueue(store, nil) }
         store = nil

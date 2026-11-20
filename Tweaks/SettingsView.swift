@@ -33,8 +33,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let addShareButton = NSButton()
     let finderLabel = NSTextField(labelWithString: "")
     let loginSwitch = NSSwitch()
+    let openLoginItemsButton = NSButton()
     let autoUpdateSwitch = NSSwitch()
+    let installOnQuitSwitch = NSSwitch()
+    let versionLabel = NSTextField(labelWithString: "")
+    let updateActionButton = NSButton()
+    let updateStatusLabel = NSTextField(labelWithString: "")
     let loginError = NSTextField(labelWithString: "")
+    var toggleRows: [Tweak: NSView] = [:]
+    var recorderRows: [ShortcutAction: NSView] = [:]
+    private(set) var searchQuery = ""
     private let accessRow = NSStackView()
     var measured: [(NSTextField, CGFloat)] = []
     var columnConstraints: [(NSLayoutConstraint, CGFloat)] = []
@@ -96,6 +104,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentView = build()
+        AppUpdate.attach(hostView: window.contentView)
         window.center()
         sync()
         fitStack(preparingToShow: true)
@@ -112,6 +121,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window?.delegate = nil
         recorders.values.forEach { $0.cancelRecording() }
         sidebar.onSelect = nil
+        sidebar.onSearch = nil
+        AppUpdate.attach(hostView: nil)
         // Drop the scroll view before the controller goes. A tall document was being
         // redrawn on a display link even after the window had ordered out.
         scroll.documentView = nil
@@ -120,6 +131,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         column = nil
         sectionColumn = nil
         recorders.removeAll()
+        toggleRows.removeAll()
+        recorderRows.removeAll()
         columnConstraints.removeAll()
         measured.removeAll()
         DispatchQueue.main.async { [weak self] in
@@ -232,12 +245,41 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         splitController.addSplitViewItem(body)
         splitController.view.frame = NSRect(x: 0, y: 0, width: 820, height: 620)
         sidebar.onSelect = { [weak self] tab in self?.selectPane(tab) }
+        sidebar.onSearch = { [weak self] query in self?.filterSettings(query) }
         sidebar.select(.general)
         pageSummary.stringValue = SettingsTab.general.summary
         return splitController.view
     }
 
     var selectedPane: SettingsTab { SettingsTab(rawValue: selectedTab) ?? .general }
+
+    func filterSettings(_ rawQuery: String) {
+        guard !closed else { return }
+        searchQuery = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = searchQuery.lowercased()
+        let matchingTabs = lower.isEmpty ? SettingsTab.allCases : SettingsTab.allCases.filter { $0.matches(lower) }
+        let current = selectedPane
+        let nextTab = matchingTabs.contains(current) ? current : (matchingTabs.first ?? current)
+        sidebar.setVisibleTabs(matchingTabs, selected: matchingTabs.contains(nextTab) ? nextTab : nil)
+        for (tweak, row) in toggleRows {
+            let tab = SettingsTab.allCases.first { $0.tweaks.contains(tweak) }
+            let tabMatches = tab.map { $0.title.lowercased().contains(lower) || $0.summary.lowercased().contains(lower) } ?? false
+            let itemMatches = lower.isEmpty || tabMatches
+                || tweak.title.lowercased().contains(lower)
+                || tweak.detail.lowercased().contains(lower)
+            row.isHidden = !itemMatches
+        }
+        for (action, row) in recorderRows {
+            let tabMatches = SettingsTab.shortcuts.title.lowercased().contains(lower) || SettingsTab.shortcuts.summary.lowercased().contains(lower)
+            let itemMatches = lower.isEmpty || tabMatches || action.title.lowercased().contains(lower)
+            row.isHidden = !itemMatches
+        }
+        if nextTab != current {
+            selectPane(nextTab)
+        } else {
+            sync()
+        }
+    }
 
     func selectPane(_ tab: SettingsTab) {
         guard !closed, pages.indices.contains(tab.rawValue) else { return }
@@ -250,6 +292,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         pinnedToTop = false
         fitStack(preparingToShow: true)
         scrollToTop()
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard !closed else { return }
+        launchAtLogin.refresh()
+        sync()
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -268,7 +316,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             accessNotes[tweak]?.textColor = status.phase == .blocked ? .systemOrange : .secondaryLabelColor
             accessNotes[tweak]?.isHidden = false
             activityStatusLabels[tweak]?.stringValue = status.text
-            activityStatusRows[tweak]?.isHidden = showAllStatuses.state != .on && [.ready, .off].contains(status.phase)
+            let lower = searchQuery.lowercased()
+            let matchesQuery = lower.isEmpty || tweak.title.lowercased().contains(lower) || status.text.lowercased().contains(lower)
+            let hiddenByPhase = lower.isEmpty && showAllStatuses.state != .on && [.ready, .off].contains(status.phase)
+            activityStatusRows[tweak]?.isHidden = !matchesQuery || hiddenByPhase
         }
         accessRow.isHidden = tweaks.hasAccessibility
         for (action, recorder) in recorders {
@@ -319,6 +370,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         if layoutStatus.stringValue != tweaks.windowLayouts.status { layoutStatus.stringValue = tweaks.windowLayouts.status }
         let finderOn = FinderExtensionBridge.isEnabled()
         finderLabel.stringValue = finderOn == true ? "On in Finder" : (finderOn == false ? "Off in Finder" : "Finder extension")
+        launchAtLogin.refresh()
         let loginOn = launchAtLogin.isEnabled
         if loginSwitch.state != (loginOn ? .on : .off) { loginSwitch.state = loginOn ? .on : .off }
         if let error = launchAtLogin.errorMessage, !error.isEmpty {
@@ -326,6 +378,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             loginError.isHidden = false
         } else {
             loginError.isHidden = true
+        }
+        openLoginItemsButton.isHidden = !launchAtLogin.requiresApproval
+        versionLabel.stringValue = AppUpdate.currentVersionText
+        updateActionButton.title = AppUpdate.menuState.title
+        updateActionButton.isEnabled = !AppUpdate.isPreparing
+        if let statusText = AppUpdate.menuState.statusText, !statusText.isEmpty {
+            updateStatusLabel.stringValue = statusText
+            updateStatusLabel.isHidden = false
+        } else {
+            updateStatusLabel.isHidden = true
         }
         fitStack()
     }
@@ -535,8 +597,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             _ = self.tweaks.keepAwake.session
             _ = self.tweaks.keepAwake.statusLine
             _ = self.tweaks.renderAwake.holdingFor
+            _ = self.launchAtLogin.status
             _ = self.launchAtLogin.isEnabled
+            _ = self.launchAtLogin.requiresApproval
             _ = self.launchAtLogin.errorMessage
+            _ = AppUpdate.menuState.title
+            _ = AppUpdate.menuState.availableVersion
+            _ = AppUpdate.menuState.statusText
             _ = self.settings.autoShares
             _ = self.settings.quitApps
             _ = self.tweaks.volumeLimits.devices
@@ -607,6 +674,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc func autoUpdateChanged(_ sender: NSSwitch) {
         UserDefaults.standard.set(sender.state == .on, forKey: AppUpdate.autoUpdateKey)
+    }
+
+    @objc func installOnQuitChanged(_ sender: NSSwitch) {
+        UserDefaults.standard.set(sender.state == .on, forKey: AppUpdate.installOnQuitKey)
+    }
+
+    @objc func performUpdateAction() {
+        AppUpdate.performMenuAction()
+        sync()
+    }
+
+    @objc func openLoginItems() {
+        launchAtLogin.openSettings()
     }
 
     @objc func loginChanged(_ sender: NSSwitch) {

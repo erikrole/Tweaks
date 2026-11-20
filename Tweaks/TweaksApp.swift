@@ -122,7 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.showWindow(nil)
     }
 
-    @objc private func checkForUpdates() { AppUpdate.checkNow() }
+    @objc private func checkForUpdates() { AppUpdate.performMenuAction() }
 
     @objc private func quitFromMenu() {
         Self.reallyQuit = true
@@ -162,7 +162,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.controller.apply(.preferEthernetForVPN)
                 HUD.show("Restoring Wi-Fi; Tweaks will keep running", symbol: "wifi.exclamationmark", duration: 4)
             }
-            sender.reply(toApplicationShouldTerminate: restored || systemQuit)
+            let allowTerminate = restored || systemQuit
+            if allowTerminate && !systemQuit && !AppUpdate.updater.isAwaitingRelaunch {
+                _ = AppUpdate.updater.applyOnQuitIfReady()
+            }
+            sender.reply(toApplicationShouldTerminate: allowTerminate)
         }
         controller.ethernetHandoff.prepareForTermination { restored in reply(restored) }
         // A handoff in progress can keep the network queue busy; don't wait on it forever.

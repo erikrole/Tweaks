@@ -17,3 +17,7 @@ xcuserdata/
 # Test and coverage artifacts
 *.xccovarchive
 *.xcresult
+
+# Local agent metadata
+.claude/
+

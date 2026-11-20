@@ -1,15 +1,5 @@
 import AppKit
 
-/// Warm paper and ink, shared by the settings window, the Keep Awake panel and the HUD.
-/// Main-actor isolated: `NSColor` is a class, so a plain static would be shared mutable state.
-@MainActor
-enum Paper {
-    static let background = NSColor(srgbRed: 0.945, green: 0.933, blue: 0.906, alpha: 1)
-    static let ink = NSColor(srgbRed: 0.18, green: 0.16, blue: 0.13, alpha: 1)
-    static let secondary = NSColor(srgbRed: 0.42, green: 0.36, blue: 0.30, alpha: 1)
-    static let line = NSColor(srgbRed: 0.74, green: 0.68, blue: 0.60, alpha: 1)
-}
-
 /// A small dark pill near the bottom of the screen you're on. It never takes focus
 /// or catches clicks, and it is thrown away when its time is up so it doesn't sit in memory.
 @MainActor

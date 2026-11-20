@@ -12,8 +12,6 @@ final class KeepAwakePanelController {
     private var model: PanelModel?
     private var clockTimer: Timer?
 
-    static let durations: [(key: String, hours: Double)] = [("1", 1), ("2", 2), ("3", 4), ("4", 8), ("5", 12)]
-
     func toggle(_ keepAwake: KeepAwake) {
         if panel?.isVisible == true { close() } else { show(keepAwake) }
     }

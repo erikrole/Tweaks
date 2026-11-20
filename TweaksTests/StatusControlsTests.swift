@@ -185,6 +185,21 @@ final class StatusControlsTests: XCTestCase {
         XCTAssertNil(controller.keepAwake.session)
     }
 
+    func testSettingsSearchFiltersCategoriesAndRowsWithoutWritingPreferences() {
+        let settings = TweakSettings(defaults: defaults)
+        let controller = TweakController(defaults: defaults); controller.settings = settings
+        let before = defaults.persistentDomain(forName: domain)! as NSDictionary
+        let window = SettingsWindowController(settings: settings, tweaks: controller, launchAtLogin: LaunchAtLoginController())
+        defer { window.close() }
+        window.filterSettings("fantastical")
+        XCTAssertEqual(window.selectedPane, .files)
+        XCTAssertEqual(window.toggleRows[.calendarInvites]?.isHidden, false)
+        XCTAssertEqual(window.toggleRows[.lowercaseExtensions]?.isHidden, true)
+        window.filterSettings("")
+        XCTAssertEqual(window.toggleRows[.lowercaseExtensions]?.isHidden, false)
+        XCTAssertEqual(defaults.persistentDomain(forName: domain)! as NSDictionary, before)
+    }
+
     func testExpandedSessionControlsScheduleDocumentMeasurement() async throws {
         let settings = TweakSettings(defaults: defaults)
         let controller = TweakController(defaults: defaults); controller.settings = settings

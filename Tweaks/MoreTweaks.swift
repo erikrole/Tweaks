@@ -55,6 +55,20 @@ final class SleepEjector {
         // A render may be writing an image sequence frame by frame, with nothing open
         // between frames; don't pull a drive out from under it.
         if RenderProcesses.anyRunning() { return }
+        if let drives = try? SafeEjectEngine.inventory() {
+            for drive in drives {
+                if drive.volumes.contains(where: { OpenFiles.volumeInUse($0.path) }) {
+                    failed.append(drive.name)
+                    continue
+                }
+                do {
+                    try SafeEjectEngine.eject(drive.device)
+                } catch {
+                    failed.append(drive.name)
+                }
+            }
+            return
+        }
         for drive in Self.externalDrives() {
             if OpenFiles.volumeInUse(drive.path) {
                 failed.append(drive.lastPathComponent)

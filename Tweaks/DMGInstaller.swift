@@ -222,32 +222,24 @@ final class DMGInstaller {
 
     private static func copy(_ app: URL, to destination: URL) async throws {
         // ditto keeps code signatures, extended attributes and symlinks intact.
-        guard await run("/usr/bin/ditto", [app.path, destination.path]) != nil else {
+        guard await run("/usr/bin/ditto", [app.path, destination.path], timeout: 120) != nil else {
             throw CocoaError(.fileWriteUnknown)
         }
     }
 
     private static func detach(_ volume: URL) async -> Bool {
-        await run("/usr/bin/hdiutil", ["detach", volume.path, "-quiet"]) != nil
+        await run("/usr/bin/hdiutil", ["detach", volume.path, "-quiet"], timeout: 20) != nil
     }
 
     private static func remove(_ url: URL) async {
         try? await FileWork.run { try FileManager.default.removeItem(at: url) }
     }
 
-    /// Runs a tool off the main thread; nil on failure.
-    private static func run(_ tool: String, _ arguments: [String]) async -> Data? {
+    /// Runs a tool off the main thread with a bounded timeout; nil on failure or timeout.
+    private static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 15) async -> Data? {
         await Task.detached {
-            let process = Process()
-            process.executableURL = URL(filePath: tool)
-            process.arguments = arguments
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-            guard (try? process.run()) != nil else { return nil }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            return process.terminationStatus == 0 ? data : nil
+            guard let result = FileWork.runProcess(tool, arguments, timeout: timeout), result.status == 0 else { return nil }
+            return result.output
         }.value
     }
 }

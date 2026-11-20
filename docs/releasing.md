@@ -44,8 +44,8 @@ The script generates a Release archive, exports Developer ID-signed
 and writes:
 
 ```text
-.release/Tweaks-0.1.0-arm64.zip
-.release/Tweaks-0.1.0-arm64.zip.sha256
+.release/Tweaks-0.1.11-arm64.zip
+.release/Tweaks-0.1.11-arm64.zip.sha256
 ```
 
 ## GitHub release
@@ -64,8 +64,8 @@ Actions secrets:
 After the secrets are configured:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.11
+git push origin v0.1.11
 ```
 
 The workflow verifies that the tag matches `MARKETING_VERSION`, builds and

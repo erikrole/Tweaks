@@ -1,4 +1,5 @@
 import Darwin
+import os
 import XCTest
 @testable import Tweaks
 
@@ -120,6 +121,41 @@ final class OpenFilesBoundTests: XCTestCase {
 
     func testPromptLookupReturnsItsAnswer() {
         XCTAssertFalse(OpenFiles.bounded(fallback: true, timeout: 2) { false })
+    }
+
+    func testBoundedProcessRunnerTimesOutAndTerminatesChild() {
+        let start = Date()
+        let result = FileWork.runProcess("/bin/sleep", ["10"], timeout: 0.25)
+        XCTAssertNil(result)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 2.5)
+    }
+
+    func testBoundedProcessRunnerCapturesOutput() {
+        let result = FileWork.runProcess("/bin/echo", ["tweaks-ok"], timeout: 2)
+        XCTAssertEqual(result?.status, 0)
+        XCTAssertEqual(String(data: result?.output ?? Data(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), "tweaks-ok")
+    }
+}
+
+final class EthernetStoreContextTests: XCTestCase {
+    func testEthernetStoreContextRetainAndReleaseOnBackgroundThread() async throws {
+        let called = OSAllocatedUnfairLock(initialState: 0)
+        var box: EthernetStoreContext? = EthernetStoreContext { called.withLock { $0 += 1 } }
+        weak var weakBox = box
+        let retained = try await Task.detached { [owned = box!] in
+            let context = owned.makeContext()
+            let retain = try XCTUnwrap(context.retain)
+            return UInt(bitPattern: retain(try XCTUnwrap(context.info)))
+        }.value
+        box = nil
+        XCTAssertNotNil(weakBox)
+        try await Task.detached {
+            let raw = UnsafeRawPointer(bitPattern: retained)!
+            let context = Unmanaged<EthernetStoreContext>.fromOpaque(raw).takeUnretainedValue().makeContext()
+            try XCTUnwrap(context.release)(raw)
+        }.value
+        XCTAssertNil(weakBox)
+        XCTAssertEqual(called.withLock { $0 }, 0)
     }
 }
 

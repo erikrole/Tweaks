@@ -506,12 +506,15 @@ final class EthernetHandoffWorker: @unchecked Sendable {
 
     private func beginMonitoring() throws {
         guard restoreWifiIfNeeded() else { throw NSError(domain: "Tweaks.Ethernet.restore", code: 1) }
-        var context = SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
-                                            retain: nil, release: nil, copyDescription: nil)
-        store = SCDynamicStoreCreate(nil, "Tweaks.Ethernet" as CFString, { _, _, info in
-            guard let info else { return }
-            Unmanaged<EthernetHandoffWorker>.fromOpaque(info).takeUnretainedValue().schedule()
-        }, &context)
+        let session = generation
+        let owner = EthernetStoreContext { [weak self] in
+            guard let self, self.isCurrent(session) else { return }
+            self.schedule()
+        }
+        var context = owner.makeContext()
+        store = withExtendedLifetime(owner) {
+            SCDynamicStoreCreate(nil, "Tweaks.Ethernet" as CFString, ethernetStoreNotify, &context)
+        }
         guard let store else { throw NSError(domain: "Tweaks.Ethernet", code: 1) }
         let patterns = ["State:/Network/Interface/.*/Link", "State:/Network/Service/.*/IPv4", "State:/Network/Global/IPv4"]
         guard SCDynamicStoreSetNotificationKeys(store, nil, patterns as CFArray),
@@ -527,6 +530,31 @@ final class EthernetHandoffWorker: @unchecked Sendable {
         restoreRetryTimer?.cancel(); restoreRetryTimer = nil
         inspectTimer = recovery
     }
+}
+
+final class EthernetStoreContext: Sendable {
+    let changed: @Sendable () -> Void
+    init(changed: @escaping @Sendable () -> Void) { self.changed = changed }
+
+    func makeContext() -> SCDynamicStoreContext {
+        SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
+                              retain: ethernetStoreRetainContext, release: ethernetStoreReleaseContext, copyDescription: nil)
+    }
+}
+
+private func ethernetStoreRetainContext(_ raw: UnsafeRawPointer) -> UnsafeRawPointer {
+    _ = Unmanaged<EthernetStoreContext>.fromOpaque(raw).retain()
+    return raw
+}
+
+private func ethernetStoreReleaseContext(_ raw: UnsafeRawPointer) {
+    Unmanaged<EthernetStoreContext>.fromOpaque(raw).release()
+}
+
+func ethernetStoreNotify(_ store: SCDynamicStore, _ keys: CFArray, _ info: UnsafeMutableRawPointer?) {
+    guard let info else { return }
+    let context = Unmanaged<EthernetStoreContext>.fromOpaque(info).takeUnretainedValue()
+    context.changed()
 }
 
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a sidebar keyword filter in Settings, live update status/actions and an Install updates on quit option in General, and an Open Login Items button when login-item approval is needed.
+- Pin AppUpdater to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`.
+- Guard `SCDynamicStore` context lifetimes in Ethernet handoff and VPN reminders with retain/release boxes, bound `diskutil`/`ditto`/`hdiutil`/`spctl` subprocesses with timeouts, group multi-partition external drives before sleep eject, and refresh Quick Image Actions when new files are chosen in Finder.
 - When the screen saver is set to Never, Away stops declaring synthetic user activity so the macOS keyboard backlight can time out.
 - Away leaves keyboard backlighting to macOS. Pending brightness restores from older builds still work.
 - Away no longer dims the screen while another app keeps the display on for video.

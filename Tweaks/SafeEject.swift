@@ -155,17 +155,9 @@ enum SafeEjectEngine {
     }
 
     private static func diskList() throws -> [String: Any] {
-        let process = Process()
-        process.executableURL = URL(filePath: "/usr/sbin/diskutil")
-        process.arguments = ["list", "-plist"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0,
-              let list = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+        guard let result = FileWork.runProcess("/usr/sbin/diskutil", ["list", "-plist"], timeout: 10),
+              result.status == 0,
+              let list = try PropertyListSerialization.propertyList(from: result.output, format: nil) as? [String: Any] else {
             throw CocoaError(.fileReadUnknown)
         }
         return list
@@ -177,19 +169,14 @@ enum SafeEjectEngine {
 
     static func eject(_ device: String) throws {
         guard validDevice(device) else { throw CocoaError(.fileWriteNoPermission) }
-        let process = Process()
-        process.executableURL = URL(filePath: "/usr/sbin/diskutil")
         // diskutil asks Disk Arbitration to unmount/eject normally. Never use force.
-        process.arguments = ["eject", "/dev/" + device]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw NSError(domain: "Tweaks.SafeEject", code: Int(process.terminationStatus),
-                          userInfo: [NSLocalizedDescriptionKey: String(decoding: data.prefix(2048), as: UTF8.self)])
+        guard let result = FileWork.runProcess("/usr/sbin/diskutil", ["eject", "/dev/" + device], timeout: 20, captureStderr: true) else {
+            throw NSError(domain: "Tweaks.SafeEject", code: -2,
+                          userInfo: [NSLocalizedDescriptionKey: "Timed out while ejecting \(device)."])
+        }
+        guard result.status == 0 else {
+            throw NSError(domain: "Tweaks.SafeEject", code: Int(result.status),
+                          userInfo: [NSLocalizedDescriptionKey: String(decoding: result.output.prefix(2048), as: UTF8.self)])
         }
     }
 }

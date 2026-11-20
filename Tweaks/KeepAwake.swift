@@ -58,8 +58,6 @@ final class KeepAwake {
             armCountdown()
         }
     }
-    /// Recent choices, newest first, shown at the top of the panel.
-    private(set) var recents: [Choice] = []
 
     /// Ends a session on battery at or below this, so a forgotten one can't drain the Mac.
     static let batteryFloor = 15
@@ -125,10 +123,6 @@ final class KeepAwake {
         keepsDisplayOnByDefault = defaults.bool(forKey: "keepAwakeDisplayOn")
         onlyOnPowerByDefault = defaults.bool(forKey: "keepAwakeOnlyOnPower")
         showsCountdown = defaults.object(forKey: "keepAwakeCountdown") as? Bool ?? true
-        if let data = defaults.data(forKey: "keepAwakeRecents"),
-           let saved = try? JSONDecoder().decode([Choice].self, from: data) {
-            recents = saved
-        }
     }
 
     deinit {
@@ -156,11 +150,10 @@ final class KeepAwake {
         startWatching()
     }
 
-    /// Starts a choice from the panel or a link and remembers it in Recent.
+    /// Starts a choice from a link.
     func start(_ choice: Choice) {
         guard let until = choice.until(now: Date()) else { return }
         start(until)
-        remember(choice)
     }
 
     /// Hyper+/ tap: Screen stays on; tap again to stop.
@@ -582,17 +575,6 @@ final class KeepAwake {
         }
     }
 
-    // MARK: - Recent choices
-
-    private func remember(_ choice: Choice) {
-        recents.removeAll { $0 == choice }
-        recents.insert(choice, at: 0)
-        recents = Array(recents.prefix(3))
-        if let data = try? JSONEncoder().encode(recents) {
-            defaults.set(data, forKey: "keepAwakeRecents")
-        }
-    }
-
     // MARK: - Labels
 
     /// The Keep Awake panel (hold Hyper+/, or click the menu bar cup).
@@ -649,18 +631,6 @@ final class KeepAwake {
         }
         if let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) { times.append(midnight) }
         return Array(Set(times)).filter { $0.timeIntervalSince(now) >= 10 * 60 }.sorted()
-    }
-
-    /// Open apps, render apps first.
-    static func candidateApps() -> [NSRunningApplication] {
-        NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != Bundle.main.bundleIdentifier }
-            .sorted { lhs, rhs in
-                let lAdobe = lhs.bundleIdentifier?.hasPrefix("com.adobe") == true
-                let rAdobe = rhs.bundleIdentifier?.hasPrefix("com.adobe") == true
-                if lAdobe != rAdobe { return lAdobe }
-                return (lhs.localizedName ?? "") < (rhs.localizedName ?? "")
-            }
     }
 
     // MARK: - Status item

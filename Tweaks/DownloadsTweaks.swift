@@ -118,14 +118,8 @@ final class DownloadsWatcher {
         defer { try? FileManager.default.removeItem(at: staging) }
         do { try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true) }
         catch { return }
-        let process = Process()
-        process.executableURL = URL(filePath: "/usr/bin/ditto")
-        process.arguments = ["-x", "-k", archive.path, staging.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return }
-        process.waitUntilExit()
-        guard process.terminationStatus == 0, shouldContinue() else { return }
+        guard let extraction = FileWork.runProcess("/usr/bin/ditto", ["-x", "-k", archive.path, staging.path], timeout: 120),
+              extraction.status == 0, shouldContinue() else { return }
         guard version.matches(archive) else { onDeferred(); return }
 
         // Refuse unreadable trees and links escaping the extraction root.
